@@ -133,6 +133,41 @@ MIGRATIONS: list[str] = [
         created_at TEXT NOT NULL,
         decided_at TEXT
     )""",
+    # 17: per-repo model override — NULL means the NOIRDECK_LOCAL_MODEL default;
+    # only locally-pulled Ollama models are valid (the improver stays zero-egress)
+    "ALTER TABLE improve_repos ADD COLUMN model TEXT",
+    # 18: paused workspace sessions — survive a full machine shutdown; the
+    # claude session id is captured AT PAUSE TIME so resume targets that exact
+    # conversation, not whatever ran in the cwd afterwards
+    """CREATE TABLE paused_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project TEXT NOT NULL,
+        claude_session_id TEXT,
+        label TEXT,
+        paused_at TEXT NOT NULL,
+        resumed_at TEXT
+    )""",
+    # 19: estate improve targets — assets under ~/.claude (skills, memory notes)
+    # the improver may work on, but ONLY while manually armed (fail-closed
+    # per-target expiry); output goes through the proposals spine, never direct
+    """CREATE TABLE improve_targets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL,
+        target_path TEXT NOT NULL UNIQUE,
+        model TEXT,
+        armed_until TEXT,
+        last_proposed_at TEXT,
+        created_at TEXT NOT NULL
+    )""",
+    # 20: proposals carry a unified diff so review reads as a change, not a
+    # wall of full-file text (filled by writers that replace existing files)
+    "ALTER TABLE proposals ADD COLUMN diff TEXT",
+    # 21-22: universal undo — approve() snapshots the target's pre-apply content
+    # (NULL = the file did not exist) so every applied proposal is reversible;
+    # prior_existed disambiguates "no snapshot taken" from "file was absent"
+    "ALTER TABLE proposals ADD COLUMN prior_body TEXT",
+    "ALTER TABLE proposals ADD COLUMN prior_existed INTEGER",
+    "ALTER TABLE proposals ADD COLUMN reverted_at TEXT",
 ]
 
 

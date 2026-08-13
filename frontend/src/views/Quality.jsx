@@ -15,7 +15,8 @@ export default function Quality({ bump }) {
     catch (e) { setBrief({ error: e.message, project }) }
   }
 
-  if (loading) return <div className="loading">evaluating fleet gates</div>
+  // never blank the whole view while the fleet sweep runs — the Improve panel
+  // and heading must render immediately; only the board table waits on /qa
   return (
     <>
       <div className="viewhead">
@@ -62,6 +63,8 @@ export default function Quality({ bump }) {
       )}
 
       <div className="panel">
+        {loading && <div className="loading">evaluating fleet gates</div>}
+        {!loading && <>
         <table>
           <caption className="visually-hidden">Quality gate status per project</caption>
           <thead><tr>
@@ -112,6 +115,7 @@ export default function Quality({ bump }) {
           </tbody>
         </table>
         {boardPager}
+        </>}
       </div>
     </>
   )

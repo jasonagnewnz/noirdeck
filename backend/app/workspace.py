@@ -146,7 +146,7 @@ class WorkspaceManager:
             del self.sessions[sid]
 
     def start(self, project: str, initial_prompt: str | None = None,
-              resume_session_id: str | None = None,
+              resume_session_id: str | None = None, continue_last: bool = False,
               argv_override: list[str] | None = None) -> TermSession:
         self.reap()
         if len(self.sessions) >= MAX_SESSIONS:
@@ -160,6 +160,10 @@ class WorkspaceManager:
                 if not re.fullmatch(r"[0-9a-f-]{8,40}", resume_session_id):
                     raise WorkspaceError("bad session id")
                 argv += ["--resume", resume_session_id]
+            elif continue_last:
+                # fallback when a paused session's transcript id is unknown —
+                # resumes the cwd's most recent conversation
+                argv += ["--continue"]
             elif initial_prompt:
                 argv += [initial_prompt[:4000]]
         term = TermSession(project, cwd, argv)
@@ -184,6 +188,22 @@ class WorkspaceManager:
             "id": t.id, "project": t.project, "alive": t.alive(),
             "resumed": "--resume" in t.argv,
         } for t in self.sessions.values()]
+
+
+def latest_transcript_session_id(claude_dir: Path, cwd: Path) -> str | None:
+    """Most recent transcript session id for a cwd, captured at PAUSE time.
+    Resuming later must target THIS conversation — by resume time the cwd's
+    'most recent' transcript may belong to an overnight/headless run instead.
+    Transcript namespaces flatten the cwd path with '/' → '-'."""
+    ns = claude_dir / "projects" / str(cwd).replace("/", "-")
+    try:
+        files = [p for p in ns.glob("*.jsonl") if p.is_file()]
+    except OSError:
+        return None
+    if not files:
+        return None
+    sid = max(files, key=lambda p: p.stat().st_mtime).stem
+    return sid if re.fullmatch(r"[0-9a-f-]{8,40}", sid) else None
 
 
 def init_repo(projects_dir: Path, name: str) -> Path:

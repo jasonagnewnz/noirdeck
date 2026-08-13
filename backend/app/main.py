@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -16,20 +17,21 @@ from .db import audit, connect, init_db, utcnow
 from .miner.heuristics import run_heuristics
 from .miner.runner import run_llm_mining
 from .overnight import requeue_stale_running, route_agent, route_model
-from .proposals import ProposalError, approve, dismiss, list_proposals
+from .proposals import ProposalError, approve, dismiss, list_proposals, revert
 from .qa import evaluate_fleet, evaluate_project
 from .readers import history as hist
 from .readers.commits import fleet_feed, fleet_flags, follow_on_flags, recent_commits
 from .readers.files import FilesError, list_dir, read_file
 from .readers.fleet import fleet, fleet_attention
-from . import arming, guided, hygiene, improve, vault
+from . import arming, ask, digest, guided, hygiene, improve, preview, vault
 from .readers.memories import group_memories, list_memories, memory_stats
 from .readers.sessions import namespace_display, recent_sessions
 from .readers.skills import list_agents, list_skills
 from .version import VERSION
 from .builds import BuildRunner
 from .design import DesignStudio
-from .workspace import WorkspaceError, WorkspaceManager, init_repo
+from .workspace import (WorkspaceError, WorkspaceManager, init_repo,
+                        latest_transcript_session_id)
 
 settings = Settings.load()
 init_db(settings.db_path)
@@ -141,23 +143,47 @@ def memories():
     return {"stats": memory_stats(mems), "memories": mems, "groups": group_memories(mems)}
 
 
+def _improve_assets() -> dict:
+    """Addable estate targets for the UI dropdowns — every path offered here
+    already satisfies the proposals write allowlist (skills + the primary
+    memory namespace), so 'addable' and 'approvable' can never disagree."""
+    ns = primary_namespace()
+    skills = [{"label": s["name"], "target_path": f"skills/{s['dir']}/SKILL.md"}
+              for s in list_skills(settings.claude_dir)]
+    memories = [{"label": m["name"], "target_path": f"projects/{ns}/memory/{m['file']}"}
+                for m in list_memories(settings.claude_dir) if m["namespace"] == ns]
+    return {"skill": skills, "memory": memories}
+
+
 class ImproveRepoBody(BaseModel):
     project: str
     enabled: bool = True
+    # per-repo model override; "" or null clears back to the env default.
+    # Absent field = leave unchanged (the enable/disable toggle omits it).
+    model: str | None = None
 
 
 @app.get("/api/improve")
 def improve_status():
+    # one tags fetch serves both fields — two sequential calls stalled the
+    # panel ~10s when ollama was down (each timing out separately)
+    avail = improve.available_models()
     conn = db()
     try:
         return {
             "armed": improve.armed(),
             "model": improve.local_model(),
-            "model_available": improve.model_available(),
+            "model_available": improve._model_in(improve.local_model(), avail),
+            "models": avail,
             "repos": [dict(r) for r in conn.execute(
                 "SELECT * FROM improve_repos ORDER BY project").fetchall()],
             "changes": [dict(r) for r in conn.execute(
                 "SELECT * FROM improve_changes ORDER BY id DESC LIMIT 50").fetchall()],
+            "learning": improve.decision_stats(conn),
+            "targets": [dict(r) | {"armed": bool(r["armed_until"] and r["armed_until"] > utcnow())}
+                        for r in conn.execute(
+                            "SELECT * FROM improve_targets ORDER BY kind, target_path").fetchall()],
+            "assets": _improve_assets(),
         }
     finally:
         conn.close()
@@ -167,16 +193,99 @@ def improve_status():
 def improve_map(body: ImproveRepoBody):
     if improve.safe_repo(settings, body.project) is None:
         raise HTTPException(404, f"no project repo {body.project}")
+    model = (body.model or "").strip() or None
+    if model is not None:
+        avail = improve.available_models()
+        if not avail:
+            # can't validate against a dead ollama — refuse honestly rather
+            # than claiming the model isn't pulled
+            raise HTTPException(503, "Ollama is unreachable — cannot validate the model")
+        if model not in avail:
+            # only locally-pulled Ollama tags are assignable — never a free-form
+            # string that would reach the generate call, never a cloud model
+            raise HTTPException(400, f"model {model!r} is not pulled locally")
     conn = db()
     try:
         conn.execute(
             "INSERT INTO improve_repos (project, enabled, created_at) VALUES (?,?,?) "
             "ON CONFLICT(project) DO UPDATE SET enabled=excluded.enabled",
             (body.project, int(body.enabled), utcnow()))
+        if "model" in body.model_fields_set:
+            conn.execute("UPDATE improve_repos SET model=? WHERE project=?",
+                         (model, body.project))
         conn.commit()
         audit(conn, "operator", "improve_repo_mapped",
-              f"{body.project} enabled={int(body.enabled)}")
-        return {"project": body.project, "enabled": body.enabled}
+              f"{body.project} enabled={int(body.enabled)}"
+              + (f" model={model or 'default'}" if "model" in body.model_fields_set else ""))
+        return {"project": body.project, "enabled": body.enabled, "model": model}
+    finally:
+        conn.close()
+
+
+class ImproveTargetBody(BaseModel):
+    kind: str
+    target_path: str
+    model: str | None = None
+
+
+class ImproveTargetAction(BaseModel):
+    action: str  # arm | disarm | remove
+    hours: float = 168.0  # arm default: one week
+
+
+@app.post("/api/improve/targets")
+def improve_target_add(body: ImproveTargetBody):
+    if body.kind not in improve.ASSET_KINDS:
+        raise HTTPException(400, f"kind must be one of {improve.ASSET_KINDS}")
+    if improve.safe_asset(settings.claude_dir, body.target_path) is None:
+        raise HTTPException(404, "target missing or outside the write allowlist")
+    model = (body.model or "").strip() or None
+    if model is not None:
+        avail = improve.available_models()
+        if not avail:
+            raise HTTPException(503, "Ollama is unreachable — cannot validate the model")
+        if model not in avail:
+            raise HTTPException(400, f"model {model!r} is not pulled locally")
+    conn = db()
+    try:
+        # added DISARMED — arming is a separate, deliberate act
+        conn.execute(
+            "INSERT INTO improve_targets (kind, target_path, model, created_at) "
+            "VALUES (?,?,?,?) ON CONFLICT(target_path) DO UPDATE SET model=excluded.model",
+            (body.kind, body.target_path, model, utcnow()))
+        conn.commit()
+        audit(conn, "operator", "improve_target_added",
+              f"{body.kind} {body.target_path} model={model or 'default'}")
+        return {"kind": body.kind, "target_path": body.target_path, "armed": False}
+    finally:
+        conn.close()
+
+
+@app.post("/api/improve/targets/{tid}")
+def improve_target_action(tid: int, body: ImproveTargetAction):
+    conn = db()
+    try:
+        row = conn.execute("SELECT * FROM improve_targets WHERE id=?", (tid,)).fetchone()
+        if not row:
+            raise HTTPException(404, f"no improve target {tid}")
+        if body.action == "arm":
+            if not 1 <= body.hours <= 24 * 90:
+                raise HTTPException(400, "hours must be between 1 and 2160")
+            until = (datetime.now(timezone.utc) + timedelta(hours=body.hours)).isoformat()
+            conn.execute("UPDATE improve_targets SET armed_until=? WHERE id=?", (until, tid))
+            detail = f"until={until}"
+        elif body.action == "disarm":
+            conn.execute("UPDATE improve_targets SET armed_until=NULL WHERE id=?", (tid,))
+            detail = "disarmed"
+        elif body.action == "remove":
+            conn.execute("DELETE FROM improve_targets WHERE id=?", (tid,))
+            detail = "removed"
+        else:
+            raise HTTPException(400, f"unknown action {body.action!r}")
+        conn.commit()
+        audit(conn, "operator", f"improve_target_{body.action}",
+              f"id={tid} {row['target_path']} {detail}")
+        return {"id": tid, "action": body.action}
     finally:
         conn.close()
 
@@ -383,6 +492,17 @@ def approve_route(pid: int, body: DecisionBody):
         conn.close()
 
 
+@app.post("/api/proposals/{pid}/revert")
+def revert_route(pid: int, body: DecisionBody):
+    conn = db()
+    try:
+        return revert(conn, settings.claude_dir, pid, overwrite=body.overwrite)
+    except ProposalError as e:
+        raise HTTPException(409, str(e))
+    finally:
+        conn.close()
+
+
 @app.post("/api/proposals/{pid}/dismiss")
 def dismiss_route(pid: int, body: DecisionBody):
     conn = db()
@@ -564,6 +684,74 @@ async def workspace_stop(sid: str):
     return {"id": sid, "stopped": True}
 
 
+class PauseBody(BaseModel):
+    label: str | None = None
+
+
+@app.get("/api/workspace/paused")
+async def workspace_paused_list():
+    conn = db()
+    try:
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM paused_sessions WHERE resumed_at IS NULL "
+            "ORDER BY id DESC LIMIT 20").fetchall()]
+    finally:
+        conn.close()
+
+
+@app.post("/api/workspace/{sid}/pause")
+async def workspace_pause(sid: str, body: PauseBody):
+    """Park a live session for a full shutdown: capture its claude transcript
+    id NOW (later 'most recent in cwd' may be a headless run's), then stop the
+    PTY — claude persists the conversation continuously, so this is safe."""
+    try:
+        term = workspace.get(sid)
+    except WorkspaceError as e:
+        raise HTTPException(404, str(e))
+    claude_session = latest_transcript_session_id(settings.claude_dir, term.cwd)
+    project = term.project
+    workspace.stop(sid)
+    conn = db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO paused_sessions (project, claude_session_id, label, paused_at) "
+            "VALUES (?,?,?,?)",
+            (project, claude_session, (body.label or "").strip()[:120] or None, utcnow()))
+        conn.commit()
+        audit(conn, "operator", "workspace_paused",
+              f"id={sid} project={project} claude_session={claude_session or 'unknown'}")
+        return {"paused_id": cur.lastrowid, "project": project,
+                "claude_session_id": claude_session}
+    finally:
+        conn.close()
+
+
+# async for the same add_reader reason as workspace_start
+@app.post("/api/workspace/paused/{pid}/resume")
+async def workspace_resume_paused(pid: int):
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM paused_sessions WHERE id=? AND resumed_at IS NULL",
+            (pid,)).fetchone()
+        if not row:
+            raise HTTPException(404, "no such paused session (or already resumed)")
+        try:
+            term = workspace.start(row["project"],
+                                   resume_session_id=row["claude_session_id"],
+                                   continue_last=row["claude_session_id"] is None)
+        except WorkspaceError as e:
+            raise HTTPException(409, str(e))
+        conn.execute("UPDATE paused_sessions SET resumed_at=? WHERE id=?",
+                     (utcnow(), pid))
+        conn.commit()
+        audit(conn, "operator", "workspace_resumed",
+              f"paused={pid} project={row['project']} new={term.id}")
+        return {"id": term.id, "project": row["project"]}
+    finally:
+        conn.close()
+
+
 @app.post("/api/workspace/repo")
 def workspace_repo(body: RepoBody):
     try:
@@ -668,6 +856,11 @@ def guided_questions():
     return guided.INTAKE_QUESTIONS
 
 
+@app.get("/api/guided/recipes")
+def guided_recipes():
+    return guided.RECIPES
+
+
 class GuidedStart(BaseModel):
     name: str
     answers: dict
@@ -717,6 +910,67 @@ def builds_resume(build_id: int):
     except ValueError as e:
         raise HTTPException(409, str(e))
     return {"id": build_id, "resumed": True}
+
+
+# --- morning digest + ask-your-estate (Overview) ---
+
+@app.get("/api/digest")
+def digest_route():
+    conn = db()
+    try:
+        return digest.compose(conn)
+    finally:
+        conn.close()
+
+
+class AskBody(BaseModel):
+    question: str
+
+
+@app.post("/api/ask")
+def ask_submit(body: AskBody):
+    try:
+        out = ask.submit(settings, body.question)
+    except ask.AskError as e:
+        raise HTTPException(409, str(e))
+    conn = db()
+    try:
+        audit(conn, "operator", "ask_submitted", f"id={out['id']} q={body.question[:120]}")
+    finally:
+        conn.close()
+    return out
+
+
+@app.get("/api/ask")
+def ask_recent():
+    return ask.recent()
+
+
+@app.get("/api/ask/{job_id}")
+def ask_get(job_id: str):
+    try:
+        return ask.get(job_id)
+    except ask.AskError as e:
+        raise HTTPException(404, str(e))
+
+
+# --- try-it preview: a build's static web output, read-only, for a sandboxed iframe ---
+
+@app.get("/api/preview-info/{project}")
+def preview_info(project: str):
+    try:
+        return preview.info(settings, project)
+    except preview.PreviewError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/preview/{project}/{path:path}")
+def preview_file(project: str, path: str = ""):
+    try:
+        f, media = preview.resolve_file(settings, project, path)
+    except preview.PreviewError as e:
+        raise HTTPException(404, str(e))
+    return FileResponse(f, media_type=media)
 
 
 # --- project file browsing (read-only, for the IDE shell) ---

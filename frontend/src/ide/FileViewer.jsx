@@ -1,4 +1,5 @@
 import React from 'react'
+import { tokenizeLines } from './highlight'
 
 const fmtSize = (n) => {
   if (n == null) return ''
@@ -8,12 +9,13 @@ const fmtSize = (n) => {
 }
 
 // Read-only file viewer tab: breadcrumb header + generated line-number gutter.
-// No syntax highlighting dependency by design — a tasteful minimal look instead.
+// Syntax highlighting is a hand-rolled tokenizer (./highlight.js), no runtime
+// dependency — see that file for the token-to-theme-token mapping.
 export default function FileViewer({ tab }) {
   if (tab.error) return <div className="panel"><div className="err" role="alert">{tab.error}</div></div>
   if (tab.loading) return <div className="loading">reading file…</div>
 
-  const lines = (tab.content ?? '').split('\n')
+  const lines = tokenizeLines(tab.content ?? '', tab.path)
   const crumbs = tab.path.split('/').filter(Boolean)
 
   return (
@@ -35,10 +37,18 @@ export default function FileViewer({ tab }) {
       </div>
       <div className="fileview-body">
         <pre className="code">
-          {lines.map((line, i) => (
+          {lines.map((tokens, i) => (
             <div className="code-line" key={i}>
               <span className="gutter">{i + 1}</span>
-              <span className="code-text">{line.length ? line : ' '}</span>
+              <span className="code-text">
+                {tokens.length
+                  ? tokens.map((t, j) =>
+                      t.type === 'plain'
+                        ? <React.Fragment key={j}>{t.text}</React.Fragment>
+                        : <span className={`tok-${t.type}`} key={j}>{t.text}</span>
+                    )
+                  : ' '}
+              </span>
             </div>
           ))}
         </pre>

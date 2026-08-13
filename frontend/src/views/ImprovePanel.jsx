@@ -11,6 +11,8 @@ export default function ImprovePanel({ bump }) {
   const { data, error, loading } = useData('/improve', bump + ver)
   const { data: fleet } = useData('/fleet', bump)
   const [pick, setPick] = useState('')
+  const [tKind, setTKind] = useState('skill')
+  const [tPick, setTPick] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')   // async progress text (role="status")
   const [actErr, setActErr] = useState('') // action failures (role="alert"), e.g. 409 detail
@@ -32,8 +34,11 @@ export default function ImprovePanel({ bump }) {
   }
 
   const decideChange = (c, action) => {
+    // say the real merge target — the merge lands on the repo's CURRENT
+    // branch, which is not always main
+    const target = (fleet || []).find((f) => f.name === c.project)?.branch
     if (action === 'merge' && !window.confirm(
-      `Merge ${c.branch} into ${c.project}? This lands the change on the repo's main branch.`)) return
+      `Merge ${c.branch} into ${target ? `'${target}'` : 'the current branch'} of ${c.project}?`)) return
     call(`/improve/changes/${c.id}`, { action },
       action === 'merge' ? `change #${c.id} merged` : `change #${c.id} discarded`)
   }
@@ -51,6 +56,7 @@ export default function ImprovePanel({ bump }) {
         {c.summary} · tests:{' '}
         <span className={(c.tests || '').startsWith('FAIL') ? 'err' : undefined}
           style={{ padding: 0 }}>{c.tests || 'not run'}</span>
+        {c.model && <span className="faint"> · {c.model}</span>}
       </div>
       {c.status === 'proposed' && (
         <>
@@ -60,7 +66,7 @@ export default function ImprovePanel({ bump }) {
           </details>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button className="act" disabled={busy}
-              onClick={() => decideChange(c, 'merge')}>merge into main</button>
+              onClick={() => decideChange(c, 'merge')}>merge</button>
             <button className="act ghost" disabled={busy}
               onClick={() => decideChange(c, 'discard')}>discard</button>
           </div>
@@ -120,8 +126,18 @@ export default function ImprovePanel({ bump }) {
               <div className="dim">no repos mapped — map one above and the local model will start proposing small improvements.</div>
             )}
             {repos.map((r) => (
-              <span key={r.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginRight: 12 }}>
+              <span key={r.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginRight: 12, marginBottom: 6 }}>
                 <span className={r.enabled ? 'chip hot' : 'chip'}>{r.project}</span>
+                {(data.models || []).length > 0 && (
+                  <select value={r.model || ''} disabled={busy}
+                    aria-label={`AI model for ${r.project}`}
+                    onChange={(e) => call('/improve/repos',
+                      { project: r.project, enabled: !!r.enabled, model: e.target.value },
+                      `${r.project} → ${e.target.value || `default (${data.model})`}`)}>
+                    <option value="">default ({data.model})</option>
+                    {data.models.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                )}
                 <button className="act ghost sm" disabled={busy}
                   aria-label={`${r.enabled ? 'disable' : 'enable'} improvements for ${r.project}`}
                   onClick={() => call('/improve/repos', { project: r.project, enabled: !r.enabled })}>
@@ -130,6 +146,89 @@ export default function ImprovePanel({ bump }) {
               </span>
             ))}
           </div>
+
+          {/* estate targets: ~/.claude assets, individually armed, output goes
+              through the Proposals view (never written directly) */}
+          {data.targets && data.assets && (
+            <div style={{ marginTop: 14 }}>
+              <div className="faint" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.13em' }}>
+                Estate targets — skills + memory, armed by you
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', maxWidth: 620, marginTop: 6 }}>
+                <div>
+                  <label className="fl" htmlFor="imp-tkind">Type</label>
+                  <select id="imp-tkind" value={tKind} disabled={busy}
+                    onChange={(e) => { setTKind(e.target.value); setTPick('') }}>
+                    <option value="skill">skill</option>
+                    <option value="memory">memory</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="fl" htmlFor="imp-tpick">Add a target</label>
+                  <select id="imp-tpick" value={tPick} disabled={busy}
+                    onChange={(e) => setTPick(e.target.value)}>
+                    <option value="">— choose a {tKind} —</option>
+                    {(data.assets[tKind] || [])
+                      .filter((a) => !data.targets.some((t) => t.target_path === a.target_path))
+                      .map((a) => <option key={a.target_path} value={a.target_path}>{a.label}</option>)}
+                  </select>
+                </div>
+                <button className="act" disabled={busy || !tPick} style={{ marginBottom: 1 }}
+                  onClick={() => { call('/improve/targets', { kind: tKind, target_path: tPick },
+                    'added disarmed — arm it to let the improver work on it'); setTPick('') }}>
+                  add
+                </button>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                {data.targets.length === 0 && (
+                  <div className="dim">no estate targets — the improver only ever touches what you add AND arm here; results appear as proposals.</div>
+                )}
+                {data.targets.map((t) => (
+                  <span key={t.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginRight: 12, marginBottom: 6 }}>
+                    <span className={t.armed ? 'chip hot' : 'chip'}
+                      title={t.armed ? `armed until ${(t.armed_until || '').slice(0, 16)}` : 'disarmed'}>
+                      {t.kind}: {t.target_path.split('/').slice(-2).join('/')}
+                    </span>
+                    {(data.models || []).length > 0 && (
+                      <select value={t.model || ''} disabled={busy}
+                        aria-label={`AI model for ${t.target_path}`}
+                        onChange={(e) => call('/improve/targets',
+                          { kind: t.kind, target_path: t.target_path, model: e.target.value })}>
+                        <option value="">default ({data.model})</option>
+                        {data.models.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    )}
+                    <button className="act ghost sm" disabled={busy}
+                      onClick={() => call(`/improve/targets/${t.id}`,
+                        { action: t.armed ? 'disarm' : 'arm' },
+                        t.armed ? 'disarmed' : 'armed for 7 days')}>
+                      {t.armed ? 'disarm' : 'arm 7d'}
+                    </button>
+                    <button className="x" aria-label={`Remove target ${t.target_path}`}
+                      onClick={() => call(`/improve/targets/${t.id}`, { action: 'remove' }, 'removed')}>×</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* what the improver has learned from merge/discard decisions —
+              deterministic tallies that re-rank and mute future candidates */}
+          {data.learning && Object.keys(data.learning.kinds).length > 0 && (
+            <div className="dim" style={{ marginTop: 8 }}>
+              learned from your decisions:{' '}
+              {Object.entries(data.learning.kinds)
+                .map(([k, s]) => `${k} ${s.merged}✓/${s.discarded}✗`).join(' · ')}
+              {Object.keys(data.learning.models).length > 0 && (
+                <> — by model:{' '}
+                  {Object.entries(data.learning.models)
+                    .map(([m, s]) => `${m} ${s.merged}✓/${s.discarded}✗`).join(' · ')}</>
+              )}
+              {data.learning.muted.length > 0 && (
+                <span> — muted: <b>{data.learning.muted.join(', ')}</b> (merge one to un-mute)</span>
+              )}
+            </div>
+          )}
 
           {actErr && <div className="err" role="alert">{actErr}</div>}
           <div role="status" aria-live="polite" className="dim">{note}</div>

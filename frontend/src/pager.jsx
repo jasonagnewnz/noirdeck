@@ -11,7 +11,9 @@ export function usePager(items, initialSize = 25) {
   useEffect(() => { if (page >= pages) setPage(0) }, [total, size, pages])
   const view = !items ? [] : size === 'all' ? items : items.slice(page * size, (page + 1) * size)
 
-  const bar = total === 0 ? null : (
+  // No bar when everything already fits on one page at the smallest size —
+  // "1–1 of 1 · 10 25 50 100 all" under a single item is pure noise.
+  const bar = total <= SIZES[0] ? null : (
     <div className="pager">
       <span className="faint">
         {size === 'all' ? `all ${total}` : `${page * size + 1}–${Math.min((page + 1) * size, total)} of ${total}`}

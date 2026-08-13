@@ -54,36 +54,72 @@ def route_model(text: str) -> str:
     return _DEFAULT_MODEL
 
 
-def route_agent(text: str, claude_dir: Path) -> str | None:
-    """Best-overlap match between the task text and agent descriptions."""
+def _stems(text: str) -> set[str]:
     words = {w for w in re.split(r"[^a-z0-9]+", text.lower()) if len(w) > 3}
+    return {w[:-1] if w.endswith("s") else w for w in words}
+
+
+def route_agent(text: str, claude_dir: Path) -> str | None:
+    """Name-weighted match between the task text and agent descriptions.
+    Raw prose overlap routed a UI task to a phone-system specialist
+    (2026-08-13, task #1): long descriptions accumulate accidental overlap,
+    so a bare word count is not evidence of relevance. An agent is eligible
+    only when the task names it (plus minimal topic overlap), or the topic
+    overlap is both large and dense relative to the description's size.
+    No confident match → no specialist hint, which is the correct default."""
+    task = _stems(text)
     best, best_score = None, 0
     for agent in list_agents(claude_dir):
-        desc_words = {w for w in re.split(r"[^a-z0-9]+",
-                      (agent["name"] + " " + agent["description"]).lower()) if len(w) > 3}
-        score = len(words & desc_words)
-        if score > best_score:
+        name = _stems(agent["name"].replace("-", " "))
+        desc = _stems(agent["description"])
+        name_hits = len(task & name)
+        overlap = len(task & desc)
+        eligible = (name_hits >= 1 and overlap >= 2) or \
+                   (overlap >= 5 and desc and overlap >= 0.2 * len(desc))
+        score = 10 * name_hits + overlap
+        if eligible and score > best_score:
             best, best_score = agent["name"], score
-    return best if best_score >= 3 else None
+    return best
 
 
-def parse_cli_json(stdout: str) -> tuple[str, int | None, int | None]:
-    """(result_text, tokens_in, tokens_out) from `claude -p --output-format json`.
+def parse_cli_result(stdout: str) -> dict | None:
+    """The type=='result' object from `claude -p --output-format json`, or None.
     CLI ≥2.1.x emits a LIST of messages ending in a type=='result' object; older
-    versions emitted that object alone. Verified empirically 2026-08-13."""
+    versions emitted that object alone. Verified empirically 2026-08-13. Raises
+    json.JSONDecodeError on non-JSON, matching parse_cli_json's old contract."""
     payload = json.loads(stdout)
-    obj = None
     if isinstance(payload, list):
         for item in reversed(payload):
             if isinstance(item, dict) and item.get("type") == "result":
-                obj = item
-                break
-    elif isinstance(payload, dict):
-        obj = payload
+                return item
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def parse_cli_json(stdout: str) -> tuple[str, int | None, int | None]:
+    """(result_text, tokens_in, tokens_out) from `claude -p --output-format json`."""
+    obj = parse_cli_result(stdout)
     if not isinstance(obj, dict):
         return "", None, None
     usage = obj.get("usage") or {}
     return str(obj.get("result") or ""), usage.get("input_tokens"), usage.get("output_tokens")
+
+
+def _git_state(project_dir: Path) -> dict | None:
+    """HEAD + dirty-file set, or None when the dir isn't a readable git repo.
+    Snapshotted around each session to detect work a failed run strands in the
+    SHARED working tree (the tree is not ours alone — never auto-revert it)."""
+    try:
+        head = subprocess.run(["git", "-C", str(project_dir), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, timeout=15)
+        if head.returncode != 0:
+            return None
+        porcelain = subprocess.run(["git", "-C", str(project_dir), "status", "--porcelain"],
+                                   capture_output=True, text=True, timeout=15)
+        return {"head": head.stdout.strip(),
+                "dirty": {ln[3:] for ln in porcelain.stdout.splitlines() if len(ln) > 3}}
+    except OSError:
+        return None
 
 
 def _parse_verdict(result_text: str) -> dict:
@@ -117,6 +153,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
 
     verdict = {"status": "blocked", "summary": "runner error", "question": "Runner failed before the session produced output."}
     tokens_in = tokens_out = None
+    before = _git_state(project_dir)
     try:
         from .guard import guard_settings_args
         from .workspace import claude_bin
@@ -130,7 +167,25 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
             result_text, tokens_in, tokens_out = parse_cli_json(proc.stdout)
             verdict = _parse_verdict(result_text)
         else:
-            verdict["summary"] = (proc.stderr or "claude exited nonzero")[-300:]
+            # salvage the JSON even on nonzero exit — error_max_turns and
+            # friends still emit a result object whose subtype names the cause
+            subtype = None
+            try:
+                obj = parse_cli_result(proc.stdout) if proc.stdout else None
+            except json.JSONDecodeError:
+                obj = None
+            if obj:
+                subtype = obj.get("subtype")
+                usage = obj.get("usage") or {}
+                tokens_in = usage.get("input_tokens")
+                tokens_out = usage.get("output_tokens")
+            verdict["summary"] = (f"claude exited rc={proc.returncode}"
+                                  + (f" subtype={subtype}" if subtype else ""))
+            verdict["question"] = (
+                f"Runner failed: rc={proc.returncode}"
+                + (f", subtype={subtype}" if subtype else "")
+                + f"; stderr: {(proc.stderr or '').strip()[-200:] or '(empty)'}"
+                + f"; result: {str((obj or {}).get('result') or '')[-200:] or '(none)'}")
     except subprocess.TimeoutExpired:
         verdict = {"status": "blocked", "summary": "Task exceeded the 60-minute session cap.",
                    "question": "Split this task or raise the cap?"}
@@ -138,6 +193,17 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
         verdict["summary"] = f"{type(exc).__name__}: {exc}"[:300]
 
     status = "done" if verdict.get("status") == "done" else "blocked"
+    after = _git_state(project_dir)
+    if before and after:
+        stranded = sorted(after["dirty"] - before["dirty"])
+        if stranded:
+            note = (f"session left {len(stranded)} uncommitted file(s) in the shared tree: "
+                    + ", ".join(stranded[:6]) + ("…" if len(stranded) > 6 else ""))
+            audit(conn, "overnight", "tree_stranded", f"id={task['id']} {note}"[:300])
+            if status == "blocked":
+                verdict["question"] = ((verdict.get("question") or "")
+                                       + f" ⚠ {note} — review, commit or revert before "
+                                         f"any other commit in this repo.")
     conn.execute(
         "UPDATE queue SET status=?, model=?, agent_type=?, verdict=?, question=?, "
         "tokens_in=?, tokens_out=?, finished_at=? WHERE id=?",

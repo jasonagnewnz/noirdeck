@@ -95,3 +95,22 @@ def test_plan_decision_guards(settings):  # noqa: F811
         runner.decide_plan(build2, "revise", "")  # feedback required
     with pytest.raises(ValueError):
         runner.decide_plan(build2, "explode")
+
+
+# --- recipe cards -------------------------------------------------------------
+
+def test_every_recipe_validates_and_matches_question_ids():
+    from app.guided import INTAKE_QUESTIONS, RECIPES, compose_brief, validate_answers
+    qids = {q["id"] for q in INTAKE_QUESTIONS}
+    choice_opts = {q["id"]: {v for v, _ in q["options"]}
+                   for q in INTAKE_QUESTIONS if q["type"] == "choice"}
+    assert len(RECIPES) >= 4
+    assert len({r["id"] for r in RECIPES}) == len(RECIPES)
+    for r in RECIPES:
+        assert r["title"] and r["blurb"]
+        assert set(r["answers"]) <= qids, f"{r['id']} references unknown question ids"
+        assert validate_answers(r["answers"]) == [], f"{r['id']} would not submit cleanly"
+        for qid, opts in choice_opts.items():
+            assert r["answers"][qid] in opts, f"{r['id']}.{qid} picks a nonexistent option"
+        # the compiled brief must accept every recipe unchanged
+        assert "PURPOSE:" in compose_brief(r["answers"])

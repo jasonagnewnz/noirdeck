@@ -9,6 +9,7 @@ import ActionsBar from '../ide/ActionsBar.jsx'
 export default function Workspace({ launch }) {
   const { data: fleet } = useData('/fleet', 0)
   const [sessions, setSessions] = useState([])
+  const [paused, setPaused] = useState([])
   const [active, setActive] = useState(null)
   const [project, setProject] = useState('')
   const [briefing, setBriefing] = useState(true)
@@ -23,6 +24,7 @@ export default function Workspace({ launch }) {
   const refresh = async () => {
     const rows = await api('/workspace')
     setSessions(rows)
+    try { setPaused(await api('/workspace/paused')) } catch { setPaused([]) }
     return rows
   }
   // on load, pick up an existing session's project so the IDE shell (explorer,
@@ -56,6 +58,27 @@ export default function Workspace({ launch }) {
     try { await fetch(`/api/workspace/${sid}`, { method: 'DELETE' }) } catch { /* gone */ }
     await refresh()
     if (active === sid) setActive(null)
+  }
+
+  // pause records the claude conversation id then stops the PTY — the machine
+  // can be fully shut down and the conversation resumed later from this view
+  const pause = async (sid) => {
+    setErr(null)
+    try {
+      await api(`/workspace/${sid}/pause`, { body: {} })
+      await refresh()
+      if (active === sid) setActive(null)
+    } catch (e) { setErr(e.message) }
+  }
+
+  const resumePaused = async (p) => {
+    setErr(null)
+    try {
+      const r = await api(`/workspace/paused/${p.id}/resume`, { body: {} })
+      setProject(p.project)
+      await refresh()
+      setActive(r.id)
+    } catch (e) { setErr(e.message) }
   }
 
   const createRepo = async () => {
@@ -142,6 +165,18 @@ export default function Workspace({ launch }) {
           <button className="act ghost" disabled={!newRepo} onClick={createRepo}>git init</button>
         </div>
         {err && <div className="err" role="alert">{err}</div>}
+        {paused.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <span className="dim">paused — survives shutdowns, resume any time: </span>
+            {paused.map((p) => (
+              <span key={p.id} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', marginRight: 10 }}>
+                <span className="chip">{p.project}</span>
+                <span className="faint">{(p.paused_at || '').slice(0, 16)}</span>
+                <button className="act ghost sm" onClick={() => resumePaused(p)}>resume</button>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {project ? (
@@ -162,6 +197,9 @@ export default function Workspace({ launch }) {
                       onClick={() => { setActive(s.id); setProject(s.project) }}>
                       {s.project}{s.resumed ? ' (resumed)' : ''}
                     </button>
+                    <button className="x" title="pause — safe to shut down, resume later"
+                      aria-label={`Pause session: ${s.project} (survives shutdown)`}
+                      onClick={(e) => { e.stopPropagation(); pause(s.id) }}>⏸</button>
                     <button className="x" aria-label={`Close session tab: ${s.project}`}
                       onClick={(e) => { e.stopPropagation(); stop(s.id) }}>×</button>
                   </span>

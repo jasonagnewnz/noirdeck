@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useLayoutEffect, useState } from 'react'
 import { useData, useEvents } from './api.js'
 import { THEME_STORAGE_KEY, applyTheme, loadThemeKey } from './ide/themes.js'
 import Overview from './views/Overview.jsx'
@@ -8,13 +8,17 @@ import Memories from './views/Memories.jsx'
 import Proposals from './views/Proposals.jsx'
 import Queue from './views/Queue.jsx'
 import Quality from './views/Quality.jsx'
-import Workspace from './views/Workspace.jsx'
 import Builds from './views/Builds.jsx'
 import Design from './views/Design.jsx'
 import Palette from './Palette.jsx'
 import ActivityBar from './ide/ActivityBar.jsx'
 import StatusBar from './ide/StatusBar.jsx'
 import KeysOverlay from './ide/KeysOverlay.jsx'
+
+// Workspace pulls in @xterm/xterm (a full terminal emulator) — the heaviest
+// dependency in the app by far. Deferring it keeps that weight out of the
+// initial chunk for every session that never opens a terminal.
+const Workspace = lazy(() => import('./views/Workspace.jsx'))
 
 const VIEWS = [
   ['overview', 'Overview', Overview],
@@ -31,8 +35,19 @@ const VIEWS = [
 
 const SIDEBAR_KEY = 'nd.sidebar'
 
+// Views deep-link as #builds / #queue etc so refresh, bookmarks and the browser
+// back button all keep your place — state alone loses it on every reload.
+const viewFromHash = () => {
+  const k = window.location.hash.replace(/^#\/?/, '')
+  return VIEWS.some(([key]) => key === k) ? k : 'overview'
+}
+
 export default function App() {
-  const [view, setView] = useState('overview')
+  const [view, setViewState] = useState(viewFromHash)
+  const setView = (k) => {
+    setViewState(k)
+    if (window.location.hash !== `#${k}`) window.location.hash = k
+  }
   const [launch, setLaunch] = useState(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [keysOpen, setKeysOpen] = useState(false)
@@ -63,6 +78,13 @@ export default function App() {
       return next
     })
   }
+
+  useEffect(() => {
+    // browser back/forward — hashchange is the source of truth for the view
+    const onHash = () => setViewState(viewFromHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   useEffect(() => {
     // unmodified keys (digits, "?") must never fire while the user is typing —
@@ -117,7 +139,9 @@ export default function App() {
         <ActivityBar views={VIEWS.map(([k, label]) => [k, label])} active={view} badges={badges}
           onSelect={setView} expanded={sidebarExpanded} onToggleExpanded={toggleSidebar} />
         <main className="main" id="main" tabIndex={-1}>
-          <Current bump={bump} overview={ov} launch={launch} openWorkspace={openWorkspace} />
+          <Suspense fallback={<div className="loading">loading…</div>}>
+            <Current bump={bump} overview={ov} launch={launch} openWorkspace={openWorkspace} />
+          </Suspense>
         </main>
       </div>
       <StatusBar live={live} overview={ov} theme={theme} onSetTheme={setTheme}

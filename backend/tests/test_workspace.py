@@ -89,3 +89,45 @@ def test_init_repo(projects):
     for bad in ("../evil", "a b", ".hidden" * 20):
         with pytest.raises(WorkspaceError):
             init_repo(projects, bad)
+
+
+def test_latest_transcript_session_id(tmp_path):
+    import os
+    import time
+    from app.workspace import latest_transcript_session_id
+    claude = tmp_path / "claude"
+    cwd = tmp_path / "projects" / "demo"
+    ns = claude / "projects" / str(cwd).replace("/", "-")
+    ns.mkdir(parents=True)
+    old = ns / "aaaaaaaa-1111-2222-3333-444444444444.jsonl"
+    new = ns / "bbbbbbbb-1111-2222-3333-444444444444.jsonl"
+    old.write_text("{}")
+    new.write_text("{}")
+    now = time.time()
+    os.utime(old, (now - 60, now - 60))
+    os.utime(new, (now, now))
+    assert latest_transcript_session_id(claude, cwd) == new.stem
+    # newest file with a non-session-id name means "unknown", never a bad argv
+    weird = ns / "not a session id!.jsonl"
+    weird.write_text("{}")
+    os.utime(weird, (now + 60, now + 60))
+    assert latest_transcript_session_id(claude, cwd) is None
+    assert latest_transcript_session_id(claude, tmp_path / "nowhere") is None
+
+
+def test_continue_last_builds_continue_argv(projects, monkeypatch):
+    import app.workspace as ws
+    captured = {}
+
+    class FakeTerm:
+        def __init__(self, project, cwd, argv):
+            captured["argv"] = argv
+            self.project, self.cwd, self.argv = project, cwd, argv
+            self.id = "fake"
+        def start(self):
+            pass
+    monkeypatch.setattr(ws, "TermSession", FakeTerm)
+    monkeypatch.setattr(ws, "claude_bin", lambda: "claude")
+    mgr = WorkspaceManager(projects)
+    mgr.start("demo", continue_last=True)
+    assert captured["argv"] == ["claude", "--continue"]

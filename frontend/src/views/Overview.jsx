@@ -1,8 +1,59 @@
-import React from 'react'
-import { ago, useData } from '../api.js'
+import React, { useEffect, useRef, useState } from 'react'
+import { ago, api, useData } from '../api.js'
+
+// Ask-your-estate: a plain-English question box answered by a read-only session.
+function AskBox() {
+  const [q, setQ] = useState('')
+  const [job, setJob] = useState(null)
+  const [err, setErr] = useState(null)
+  const timer = useRef(null)
+
+  useEffect(() => {
+    if (job?.status !== 'running') return undefined
+    timer.current = setInterval(async () => {
+      try {
+        const j = await api(`/ask/${job.id}`)
+        setJob(j)
+        if (j.status !== 'running') clearInterval(timer.current)
+      } catch { /* poll again */ }
+    }, 2000)
+    return () => clearInterval(timer.current)
+  }, [job?.id, job?.status])
+
+  const submit = async (e) => {
+    e.preventDefault(); setErr(null)
+    try {
+      const { id } = await api('/ask', { body: { question: q } })
+      setJob({ id, status: 'running', question: q })
+    } catch (ex) { setErr(ex.message) }
+  }
+
+  return (
+    <div className="panel reveal d1">
+      <h2>Ask your estate</h2>
+      <form onSubmit={submit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <input value={q} maxLength={500} style={{ flex: 1, minWidth: 260 }}
+          placeholder='e.g. "which projects have unpushed work?" — answered read-only, from your actual files'
+          onChange={(e) => setQ(e.target.value)} />
+        <button className="act" type="submit" disabled={job?.status === 'running' || !q.trim()}>
+          ask</button>
+      </form>
+      {job?.status === 'running' && (
+        <div role="status" aria-live="polite" className="dim" style={{ marginTop: 8 }}>
+          Reading your files to answer — usually under a minute…
+        </div>
+      )}
+      {job && job.status !== 'running' && (
+        <div className="kickoff" style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{job.answer}</div>
+      )}
+      {err && <div className="err" role="alert">{err}</div>}
+    </div>
+  )
+}
 
 export default function Overview({ overview: ov, bump }) {
   const { data: commits } = useData('/commits', bump)
+  const { data: dg } = useData('/digest', bump)
   if (!ov) return <div className="loading">reading the estate</div>
   const h = ov.history
   const peak = h.by_hour.map((c, hr) => [hr, c]).sort((a, b) => b[1] - a[1]).slice(0, 3)
@@ -12,6 +63,20 @@ export default function Overview({ overview: ov, bump }) {
         <h1>Estate overview</h1>
         <p>Live read of ~/.claude — {h.total_prompts.toLocaleString()} prompts of history feeding the mentor.</p>
       </div>
+
+      {dg && (
+        <div className="panel reveal d1">
+          <h2>While you were away{dg.attention > 0 && <> — <b>{dg.attention} thing{dg.attention === 1 ? '' : 's'} need{dg.attention === 1 ? 's' : ''} you</b></>}</h2>
+          {dg.lines.map((line, i) => (
+            <div key={i} className={`digest-line${i < dg.attention ? ' attn' : ''}`}>
+              <span className="bullet" aria-hidden="true">{i < dg.attention ? '▸' : '·'}</span>
+              <span>{line}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AskBox />
 
       <div className="grid cols-4 reveal d1">
         <div className="stat"><div className="k">Skills</div><div className="v">{ov.skills}</div></div>

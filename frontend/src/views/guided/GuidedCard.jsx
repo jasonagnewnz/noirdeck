@@ -4,7 +4,7 @@ import { api } from '../../api.js'
 // A guided (gated) build card, narrated in plain English for a non-technical
 // operator. The technical record is always one <details> away, never gone.
 
-const STEPS = [
+export const STEPS = [
   ['plan', 'Designing it'],
   ['build', 'Writing the code'],
   ['test', 'Testing until it passes'],
@@ -13,7 +13,7 @@ const STEPS = [
 ]
 
 // status -> [what the operator reads, which pill class colours it]
-const FRIENDLY = {
+export const FRIENDLY = {
   queued: ['Waiting to start', 'queued'],
   running: ['Being built', 'running'],
   awaiting_plan: ['Waiting for your approval', 'GAP'],
@@ -78,7 +78,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
         <span className={`pill ${pillClass}`}>{statusText}</span></h2>
 
       {/* narrated progress stepper */}
-      <div aria-label="Build progress" style={{ margin: '6px 0' }}>
+      <div aria-label="Build progress" className="stepper">
         {STEPS.map(([key, label]) => {
           if (doneSet.has(key)) {
             return <span key={key} className="chip" aria-label={`${label} — finished`}>
@@ -86,19 +86,17 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
           }
           if (activePhase === key) {
             return b.status === 'blocked'
-              ? <span key={key} className="pill blocked" style={{ marginRight: 6 }}
+              ? <span key={key} className="pill blocked"
                   aria-label={`${label} — stuck, needs your attention`}>{label} — stuck</span>
-              : <span key={key} className="pill running" style={{ marginRight: 6 }}
+              : <span key={key} className="pill running"
                   aria-label={`${label} — happening now`}>{label}…</span>
           }
-          return <span key={key} className="chip"
-            style={{ borderStyle: 'dashed', color: 'var(--ink-dim)' }}
+          return <span key={key} className="chip pending"
             aria-label={`${label} — not started yet`}>{label}</span>
         })}
         {b.phase === 'complete'
           ? <span className="chip hot" aria-label="Done">Done</span>
-          : <span className="chip" style={{ borderStyle: 'dashed', color: 'var(--ink-dim)' }}
-              aria-label="Done — not yet">Done</span>}
+          : <span className="chip pending" aria-label="Done — not yet">Done</span>}
       </div>
 
       {/* plan approval gate */}
@@ -108,7 +106,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
           <div style={{ whiteSpace: 'pre-wrap' }}>
             {b.plan_summary || 'The plan is still being written up — check back in a moment.'}
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <div className="btnrow">
             <button className="act" disabled={!!busy}
               onClick={() => decide('approve')}>Approve — start building</button>
             <button className="act ghost" aria-expanded={revising} disabled={!!busy}
@@ -206,7 +204,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
       )}
 
       {/* actions */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+      <div className="btnrow">
         <button className="act ghost" onClick={() => openWorkspace({ project: b.name })}>
           open in workspace</button>
         {(b.status === 'running' || b.status === 'queued') && (

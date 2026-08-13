@@ -21,6 +21,8 @@ const Help = ({ id, text }) =>
 
 export default function GuidedIntake({ onCreated }) {
   const [questions, setQuestions] = useState(null)
+  const [recipes, setRecipes] = useState([])
+  const [picked, setPicked] = useState(null)
   const [loadErr, setLoadErr] = useState(null)
   const [name, setName] = useState('')
   const [answers, setAnswers] = useState({})
@@ -33,8 +35,18 @@ export default function GuidedIntake({ onCreated }) {
     api('/guided/questions')
       .then((qs) => alive && setQuestions(qs))
       .catch((ex) => alive && setLoadErr(ex.message))
+    api('/guided/recipes')
+      .then((rs) => alive && setRecipes(rs))
+      .catch(() => { /* templates are optional sugar — the form works without them */ })
     return () => { alive = false }
   }, [])
+
+  const applyRecipe = (r) => {
+    setPicked(r.id)
+    setAnswers({ ...r.answers })
+    setMissing([])
+    document.getElementById('g-name')?.focus()
+  }
 
   const setAnswer = (id, v) => setAnswers((a) => ({ ...a, [id]: v }))
 
@@ -83,7 +95,25 @@ export default function GuidedIntake({ onCreated }) {
         into a full brief, draft a plan, and show you that plan before anything gets built.
       </p>
 
-      <label className="fl" htmlFor="g-name">What should we call it?<Req /></label>
+      {recipes.length > 0 && (
+        <div role="group" aria-label="Start from a template">
+          <div className="fl" style={{ margin: '12px 0 2px' }}>
+            Start from a template if one fits — every answer stays editable</div>
+          <div className="recipe-grid">
+            {recipes.map((r) => (
+              <button type="button" key={r.id}
+                className={`recipe-card${picked === r.id ? ' on' : ''}`}
+                aria-pressed={picked === r.id}
+                onClick={() => applyRecipe(r)}>
+                <b>{r.title}</b>
+                <span>{r.blurb}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <label className="fl" htmlFor="g-name"><span className="qnum">1.</span>What should we call it?<Req /></label>
       <p className="faint" id="g-name-help" style={helpStyle}>
         lowercase letters, numbers and dashes
       </p>
@@ -92,14 +122,15 @@ export default function GuidedIntake({ onCreated }) {
         aria-describedby="g-name-help"
         onChange={(e) => setName(e.target.value)} />
 
-      {questions.map((q) => {
+      {questions.map((q, i) => {
         const qid = `gq-${q.id}`
         const invalid = missing.includes(q.id) || undefined
+        const num = <span className="qnum">{i + 2}.</span>
 
         if (q.type === 'choice') {
           return (
-            <fieldset key={q.id} style={{ border: 0, padding: 0, margin: 0 }}>
-              <legend style={legendStyle}>{q.label}{q.required && <Req />}</legend>
+            <fieldset key={q.id} className="qblock" style={{ border: 0, padding: 0 }}>
+              <legend style={legendStyle}>{num}{q.label}{q.required && <Req />}</legend>
               <Help id={`${qid}-help`} text={q.help} />
               {(q.options || []).map(([val, lab]) => {
                 const oid = `${qid}-${val}`
@@ -126,8 +157,8 @@ export default function GuidedIntake({ onCreated }) {
           const items = (answers[q.id] && answers[q.id].length) ? answers[q.id] : ['']
           const max = q.max_items || 5
           return (
-            <fieldset key={q.id} style={{ border: 0, padding: 0, margin: 0 }}>
-              <legend style={legendStyle}>{q.label}{q.required && <Req />}</legend>
+            <fieldset key={q.id} className="qblock" style={{ border: 0, padding: 0 }}>
+              <legend style={legendStyle}>{num}{q.label}{q.required && <Req />}</legend>
               <Help id={`${qid}-help`} text={q.help} />
               {items.map((v, i) => (
                 <input key={i} value={v}
@@ -158,8 +189,8 @@ export default function GuidedIntake({ onCreated }) {
 
         // default: single-line text
         return (
-          <div key={q.id}>
-            <label className="fl" htmlFor={qid}>{q.label}{q.required && <Req />}</label>
+          <div key={q.id} className="qblock">
+            <label className="fl" htmlFor={qid} style={{ marginTop: 0 }}>{num}{q.label}{q.required && <Req />}</label>
             <Help id={`${qid}-help`} text={q.help} />
             <input id={qid} value={answers[q.id] || ''}
               required={q.required || undefined}
