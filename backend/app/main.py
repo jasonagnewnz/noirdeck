@@ -22,7 +22,7 @@ from .readers import history as hist
 from .readers.commits import fleet_feed, fleet_flags, follow_on_flags, recent_commits
 from .readers.files import FilesError, list_dir, read_file
 from .readers.fleet import fleet, fleet_attention
-from . import arming, guided, hygiene, vault
+from . import arming, guided, hygiene, improve, vault
 from .readers.memories import group_memories, list_memories, memory_stats
 from .readers.sessions import namespace_display, recent_sessions
 from .readers.skills import list_agents, list_skills
@@ -139,6 +139,67 @@ def agents():
 def memories():
     mems = list_memories(settings.claude_dir)
     return {"stats": memory_stats(mems), "memories": mems, "groups": group_memories(mems)}
+
+
+class ImproveRepoBody(BaseModel):
+    project: str
+    enabled: bool = True
+
+
+@app.get("/api/improve")
+def improve_status():
+    conn = db()
+    try:
+        return {
+            "armed": improve.armed(),
+            "model": improve.local_model(),
+            "model_available": improve.model_available(),
+            "repos": [dict(r) for r in conn.execute(
+                "SELECT * FROM improve_repos ORDER BY project").fetchall()],
+            "changes": [dict(r) for r in conn.execute(
+                "SELECT * FROM improve_changes ORDER BY id DESC LIMIT 50").fetchall()],
+        }
+    finally:
+        conn.close()
+
+
+@app.post("/api/improve/repos")
+def improve_map(body: ImproveRepoBody):
+    if improve.safe_repo(settings, body.project) is None:
+        raise HTTPException(404, f"no project repo {body.project}")
+    conn = db()
+    try:
+        conn.execute(
+            "INSERT INTO improve_repos (project, enabled, created_at) VALUES (?,?,?) "
+            "ON CONFLICT(project) DO UPDATE SET enabled=excluded.enabled",
+            (body.project, int(body.enabled), utcnow()))
+        conn.commit()
+        audit(conn, "operator", "improve_repo_mapped",
+              f"{body.project} enabled={int(body.enabled)}")
+        return {"project": body.project, "enabled": body.enabled}
+    finally:
+        conn.close()
+
+
+@app.post("/api/improve/run")
+def improve_run():
+    threading.Thread(target=improve.run_improver, args=(settings,), daemon=True).start()
+    return {"started": True}
+
+
+class ImproveDecision(BaseModel):
+    action: str  # merge | discard
+
+
+@app.post("/api/improve/changes/{change_id}")
+def improve_decide(change_id: int, body: ImproveDecision):
+    conn = db()
+    try:
+        return improve.decide(settings, conn, change_id, body.action)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    finally:
+        conn.close()
 
 
 @app.get("/api/vault")

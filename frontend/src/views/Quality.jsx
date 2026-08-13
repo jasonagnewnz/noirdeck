@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { ago, api, useData } from '../api.js'
 import { usePager } from '../pager.jsx'
+import ImprovePanel from './ImprovePanel.jsx'
 
 export default function Quality({ bump }) {
   const { data: board, loading } = useData('/qa', bump)
@@ -21,6 +22,8 @@ export default function Quality({ bump }) {
         <h1>Quality gates</h1>
         <p>Commercial-readiness per repo: BLOCKER / GAP / PASS with evidence. Click a row for gates; "briefing" builds your start-here card.</p>
       </div>
+
+      <ImprovePanel bump={bump} />
 
       {brief && (
         <div className="panel">

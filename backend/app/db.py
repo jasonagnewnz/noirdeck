@@ -111,6 +111,28 @@ MIGRATIONS: list[str] = [
         restore_verified INTEGER NOT NULL DEFAULT 0,
         detail TEXT
     )""",
+    # 15-16: Improve — mapped repos a small LOCAL model quietly improves on
+    # branches; every change is a proposal, merging is a human act
+    """CREATE TABLE improve_repos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project TEXT NOT NULL UNIQUE,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+    )""",
+    """CREATE TABLE improve_changes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project TEXT NOT NULL,
+        branch TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        target_file TEXT,
+        summary TEXT,
+        diff TEXT,
+        tests TEXT,
+        model TEXT,
+        status TEXT NOT NULL DEFAULT 'proposed',
+        created_at TEXT NOT NULL,
+        decided_at TEXT
+    )""",
 ]
 
 

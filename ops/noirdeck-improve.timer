@@ -1,0 +1,9 @@
+[Unit]
+Description=hourly noirdeck improve pass (armed + contract-gated)
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

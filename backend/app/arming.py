@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from .db import audit, utcnow
 
-SUBSYSTEMS = ("overnight", "mining")
+SUBSYSTEMS = ("overnight", "mining", "improver")
 MAX_HOURS = 24 * 7  # a contract may never exceed a week
 
 
