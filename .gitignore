@@ -1,0 +1,24 @@
+# secrets & env
+.env
+.env.*
+!.env.example
+*.bak
+*.pem
+*.key
+
+# derived data (rebuildable cache + proposals db — never commit)
+data/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# node / frontend
+node_modules/
+frontend/dist/
+
+# misc
+*.log
+.DS_Store

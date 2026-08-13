@@ -1,0 +1,16 @@
+[Unit]
+Description=noirdeck — local Claude Code companion console
+After=default.target
+
+# WorkingDirectory must point at your clone of noirdeck — adjust if you cloned elsewhere
+[Service]
+WorkingDirectory=%h/noirdeck
+EnvironmentFile=-%h/noirdeck/.env
+# claude lives in ~/.local/bin, which login shells add but systemd does not
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/noirdeck/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 4747
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

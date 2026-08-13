@@ -1,0 +1,8 @@
+[Unit]
+Description=noirdeck nightly mining (heuristics + gated LLM pass)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/noirdeck/backend
+EnvironmentFile=-%h/noirdeck/.env
+ExecStart=%h/noirdeck/.venv/bin/python -m app.miner.cli nightly
