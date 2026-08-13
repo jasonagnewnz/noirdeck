@@ -29,7 +29,12 @@ nothing leaving the box.
   legacy" actions — live in a terminal or queued for overnight.
 
 **Builds and improves autonomously — inside hard boundaries**
-- **Builds**: full brief in → code-ready software out. Five phases
+- **Guided Build**: a plain-English intake interview compiles a professional
+  brief; the pipeline plans first and **parks for your approval** — nothing is
+  built until you approve the plan in plain English. Finishes with your own
+  acceptance checklist and a deterministic evidence pack (commits, tests,
+  gates) assembled by code, not a model.
+- **Builds (expert)**: full brief in → code-ready software out. Five phases
   (plan → build → test → review → finish) with per-phase model routing, QA gates
   run *between* phases outside the LLM, crash-nets, and resume from the last
   completed phase. Stops at code-ready. Never ships.
@@ -111,6 +116,12 @@ Stack: FastAPI + SQLite, React 18 + Vite, xterm.js, headless `claude -p` runners
 with pinned model IDs per task class. UI meets WCAG 2.1 AA: full keyboard
 operability, focus management and dialog traps, screen-reader landmarks and
 labels, AA contrast throughout, `prefers-reduced-motion` respected.
+
+![guided build plan gate](docs/screenshots/guided.png)
+
+**Eight built-in themes** — noir (default), instrument, aurora, brutalist,
+editorial, botanical, swiss, neo-material — switchable from the status bar,
+every one verified to WCAG AA contrast.
 
 ![workspace](docs/screenshots/workspace.png)
 

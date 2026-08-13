@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { getJSON } from './ideApi.js'
+import { THEMES } from './themes.js'
 
 // Bottom status bar — live SSE state, pending-proposals count, queue counts,
 // active workspace session count (self-polled), the ⌘K launcher, version (live
 // from the backend's own health check rather than a hardcoded string, so this
 // bar can never drift out of sync with what's actually deployed).
-export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys }) {
+export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, theme, onSetTheme }) {
   const [sessionCount, setSessionCount] = useState(null)
   const [version, setVersion] = useState(null)
 
@@ -46,6 +47,10 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys })
         sessions <b>{sessionCount === null ? '—' : sessionCount}</b>
       </span>
       <span className="sb-spacer" />
+      <select className="sb-theme" aria-label="Theme" value={theme}
+        onChange={(e) => onSetTheme?.(e.target.value)}>
+        {THEMES.map((t) => <option key={t.key} value={t.key} title={t.blurb}>{t.name}</option>)}
+      </select>
       <button className="sb-kbd" onClick={onOpenKeys} title="Quick keys (?)" aria-label="Open quick keys help">?</button>
       <button className="sb-kbd" onClick={onOpenPalette} title="Command palette (Ctrl/Cmd+K)" aria-label="Open command palette">⌘K</button>
       <span className="sb-version">noirdeck{version ? ` v${version}` : ''}</span>

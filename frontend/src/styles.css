@@ -37,14 +37,21 @@
 html, body, #root { height: 100%; }
 body {
   background: var(--bg);
-  background-image:
-    radial-gradient(ellipse 90% 65% at 50% -12%, rgba(240, 82, 94, 0.07), transparent),
-    radial-gradient(ellipse 70% 55% at 12% 112%, rgba(139, 26, 26, 0.06), transparent);
   color: var(--ink);
   font-family: var(--mono);
   font-size: 13px;
   line-height: 1.5;
   position: relative;
+}
+/* atmosphere vignettes — accent-tinted so they follow whichever theme is active
+   (was hardcoded crimson rgba). Dark themes only: on light paper themes a tinted
+   vignette reads as a stain, so it's gated on the data-theme-mode attr that
+   themes.js stamps on <html> ('dark' | 'light'; :not() keeps the pre-JS default
+   dark, matching the noir default theme). */
+:root:not([data-theme-mode="light"]) body {
+  background-image:
+    radial-gradient(ellipse 90% 65% at 50% -12%, color-mix(in srgb, var(--amber) 7%, transparent), transparent),
+    radial-gradient(ellipse 70% 55% at 12% 112%, color-mix(in srgb, var(--teal) 6%, transparent), transparent);
 }
 
 /* screen-reader / keyboard-only utility — visually hidden, still in the a11y tree */
@@ -66,9 +73,11 @@ body {
    behind prefers-reduced-motion (see below) even though it's static, per the
    accessibility pass's instruction to treat it as part of the motion sweep.
    Real content sits at z-index:2 (.shell-body / .statusbar below) so this
-   fixed z-index:1 overlay never paints over text regardless of opacity. */
+   fixed z-index:1 overlay never paints over text regardless of opacity.
+   Dark themes only (same data-theme-mode gate as the vignettes above): black
+   scanlines over light paper read as banding, not atmosphere. */
 @media (prefers-reduced-motion: no-preference) {
-  body::before {
+  :root:not([data-theme-mode="light"]) body::before {
     content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
     background-image: repeating-linear-gradient(to bottom,
       rgba(0, 0, 0, 0.09) 0px, rgba(0, 0, 0, 0.09) 1px, transparent 1px, transparent 3px);
@@ -109,8 +118,8 @@ body {
   white-space: nowrap;
 }
 .actbar.expanded .actbar-nav button { justify-content: flex-start; padding: 0 17px; }
-.actbar-nav button:hover { color: var(--ink-dim); background: rgba(255,255,255,0.02); }
-.actbar-nav button.on { color: var(--amber); border-left-color: var(--amber); background: var(--amber-soft); box-shadow: inset 0 0 14px -6px rgba(240,82,94,0.45); }
+.actbar-nav button:hover { color: var(--ink-dim); background: color-mix(in srgb, var(--ink) 2%, transparent); }
+.actbar-nav button.on { color: var(--amber); border-left-color: var(--amber); background: var(--amber-soft); box-shadow: inset 0 0 14px -6px color-mix(in srgb, var(--amber) 45%, transparent); }
 .actbar-icon { display: flex; flex-shrink: 0; }
 .actbar-label { font-size: 12px; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; text-align: left; }
 .actbar-badge {
@@ -127,7 +136,7 @@ body {
   color: var(--ink-faint); transition: color .12s, background .12s;
 }
 .actbar.expanded .actbar-expand { justify-content: flex-start; padding: 0 17px; font-size: 11px; }
-.actbar-expand:hover { color: var(--amber); background: rgba(255,255,255,0.02); }
+.actbar-expand:hover { color: var(--amber); background: color-mix(in srgb, var(--ink) 2%, transparent); }
 .actbar-expand svg.flip { transform: rotate(180deg); }
 
 /* ── status bar ─────────────────────── */
@@ -194,7 +203,7 @@ body {
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.13em; color: var(--ink-faint); padding: 4px 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
 td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
-tr:hover td { background: rgba(255,255,255,0.015); }
+tr:hover td { background: color-mix(in srgb, var(--ink) 1.5%, transparent); }
 .dim { color: var(--ink-dim); } .faint { color: var(--ink-faint); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 .clip { max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -204,12 +213,12 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 /* --red/--teal stay the border+fill (non-text UI, ≥3:1 is enough there); the label
    TEXT uses --red-text — --red itself is only 3.57:1 and --teal only 2.1:1, both
    fail AA at these small (10px) sizes */
-.pill.BLOCKER, .pill.blocked { color: var(--red-text); border-color: var(--red); background: rgba(207,29,30,0.10); }
+.pill.BLOCKER, .pill.blocked { color: var(--red-text); border-color: var(--red); background: color-mix(in srgb, var(--red) 10%, transparent); }
 .pill.GAP, .pill.queued { color: var(--amber); border-color: var(--amber); background: var(--amber-soft); }
 /* "done/pass" is deliberately quiet, not green — crimson is the estate's only attention color, so
    a resolved state gets no signal color at all (reserve green strictly for the live/ok dot) */
-.pill.PASS, .pill.done { color: var(--ink); border-color: var(--line); background: rgba(255,255,255,0.03); }
-.pill.running { color: var(--red-text); border-color: var(--teal); background: rgba(139,26,26,0.16); }
+.pill.PASS, .pill.done { color: var(--ink); border-color: var(--line); background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.pill.running { color: var(--red-text); border-color: var(--teal); background: color-mix(in srgb, var(--teal) 16%, transparent); }
 .pill.cancelled, .pill.dismissed, .pill.approved { color: var(--ink-faint); border-color: var(--line); }
 
 .chip { display: inline-block; background: var(--panel-2); border: 1px solid var(--line); padding: 1px 8px; margin: 2px 4px 2px 0; font-size: 11px; color: var(--ink-dim); }
@@ -222,9 +231,9 @@ button.act {
   transition: background .12s;
 }
 @media (prefers-reduced-motion: no-preference) { button.act { transition: background .12s, box-shadow .12s; } }
-button.act:hover { background: var(--amber-soft); box-shadow: 0 0 14px -4px rgba(240,82,94,0.55); }
+button.act:hover { background: var(--amber-soft); box-shadow: 0 0 14px -4px color-mix(in srgb, var(--amber) 55%, transparent); }
 button.act.ghost { border-color: var(--line); color: var(--ink-dim); }
-button.act.ghost:hover { background: rgba(255,255,255,0.03); }
+button.act.ghost:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
 button.act:disabled { opacity: 0.4; cursor: default; }
 input, textarea, select {
   font-family: inherit; font-size: 12.5px; color: var(--ink); background: var(--bg-deep);
@@ -235,7 +244,7 @@ label.fl { display: block; font-size: 10px; text-transform: uppercase; letter-sp
 
 /* misc */
 .mono-block { background: var(--bg-deep); border: 1px solid var(--line-soft); padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font-size: 12px; color: var(--ink-dim); max-height: 300px; overflow-y: auto; }
-.kickoff { border-left: 2px solid var(--teal); padding: 8px 12px; background: rgba(139,26,26,0.09); color: var(--ink); }
+.kickoff { border-left: 2px solid var(--teal); padding: 8px 12px; background: color-mix(in srgb, var(--teal) 9%, transparent); color: var(--ink); }
 .loading { color: var(--ink-dim); padding: 30px 0; text-align: center; letter-spacing: 0.2em; text-transform: uppercase; font-size: 11px; }
 @media (prefers-reduced-motion: no-preference) { .loading { animation: pulse 1.6s infinite; } }
 .err { color: var(--red-text); padding: 10px 0; }
@@ -279,7 +288,7 @@ details summary { cursor: pointer; color: var(--ink-dim); }
   display: flex; align-items: center; gap: 6px; padding: 3px 10px; cursor: pointer;
   color: var(--ink-dim); font-size: 12px; white-space: nowrap; transition: color .12s, background .12s;
 }
-.ftree-row:hover { color: var(--ink); background: rgba(255,255,255,0.03); }
+.ftree-row:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 3%, transparent); }
 .ftree-row.file { color: var(--ink-dim); }
 .ftree-row .chev { color: var(--ink-faint); flex-shrink: 0; transition: transform .15s; }
 .ftree-row .chev.open { transform: rotate(90deg); }
@@ -308,7 +317,7 @@ button.act.sm { padding: 3px 8px; font-size: 10px; }
   transition: color .12s, border-color .12s, background .12s;
 }
 .termtab:hover { color: var(--ink); }
-.termtab.on { color: var(--amber); border-color: var(--amber); background: var(--amber-soft); box-shadow: 0 0 12px -4px rgba(240,82,94,0.5); }
+.termtab.on { color: var(--amber); border-color: var(--amber); background: var(--amber-soft); box-shadow: 0 0 12px -4px color-mix(in srgb, var(--amber) 50%, transparent); }
 .termtab.filetab { font-family: var(--mono); }
 .termtab-select { all: unset; cursor: pointer; }
 .termtab .x { all: unset; cursor: pointer; color: var(--ink-faint); font-size: 13px; transition: color .12s; }
@@ -338,7 +347,7 @@ pre.code { margin: 0; padding: 8px 0; }
   user-select: none; font-variant-numeric: tabular-nums;
 }
 .code-line .code-text { white-space: pre; color: var(--ink); }
-.code-line:hover { background: rgba(255,255,255,0.02); }
+.code-line:hover { background: color-mix(in srgb, var(--ink) 2%, transparent); }
 
 /* design studio */
 .variant-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 10px; }
@@ -427,3 +436,22 @@ button.keys-row.link {
 .keys-row.wide kbd { min-width: 132px; }
 .keys-copied { margin-left: auto; font-style: normal; font-size: 11px; color: var(--amber); flex: none; }
 .keys-empty { padding: 18px 0; color: var(--ink-faint); text-align: center; }
+
+/* ── themes ─────────────────────── */
+/* Light-mode (data-theme-mode="light" on <html>, stamped by ide/themes.js)
+   adjustments: the near-opaque black drop shadows tuned for warm-black grounds
+   read as smears on paper — soften them; ditto the modal scrim. */
+:root[data-theme-mode="light"] .panel { box-shadow: 0 10px 26px -16px rgba(32, 26, 17, 0.30); }
+:root[data-theme-mode="light"] .keys-panel { box-shadow: 0 18px 60px rgba(32, 26, 17, 0.22), 0 0 24px var(--amber-soft); }
+:root[data-theme-mode="light"] .keys-backdrop { background: rgba(46, 40, 32, 0.45); }
+
+/* status-bar theme picker — compact enough to live in the 24px bar; overrides
+   the global 100%-width select styling above */
+select.sb-theme {
+  width: auto; min-height: 24px; padding: 1px 6px; cursor: pointer;
+  font-family: inherit; font-size: 10px; color: var(--ink-dim);
+  background: var(--bg-deep); border: 1px solid var(--line);
+  transition: color .12s, border-color .12s;
+}
+select.sb-theme:hover { color: var(--amber); border-color: var(--amber); }
+select.sb-theme:focus { outline: none; border-color: var(--amber); }

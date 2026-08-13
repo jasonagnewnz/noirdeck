@@ -115,22 +115,65 @@ class BuildRunner:
         self._update(build_id, log=json.dumps(log))
 
     # --- lifecycle ---
-    def start(self, name: str, prompt: str) -> int:
+    def start(self, name: str, prompt: str, gated: bool = False,
+              intake: dict | None = None, acceptance: list | None = None) -> int:
         target = init_repo(self.settings.projects_dir, name)
         conn = self._db()
         try:
             cur = conn.execute(
-                "INSERT INTO builds (name,path,prompt,status,created_at) VALUES (?,?,?,'queued',?)",
-                (name, str(target), prompt, utcnow()))
+                "INSERT INTO builds (name,path,prompt,status,created_at,gated,intake,acceptance) "
+                "VALUES (?,?,?,'queued',?,?,?,?)",
+                (name, str(target), prompt, utcnow(), int(gated),
+                 json.dumps(intake) if intake else None,
+                 json.dumps(acceptance) if acceptance else None))
             build_id = cur.lastrowid
-            audit(conn, "operator", "build_started", f"id={build_id} name={name}")
+            audit(conn, "operator", "build_started",
+                  f"id={build_id} name={name} gated={int(gated)}")
             conn.commit()
         finally:
             conn.close()
         threading.Thread(target=self._run, args=(build_id,), daemon=True).start()
         return build_id
 
+    def decide_plan(self, build_id: int, action: str, feedback: str = "") -> None:
+        """The Guided Build plan gate: the operator approves the plain-English plan
+        (build continues) or requests changes (plan phase re-runs with feedback)."""
+        row = self._row(build_id)
+        if not row or row["status"] != "awaiting_plan":
+            raise ValueError(f"build {build_id} is not awaiting plan approval")
+        conn = self._db()
+        try:
+            if action == "approve":
+                audit(conn, "operator", "plan_approved", f"id={build_id}")
+                self._update(build_id, status="running")
+                threading.Thread(target=self._run, args=(build_id, 1), daemon=True).start()
+            elif action == "revise":
+                if not feedback.strip():
+                    raise ValueError("revise requires feedback")
+                audit(conn, "operator", "plan_revision_requested",
+                      f"id={build_id} feedback={feedback[:120]}")
+                new_prompt = (row["prompt"] +
+                              f"\n\nOPERATOR FEEDBACK ON YOUR PREVIOUS PLAN (address it):"
+                              f"\n{feedback.strip()[:2000]}")
+                self._update(build_id, prompt=new_prompt, status="running", plan_summary=None)
+                threading.Thread(target=self._run, args=(build_id, 0), daemon=True).start()
+            else:
+                raise ValueError(f"unknown action {action!r}")
+        finally:
+            conn.close()
+
     def cancel(self, build_id: int) -> None:
+        row = self._row(build_id)
+        if row and row["status"] == "awaiting_plan":
+            # parked at the plan gate — no thread is polling cancel_requested,
+            # so the decline is applied directly
+            self._update(build_id, status="cancelled", finished_at=utcnow())
+            conn = self._db()
+            try:
+                audit(conn, "operator", "plan_declined", f"id={build_id}")
+            finally:
+                conn.close()
+            return
         self._update(build_id, cancel_requested=1)
         proc = self.procs.get(build_id)
         if proc and proc.poll() is None:
@@ -208,7 +251,9 @@ class BuildRunner:
             raise ValueError(f"build {build_id} is not resumable "
                              f"({row['status'] if row else 'missing'})")
         log = json.loads(row["log"] or "[]")
-        done_phases = [e["phase"] for e in log if e.get("status") == "done"]
+        # DISTINCT phases: a revised plan logs 'plan' done twice — counting entries
+        # would skip a real phase on resume
+        done_phases = {e["phase"] for e in log if e.get("status") == "done"}
         start_idx = len(done_phases)
         self._update(build_id, status="running", question=None, cancel_requested=0)
         conn = self._db()
@@ -262,9 +307,25 @@ class BuildRunner:
                 return
             prior_summary = str(verdict.get("summary", ""))[:600]
 
+            # Guided Build plan gate: park after a successful plan phase and wait
+            # for the operator's plain-English approval before any code is written
+            if idx == 0 and row["gated"]:
+                from .guided import read_plain_plan
+                plan = read_plain_plan(cwd) or prior_summary
+                self._update(build_id, status="awaiting_plan", plan_summary=plan[:4000])
+                conn = self._db()
+                try:
+                    audit(conn, "builds", "plan_ready", f"id={build_id}")
+                finally:
+                    conn.close()
+                return
+
         final_qa = evaluate_project(cwd)
         status = "done" if final_qa["overall"] != "BLOCKER" else "attention"
-        self._update(build_id, status=status, phase="complete", finished_at=utcnow())
+        from .guided import evidence_pack
+        evidence = evidence_pack(cwd, json.loads(self._row(build_id)["log"] or "[]"))
+        self._update(build_id, status=status, phase="complete", finished_at=utcnow(),
+                     evidence=json.dumps(evidence))
         conn = self._db()
         try:
             audit(conn, "builds", "build_finished",

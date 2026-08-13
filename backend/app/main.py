@@ -22,7 +22,7 @@ from .readers import history as hist
 from .readers.commits import fleet_feed, fleet_flags, follow_on_flags, recent_commits
 from .readers.files import FilesError, list_dir, read_file
 from .readers.fleet import fleet, fleet_attention
-from . import arming, hygiene
+from . import arming, guided, hygiene
 from .readers.memories import group_memories, list_memories, memory_stats
 from .readers.sessions import namespace_display, recent_sessions
 from .readers.skills import list_agents, list_skills
@@ -557,6 +557,8 @@ def _build_row(r) -> dict:
     d = dict(r)
     d["log"] = json.loads(d.get("log") or "[]")
     d["prompt"] = d["prompt"][:400]
+    for col in ("intake", "acceptance", "evidence"):
+        d[col] = json.loads(d[col]) if d.get(col) else None
     return d
 
 
@@ -580,6 +582,47 @@ def builds_start(body: BuildStart):
     except WorkspaceError as e:
         raise HTTPException(409, str(e))
     return {"id": build_id, "name": body.name}
+
+
+@app.get("/api/guided/questions")
+def guided_questions():
+    return guided.INTAKE_QUESTIONS
+
+
+class GuidedStart(BaseModel):
+    name: str
+    answers: dict
+
+
+@app.post("/api/builds/guided")
+def builds_start_guided(body: GuidedStart):
+    missing = guided.validate_answers(body.answers)
+    if missing:
+        raise HTTPException(400, f"missing answers: {', '.join(missing)}")
+    try:
+        build_id = builds_runner.start(
+            body.name.strip(),
+            guided.compose_brief(body.answers),
+            gated=True,
+            intake=body.answers,
+            acceptance=guided.acceptance_criteria(body.answers))
+    except WorkspaceError as e:
+        raise HTTPException(409, str(e))
+    return {"id": build_id, "name": body.name, "gated": True}
+
+
+class PlanDecision(BaseModel):
+    action: str  # approve | revise
+    feedback: str = ""
+
+
+@app.post("/api/builds/{build_id}/plan")
+def builds_plan_decision(build_id: int, body: PlanDecision):
+    try:
+        builds_runner.decide_plan(build_id, body.action, body.feedback)
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    return {"id": build_id, "action": body.action}
 
 
 @app.post("/api/builds/{build_id}/cancel")

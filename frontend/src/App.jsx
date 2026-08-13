@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useState } from 'react'
 import { useData, useEvents } from './api.js'
+import { THEME_STORAGE_KEY, applyTheme, loadThemeKey } from './ide/themes.js'
 import Overview from './views/Overview.jsx'
 import Sessions from './views/Sessions.jsx'
 import Skills from './views/Skills.jsx'
@@ -38,6 +39,13 @@ export default function App() {
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === '1' } catch { return false }
   })
+  const [theme, setTheme] = useState(loadThemeKey)
+  // useLayoutEffect: tokens land on <html> before first paint, so a persisted
+  // non-default theme never flashes noir on load
+  useLayoutEffect(() => {
+    applyTheme(theme)
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme) } catch { /* storage unavailable */ }
+  }, [theme])
   const openWorkspace = (payload) => { setLaunch(payload); setView('workspace') }
   const { live, bump } = useEvents()
   const { data: ov } = useData('/overview', bump)
@@ -112,7 +120,7 @@ export default function App() {
           <Current bump={bump} overview={ov} launch={launch} openWorkspace={openWorkspace} />
         </main>
       </div>
-      <StatusBar live={live} overview={ov}
+      <StatusBar live={live} overview={ov} theme={theme} onSetTheme={setTheme}
         onOpenPalette={() => setPaletteOpen((o) => { const next = !o; if (next) setKeysOpen(false); return next })}
         onOpenKeys={() => setKeysOpen((o) => { const next = !o; if (next) setPaletteOpen(false); return next })} />
       <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />

@@ -95,6 +95,13 @@ MIGRATIONS: list[str] = [
         created_at TEXT NOT NULL,
         revoked_at TEXT
     )""",
+    # 9-13: Guided Build — gated plan approval, intake answers, acceptance
+    # criteria, plain-English plan, deterministic evidence pack
+    "ALTER TABLE builds ADD COLUMN gated INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE builds ADD COLUMN intake TEXT",
+    "ALTER TABLE builds ADD COLUMN acceptance TEXT",
+    "ALTER TABLE builds ADD COLUMN plan_summary TEXT",
+    "ALTER TABLE builds ADD COLUMN evidence TEXT",
 ]
 
 
