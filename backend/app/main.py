@@ -22,7 +22,7 @@ from .readers import history as hist
 from .readers.commits import fleet_feed, fleet_flags, follow_on_flags, recent_commits
 from .readers.files import FilesError, list_dir, read_file
 from .readers.fleet import fleet, fleet_attention
-from . import arming, guided, hygiene
+from . import arming, guided, hygiene, vault
 from .readers.memories import group_memories, list_memories, memory_stats
 from .readers.sessions import namespace_display, recent_sessions
 from .readers.skills import list_agents, list_skills
@@ -139,6 +139,24 @@ def agents():
 def memories():
     mems = list_memories(settings.claude_dir)
     return {"stats": memory_stats(mems), "memories": mems, "groups": group_memories(mems)}
+
+
+@app.get("/api/vault")
+def vault_status():
+    conn = db()
+    try:
+        return vault.status(conn)
+    finally:
+        conn.close()
+
+
+@app.post("/api/vault/run")
+def vault_run():
+    ok, why = vault.configured()
+    if not ok:
+        raise HTTPException(409, why)
+    threading.Thread(target=vault.run_backup, args=(settings,), daemon=True).start()
+    return {"started": True}
 
 
 @app.get("/api/arming")

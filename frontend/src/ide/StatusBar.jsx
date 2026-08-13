@@ -26,6 +26,23 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
     return () => { alive = false }
   }, [])
 
+  const [vault, setVault] = useState(null)
+  useEffect(() => {
+    let alive = true
+    const load = () => getJSON('/vault')
+      .then((d) => alive && setVault(d)).catch(() => { /* leave last-known */ })
+    load()
+    const t = setInterval(load, 10 * 60 * 1000)
+    return () => { alive = false; clearInterval(t) }
+  }, [])
+  const vaultAgeH = vault?.last_verified
+    ? (Date.now() - new Date(vault.last_verified).getTime()) / 3600000 : null
+  const vaultState = !vault ? null
+    : !vault.configured ? ['off', 'vault off']
+    : vaultAgeH === null ? ['warn', 'vault: no verified backup yet']
+    : vaultAgeH <= 48 ? ['ok', `vault ✓ ${vaultAgeH < 1 ? '<1h' : Math.round(vaultAgeH) + 'h'}`]
+    : ['warn', `vault ! ${Math.round(vaultAgeH / 24)}d since verified backup`]
+
   const proposalsPending = overview?.proposals_pending || 0
   const queueCounts = overview?.queue || {}
   const queueActive = (queueCounts.queued || 0) + (queueCounts.blocked || 0) + (queueCounts.running || 0)
@@ -46,6 +63,12 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
       <span className="sb-item" title="active workspace sessions">
         sessions <b>{sessionCount === null ? '—' : sessionCount}</b>
       </span>
+      {vaultState && vaultState[0] !== 'off' && (
+        <span className="sb-item" role="status" aria-live="polite"
+          title="offsite backup — last verified restore">
+          <b className={vaultState[0] === 'warn' ? 'sb-accent' : ''}>{vaultState[1]}</b>
+        </span>
+      )}
       <span className="sb-spacer" />
       <select className="sb-theme" aria-label="Theme" value={theme}
         onChange={(e) => onSetTheme?.(e.target.value)}>

@@ -102,6 +102,15 @@ MIGRATIONS: list[str] = [
     "ALTER TABLE builds ADD COLUMN acceptance TEXT",
     "ALTER TABLE builds ADD COLUMN plan_summary TEXT",
     "ALTER TABLE builds ADD COLUMN evidence TEXT",
+    # 14: Vault — encrypted offsite backup runs with verified-restore state
+    """CREATE TABLE vault_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        started_at TEXT NOT NULL,
+        finished_at TEXT,
+        status TEXT NOT NULL,
+        restore_verified INTEGER NOT NULL DEFAULT 0,
+        detail TEXT
+    )""",
 ]
 
 
