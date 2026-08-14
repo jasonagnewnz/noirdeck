@@ -264,6 +264,9 @@ class BuildRunner:
         threading.Thread(target=self._run, args=(build_id, start_idx), daemon=True).start()
 
     def _run_inner(self, build_id: int, start_idx: int = 0) -> None:
+        from .context_pack import context_pack
+        from .review_policy import diff_since, head as git_head, review_needed
+
         row = self._row(build_id)
         cwd = Path(row["path"])
         full_prompt = row["prompt"]
@@ -271,6 +274,10 @@ class BuildRunner:
         log = json.loads(row["log"] or "[]")
         prior_summary = log[-1]["summary"] if log else ""
         total_tokens = row["tokens_out"] or 0
+        # head before the build phase writes code — the review phase measures its
+        # change against this. Unknown (fresh repo, resume-into-review) → review
+        # runs, never skips: the policy fails safe.
+        baseline_head: str | None = None
 
         for idx, (key, model, max_turns, instruction) in enumerate(PHASES):
             if idx < start_idx:
@@ -280,13 +287,33 @@ class BuildRunner:
                 return
             self._update(build_id, phase=key, phase_index=idx)
             qa_before = evaluate_project(cwd)
+
+            if key == "build":
+                baseline_head = git_head(cwd)
+            if key == "review" and baseline_head:
+                stats = diff_since(cwd, baseline_head)
+                if stats is not None:
+                    needed, reason = review_needed(
+                        stats["lines"], stats["files"], qa_before["overall"], stats["untracked"])
+                    if not needed:
+                        # the deterministic gates already judged this change —
+                        # a paid review pass can't earn its tokens here
+                        self._append_log(build_id, {
+                            "phase": key, "model": "(skipped)", "seconds": 0,
+                            "status": "done", "summary": f"review skipped: {reason}",
+                            "qa_overall": qa_before["overall"], "tokens": 0})
+                        prior_summary = f"review skipped: {reason}"
+                        continue
+
             gate_feedback = "; ".join(
                 f"{g['id']}: {g['evidence']}" for g in qa_before["gates"]
                 if g["verdict"] != "PASS") or "all gates pass"
+            pack = context_pack(cwd, self.settings)
             phase_prompt = (
                 f"You are one phase of an unattended build pipeline.\n\n"
                 f"THE FULL BUILD BRIEF:\n{full_prompt}\n\n"
-                f"{instruction}\n\n"
+                + (f"{pack}\n\n" if pack else "")
+                + f"{instruction}\n\n"
                 f"Previous phase summary: {prior_summary or 'none — this is the first phase'}\n"
                 f"Objective QA gate state before this phase: {gate_feedback}\n"
                 f"{GUARDRAILS}")

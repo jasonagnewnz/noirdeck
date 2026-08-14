@@ -120,3 +120,24 @@ def test_requeue_stale_marks_running_blocked(settings):
     conn.close()
     assert row["status"] == "blocked"
     assert "restarted" in row["question"]
+
+
+def test_review_skipped_for_small_clean_change(settings):
+    """Phases commit tiny changes -> by review time the measured change is small,
+    tracked, and un-flagged: the deterministic policy skips the paid review pass."""
+    stub = ["bash", "-c",
+            'echo line >> notes.txt; git add -A; '
+            'git -c user.name=t -c user.email=t@t commit -qm p; '
+            'echo \'VERDICT: {"status":"done","summary":"phase ok"}\'; true; #']
+    runner = BuildRunner(settings, claude_argv_base=stub)
+    build_id = runner.start("tinyfix", "A very small change to one harmless file, nothing more.")
+    row = _wait_status(settings.db_path, build_id, {"done", "attention", "blocked"})
+    log = json.loads(row["log"])
+    review = next(e for e in log if e["phase"] == "review")
+    assert review["status"] == "done"
+    assert review["tokens"] == 0
+    assert "review skipped" in review["summary"]
+    # the stub really did not run for the review phase: 5 phases, 4 executions
+    assert (settings.projects_dir / "tinyfix" / "notes.txt").read_text().count("line") == 4
+    # and the later finish phase still ran after the skip
+    assert [e["phase"] for e in log][-1] == "finish"

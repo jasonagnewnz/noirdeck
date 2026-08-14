@@ -168,6 +168,9 @@ MIGRATIONS: list[str] = [
     "ALTER TABLE proposals ADD COLUMN prior_body TEXT",
     "ALTER TABLE proposals ADD COLUMN prior_existed INTEGER",
     "ALTER TABLE proposals ADD COLUMN reverted_at TEXT",
+    # 24: queue task weight — light (one session) vs heavy (staged think→do→check);
+    # NULL = auto-routed at run time, operator can override at queue time
+    "ALTER TABLE queue ADD COLUMN weight TEXT",
 ]
 
 

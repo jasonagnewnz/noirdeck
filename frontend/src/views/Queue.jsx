@@ -76,15 +76,15 @@ export default function Queue({ bump }) {
   const { data: tasks } = useData('/queue', bump + refresh)
   const [taskPage, taskPager] = usePager(tasks || [], 10)
   const { data: fleet } = useData('/fleet', bump)
-  const [form, setForm] = useState({ project: '', title: '', prompt: '' })
+  const [form, setForm] = useState({ project: '', title: '', prompt: '', weight: '' })
   const [answers, setAnswers] = useState({})
   const [err, setErr] = useState(null)
 
   const submit = async (e) => {
     e.preventDefault(); setErr(null)
     try {
-      await api('/queue', { body: form })
-      setForm({ project: form.project, title: '', prompt: '' })
+      await api('/queue', { body: { ...form, weight: form.weight || null } })
+      setForm({ project: form.project, title: '', prompt: '', weight: '' })
       setRefresh((r) => r + 1)
     } catch (ex) { setErr(ex.message) }
   }
@@ -118,6 +118,13 @@ export default function Queue({ bump }) {
           <input id="queue-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="e.g. Add retry/backoff to the Datto sync" />
           <label className="fl" htmlFor="queue-prompt">Task prompt</label>
           <textarea id="queue-prompt" rows={4} value={form.prompt} onChange={(e) => setForm({ ...form, prompt: e.target.value })} required placeholder="What should the overnight session do? Be as specific as a good ticket." />
+          <label className="fl" htmlFor="queue-weight">Effort</label>
+          <select id="queue-weight" value={form.weight} style={{ maxWidth: 420 }}
+            onChange={(e) => setForm({ ...form, weight: e.target.value })}>
+            <option value="">auto — routed from the task text</option>
+            <option value="light">light — one session, cheapest</option>
+            <option value="heavy">heavy — plan first, then build, then a check pass</option>
+          </select>
           <div style={{ marginTop: 10 }}><button className="act" type="submit">queue for tonight</button></div>
         </form>
         {err && <div className="err" role="alert">{err}</div>}
@@ -129,6 +136,7 @@ export default function Queue({ bump }) {
           <h2>#{t.id} — <b>{t.title}</b> <span className={`pill ${t.status}`}>{t.status}</span></h2>
           <div className="faint" style={{ marginBottom: 6 }}>
             {t.project.split('/').pop()} · model {t.model || 'auto'} · agent {t.agent_type || 'auto'}
+            {t.weight ? ` · ${t.weight}${t.weight === 'heavy' ? ' (staged)' : ''}` : ''}
             {t.tokens_out ? ` · ${t.tokens_out.toLocaleString()} tok out` : ''}
           </div>
           {t.verdict && <div className="mono-block" style={{ maxHeight: 120 }}>{t.verdict}</div>}

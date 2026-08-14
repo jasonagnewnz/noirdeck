@@ -62,3 +62,15 @@ def test_vault_verified_is_info_unverified_is_attention(conn):
     out = compose(conn)
     assert out["attention"] == 0
     assert any("last verified offsite backup was under an hour ago" in l for l in out["lines"])
+
+
+def test_token_spend_line(conn):
+    conn.execute("INSERT INTO queue (project,title,prompt,status,created_at,finished_at,tokens_out) "
+                 "VALUES ('/x','t','p','done',?,?,150000)", (utcnow(), utcnow()))
+    conn.execute("INSERT INTO builds (name,path,prompt,status,created_at,finished_at,tokens_out) "
+                 "VALUES ('b','/x','p','done',?,?,60000)", (utcnow(), utcnow()))
+    conn.commit()
+    out = compose(conn)
+    assert any("spent 210k output tokens across 2 jobs" in l for l in out["lines"])
+    # spend is information, not attention
+    assert out["attention"] == 0

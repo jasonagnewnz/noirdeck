@@ -563,6 +563,7 @@ class TaskBody(BaseModel):
     project: str
     title: str
     prompt: str
+    weight: str | None = None  # None = auto-routed; 'light' | 'heavy' to override
 
 
 class AnswerBody(BaseModel):
@@ -584,14 +585,16 @@ def queue_add(body: TaskBody):
     repo = settings.projects_dir / body.project
     if not (repo.is_dir() and (repo / ".git").exists()):
         raise HTTPException(400, f"unknown project {body.project}")
+    if body.weight not in (None, "light", "heavy"):
+        raise HTTPException(400, "weight must be light or heavy (omit for auto)")
     text = body.title + " " + body.prompt
     conn = db()
     try:
         cur = conn.execute(
-            "INSERT INTO queue (project,title,prompt,agent_type,model,status,created_at) "
-            "VALUES (?,?,?,?,?,'queued',?)",
+            "INSERT INTO queue (project,title,prompt,agent_type,model,weight,status,created_at) "
+            "VALUES (?,?,?,?,?,?,'queued',?)",
             (str(repo), body.title, body.prompt,
-             route_agent(text, settings.claude_dir), route_model(text), utcnow()))
+             route_agent(text, settings.claude_dir), route_model(text), body.weight, utcnow()))
         audit(conn, "operator", "task_queued", f"id={cur.lastrowid} title={body.title[:80]}")
         conn.commit()
         return {"id": cur.lastrowid}

@@ -74,6 +74,18 @@ def compose(conn: sqlite3.Connection) -> dict:
             f"The improver has {improve_pending} suggested "
             f"{_plural(improve_pending, 'change')} for you to review.")
 
+    trow = conn.execute(
+        "SELECT COALESCE(SUM(tokens_out),0) t, COUNT(*) c FROM queue "
+        "WHERE finished_at >= ? AND tokens_out > 0", (cutoff,)).fetchone()
+    brow = conn.execute(
+        "SELECT COALESCE(SUM(tokens_out),0) t, COUNT(*) c FROM builds "
+        "WHERE finished_at >= ? AND tokens_out > 0", (cutoff,)).fetchone()
+    spent = trow["t"] + brow["t"]
+    jobs = trow["c"] + brow["c"]
+    if spent:
+        info.append(f"Automation spent {round(spent / 1000)}k output tokens across "
+                    f"{jobs} {_plural(jobs, 'job')} in the last day.")
+
     vrow = conn.execute(
         "SELECT finished_at FROM vault_runs WHERE restore_verified=1 "
         "ORDER BY id DESC LIMIT 1").fetchone()

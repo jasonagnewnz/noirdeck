@@ -54,6 +54,23 @@ def route_model(text: str) -> str:
     return _DEFAULT_MODEL
 
 
+# Weight routing: staging (think → do → check) pays for itself only when a wrong
+# approach would cost more than the extra sessions' discovery overhead. Small
+# tasks stay single-session — three stages on a one-file fix roughly triples the
+# fixed cost for the same change.
+_HEAVY_HINT = re.compile(
+    r"(architect|redesign|\bdesign\b|migrat|refactor|rewrite|overhaul|restructur"
+    r"|schema|security|audit|investigat|root[- ]?cause|strategy"
+    r"|across (the|all)|every (file|module|route|view|page)|end[- ]?to[- ]?end|pipeline)", re.I)
+_HEAVY_PROMPT_CHARS = 900
+
+
+def route_weight(title: str, prompt: str) -> str:
+    if _HEAVY_HINT.search(f"{title} {prompt}") or len(prompt) > _HEAVY_PROMPT_CHARS:
+        return "heavy"
+    return "light"
+
+
 def _stems(text: str) -> set[str]:
     words = {w for w in re.split(r"[^a-z0-9]+", text.lower()) if len(w) > 3}
     return {w[:-1] if w.endswith("s") else w for w in words}
@@ -136,61 +153,157 @@ def _parse_verdict(result_text: str) -> dict:
                 "question": "Verdict line was malformed — review the summary."}
 
 
+def _session_argv(model: str, max_turns: int, prompt: str, readonly: bool = False) -> list[str]:
+    from .guard import guard_settings_args
+    from .workspace import claude_bin
+    argv = [claude_bin(), "-p", prompt, "--output-format", "json",
+            "--model", model, "--max-turns", str(max_turns)]
+    if readonly:
+        # planning stage: the tool set itself is read-only — a plan that edits
+        # isn't a plan. --tools is variadic; keep it LAST so it can't swallow flags.
+        argv += [*guard_settings_args(), "--tools", "Read", "Grep", "Glob"]
+    else:
+        argv += ["--permission-mode", "acceptEdits", *guard_settings_args()]
+    return argv
+
+
+def _execute(argv: list[str], cwd: Path, timeout: int = 3600) -> tuple[bool, str, int | None, int, str]:
+    """(ok, result_text, tokens_in, tokens_out, failure_note). Salvages the CLI's
+    own JSON on nonzero exit — error_max_turns and friends still emit a result
+    object whose subtype names the cause. Test seam: monkeypatch this."""
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=str(cwd))
+    if proc.returncode == 0 and proc.stdout:
+        text, tin, tout = parse_cli_json(proc.stdout)
+        return True, text, tin, tout or 0, ""
+    subtype, tin, tout, text = None, None, 0, ""
+    try:
+        obj = parse_cli_result(proc.stdout) if proc.stdout else None
+    except json.JSONDecodeError:
+        obj = None
+    if obj:
+        subtype = obj.get("subtype")
+        usage = obj.get("usage") or {}
+        tin = usage.get("input_tokens")
+        tout = usage.get("output_tokens") or 0
+        text = str(obj.get("result") or "")
+    note = (f"rc={proc.returncode}" + (f" subtype={subtype}" if subtype else "")
+            + f"; stderr: {(proc.stderr or '').strip()[-200:] or '(empty)'}"
+            + f"; result: {text[-200:] or '(none)'}")
+    return False, text, tin, tout, note
+
+
+_PLAN_INSTRUCTION = """
+You are the PLANNING pass of a two-stage task. READ-ONLY: survey exactly what this
+task needs and produce a COMPACT EXECUTION BRIEF (max ~50 lines) for the builder:
+GOAL (one line), APPROACH (short), FILES TO TOUCH (paths), ORDERED STEPS, RISKS /
+things that look easy but aren't here, ACCEPTANCE (how the builder proves it worked).
+No code, no fluff — every line must change what the builder does. Output ONLY the brief.
+"""
+
+_CHECK_INSTRUCTION = """
+You are the CHECK pass after an unattended change. Review ONLY the change described
+below as a hostile senior reviewer — correctness, security, data handling, tests.
+FIX anything real you find and re-run the relevant tests; ignore style nits.
+""" + _GUARDRAILS
+
+
 def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) -> None:
+    from .context_pack import context_pack
+    from .qa import evaluate_project
+    from .review_policy import diff_since, review_needed
+
     project_dir = Path(task["project"]).expanduser()
     conn.execute("UPDATE queue SET status='running', started_at=? WHERE id=?",
                  (utcnow(), task["id"]))
     conn.commit()
 
-    model = task["model"] or route_model(task["title"] + " " + task["prompt"])
-    agent = task["agent_type"] or route_agent(task["title"] + " " + task["prompt"], settings.claude_dir)
-    prompt = task["prompt"]
+    text_all = task["title"] + " " + task["prompt"]
+    model = task["model"] or route_model(text_all)
+    agent = task["agent_type"] or route_agent(text_all, settings.claude_dir)
+    weight = (task["weight"] if "weight" in task.keys() else None) or route_weight(task["title"], task["prompt"])
+    base_prompt = task["prompt"]
     if task["answer"]:
-        prompt += f"\n\nThe operator answered your earlier question: {task['answer']}"
+        base_prompt += f"\n\nThe operator answered your earlier question: {task['answer']}"
     if agent:
-        prompt += f"\n\nPreferred specialist subagent for delegation if useful: {agent}"
-    prompt += _GUARDRAILS
+        base_prompt += f"\n\nPreferred specialist subagent for delegation if useful: {agent}"
+    pack = context_pack(project_dir, settings)
 
     verdict = {"status": "blocked", "summary": "runner error", "question": "Runner failed before the session produced output."}
-    tokens_in = tokens_out = None
+    tokens_in = None
+    tokens_out = 0
+    stage_notes: list[str] = []
     before = _git_state(project_dir)
     try:
-        from .guard import guard_settings_args
-        from .workspace import claude_bin
-        proc = subprocess.run(
-            [claude_bin(), "-p", prompt, "--output-format", "json",
-             "--model", model, "--max-turns", "40", "--permission-mode", "acceptEdits",
-             *guard_settings_args()],
-            capture_output=True, text=True, timeout=3600, cwd=str(project_dir),
-        )
-        if proc.returncode == 0 and proc.stdout:
-            result_text, tokens_in, tokens_out = parse_cli_json(proc.stdout)
-            verdict = _parse_verdict(result_text)
+        brief = ""
+        if weight == "heavy":
+            plan_prompt = (f"{pack}\n\n" if pack else "") + \
+                f"THE TASK:\n{base_prompt}\n{_PLAN_INSTRUCTION}"
+            ok, text, _tin, tout, note = _execute(
+                _session_argv(_model("think"), 12, plan_prompt, readonly=True),
+                project_dir, timeout=1200)
+            tokens_out += tout
+            if ok and text.strip():
+                brief = text.strip()[:6000]
+                stage_notes.append(f"plan {tout} tok")
+            else:
+                # staging must never cost a night: a failed plan falls back to
+                # the single-session path instead of blocking the task
+                weight = "light"
+                stage_notes.append(f"plan failed ({note[:120]}) — fell back to single-session")
+
+        do_prompt = (f"{pack}\n\n" if pack else "") + base_prompt
+        if brief:
+            do_prompt += ("\n\nEXECUTION BRIEF from the planning pass "
+                          "(follow it unless it is clearly wrong on the ground):\n" + brief)
+        do_prompt += _GUARDRAILS
+        ok, text, tokens_in, tout, note = _execute(
+            _session_argv(model, 40, do_prompt), project_dir)
+        tokens_out += tout
+        if ok:
+            verdict = _parse_verdict(text)
         else:
-            # salvage the JSON even on nonzero exit — error_max_turns and
-            # friends still emit a result object whose subtype names the cause
-            subtype = None
-            try:
-                obj = parse_cli_result(proc.stdout) if proc.stdout else None
-            except json.JSONDecodeError:
-                obj = None
-            if obj:
-                subtype = obj.get("subtype")
-                usage = obj.get("usage") or {}
-                tokens_in = usage.get("input_tokens")
-                tokens_out = usage.get("output_tokens")
-            verdict["summary"] = (f"claude exited rc={proc.returncode}"
-                                  + (f" subtype={subtype}" if subtype else ""))
-            verdict["question"] = (
-                f"Runner failed: rc={proc.returncode}"
-                + (f", subtype={subtype}" if subtype else "")
-                + f"; stderr: {(proc.stderr or '').strip()[-200:] or '(empty)'}"
-                + f"; result: {str((obj or {}).get('result') or '')[-200:] or '(none)'}")
+            verdict["summary"] = f"claude exited {note[:200]}"
+            verdict["question"] = f"Runner failed: {note}"
+
+        if weight == "heavy" and verdict.get("status") == "done":
+            baseline = before["head"] if before else None
+            stats = diff_since(project_dir, baseline) if baseline else None
+            if stats is None:
+                needed, reason = True, "change could not be measured — reviewing (fail-safe)"
+            else:
+                gates = evaluate_project(project_dir, light=True)["overall"]
+                needed, reason = review_needed(stats["lines"], stats["files"], gates,
+                                               stats["untracked"])
+            if needed:
+                changed = ", ".join((stats or {}).get("files", [])[:20]) or "(unmeasured)"
+                check_prompt = ((f"{pack}\n\n" if pack else "")
+                                + f"THE TASK THAT WAS JUST EXECUTED:\n{base_prompt}\n\n"
+                                + f"BUILDER'S OWN SUMMARY: {verdict.get('summary', '')}\n"
+                                + f"FILES CHANGED: {changed}\n"
+                                + _CHECK_INSTRUCTION)
+                ok2, text2, _tin2, tout2, note2 = _execute(
+                    _session_argv(_model("review"), 25, check_prompt), project_dir, timeout=1800)
+                tokens_out += tout2
+                if ok2:
+                    v2 = _parse_verdict(text2)
+                    if v2.get("status") == "done":
+                        stage_notes.append(f"check passed ({tout2} tok)")
+                    else:
+                        stage_notes.append(f"check flagged issues ({tout2} tok)")
+                        verdict = {"status": "blocked",
+                                   "summary": f"{verdict.get('summary', '')} | check: {v2.get('summary', '')}"[:1800],
+                                   "question": v2.get("question") or "The check pass flagged issues — see summary."}
+                else:
+                    stage_notes.append(f"check failed to run ({note2[:120]}) — result stands unreviewed")
+            else:
+                stage_notes.append(f"check skipped: {reason}")
     except subprocess.TimeoutExpired:
-        verdict = {"status": "blocked", "summary": "Task exceeded the 60-minute session cap.",
+        verdict = {"status": "blocked", "summary": "A session exceeded its time cap.",
                    "question": "Split this task or raise the cap?"}
     except (OSError, json.JSONDecodeError) as exc:
         verdict["summary"] = f"{type(exc).__name__}: {exc}"[:300]
+    if stage_notes:
+        verdict["summary"] = (str(verdict.get("summary", "")) + " [" + "; ".join(stage_notes) + "]")[:2000]
 
     status = "done" if verdict.get("status") == "done" else "blocked"
     after = _git_state(project_dir)
@@ -205,13 +318,13 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                                        + f" ⚠ {note} — review, commit or revert before "
                                          f"any other commit in this repo.")
     conn.execute(
-        "UPDATE queue SET status=?, model=?, agent_type=?, verdict=?, question=?, "
+        "UPDATE queue SET status=?, model=?, agent_type=?, weight=?, verdict=?, question=?, "
         "tokens_in=?, tokens_out=?, finished_at=? WHERE id=?",
-        (status, model, agent, verdict.get("summary", "")[:2000],
+        (status, model, agent, weight, str(verdict.get("summary", ""))[:2000],
          (verdict.get("question") or "")[:1000] if status == "blocked" else None,
          tokens_in, tokens_out, utcnow(), task["id"]))
     audit(conn, "overnight", f"task_{status}",
-          f"id={task['id']} model={model} agent={agent or '-'} tokens_out={tokens_out}")
+          f"id={task['id']} model={model} weight={weight} agent={agent or '-'} tokens_out={tokens_out}")
     conn.commit()
 
 
