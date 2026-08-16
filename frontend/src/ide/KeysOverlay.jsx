@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { CLAUDE_TABS } from './claudeRef.js'
 import { useFocusTrap } from './useFocusTrap.js'
 
@@ -26,63 +26,117 @@ export default function KeysOverlay({ open, views, onClose, onSelect }) {
   if (!open) return null
 
   const copy = (text) => {
-    try { navigator.clipboard.writeText(text) } catch { /* clipboard unavailable */ }
+    try {
+      navigator.clipboard.writeText(text)
+    } catch {
+      /* clipboard unavailable */
+    }
     setCopied(text)
     setTimeout(() => setCopied(null), 1100)
   }
   const match = ([k, d]) => !q || (k + ' ' + d).toLowerCase().includes(q.toLowerCase())
   const activeTab = CLAUDE_TABS.find((t) => t.key === tab)
 
-  const gotoTab = (key) => { setTab(key); tabRefs.current[key]?.focus() }
+  const gotoTab = (key) => {
+    setTab(key)
+    tabRefs.current[key]?.focus()
+  }
   const onTabsKeyDown = (e) => {
     const idx = TAB_KEYS.indexOf(tab)
-    if (e.key === 'ArrowRight') { e.preventDefault(); gotoTab(TAB_KEYS[(idx + 1) % TAB_KEYS.length]) }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); gotoTab(TAB_KEYS[(idx - 1 + TAB_KEYS.length) % TAB_KEYS.length]) }
-    else if (e.key === 'Home') { e.preventDefault(); gotoTab(TAB_KEYS[0]) }
-    else if (e.key === 'End') { e.preventDefault(); gotoTab(TAB_KEYS[TAB_KEYS.length - 1]) }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      gotoTab(TAB_KEYS[(idx + 1) % TAB_KEYS.length])
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      gotoTab(TAB_KEYS[(idx - 1 + TAB_KEYS.length) % TAB_KEYS.length])
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      gotoTab(TAB_KEYS[0])
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      gotoTab(TAB_KEYS[TAB_KEYS.length - 1])
+    }
   }
 
   return (
     <div className="keys-backdrop" onClick={onClose}>
-      <div className="keys-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label="Quick keys"
-        onClick={(e) => e.stopPropagation()}>
+      <div
+        className="keys-panel"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Quick keys"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="keys-headrow">
-          <div className="keys-head" id="keys-head">quick keys</div>
+          <div className="keys-head" id="keys-head">
+            quick keys
+          </div>
           <div className="keys-tabs" role="tablist" aria-labelledby="keys-head" onKeyDown={onTabsKeyDown}>
             {TAB_KEYS.map((key) => (
-              <button key={key} ref={(el) => { tabRefs.current[key] = el }}
-                role="tab" id={`keys-tab-${key}`} aria-selected={tab === key}
-                aria-controls="keys-tabpanel" tabIndex={tab === key ? 0 : -1}
-                className={tab === key ? 'on' : ''} data-autofocus={tab === key ? true : undefined}
-                onClick={() => setTab(key)}>{TAB_LABEL[key]}</button>
+              <button
+                key={key}
+                ref={(el) => {
+                  tabRefs.current[key] = el
+                }}
+                role="tab"
+                id={`keys-tab-${key}`}
+                aria-selected={tab === key}
+                aria-controls="keys-tabpanel"
+                tabIndex={tab === key ? 0 : -1}
+                className={tab === key ? 'on' : ''}
+                data-autofocus={tab === key ? true : undefined}
+                onClick={() => setTab(key)}
+              >
+                {TAB_LABEL[key]}
+              </button>
             ))}
           </div>
         </div>
         {tab !== 'app' && (
-          <input className="keys-filter" value={q} placeholder="filter…" autoFocus
+          <input
+            className="keys-filter"
+            value={q}
+            placeholder="filter…"
+            autoFocus
             aria-label={`Filter ${TAB_LABEL[tab]} reference`}
-            onChange={(e) => setQ(e.target.value)} />
+            onChange={(e) => setQ(e.target.value)}
+          />
         )}
         <div id="keys-tabpanel" role="tabpanel" aria-labelledby={`keys-tab-${tab}`}>
           {tab === 'app' ? (
             <div className="keys-cols">
               <div>
-                <div className="keys-sec" id="keys-sec-global">global</div>
+                <div className="keys-sec" id="keys-sec-global">
+                  global
+                </div>
                 <div role="list" aria-labelledby="keys-sec-global">
                   {GLOBAL_KEYS.map(([k, desc]) => (
                     <div className="keys-row" role="listitem" key={k}>
-                      <kbd>{k}</kbd><span>{desc}</span>
+                      <kbd>{k}</kbd>
+                      <span>{desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
               <div>
-                <div className="keys-sec" id="keys-sec-views">views</div>
+                <div className="keys-sec" id="keys-sec-views">
+                  views
+                </div>
                 <div role="list" aria-labelledby="keys-sec-views">
                   {views.map(([key, label], i) => (
-                    <button type="button" className="keys-row link" key={key}
-                      onClick={() => { onSelect(key); onClose() }}>
-                      <kbd>{(i + 1) % 10}</kbd><span>{label}</span>
+                    <button
+                      type="button"
+                      className="keys-row link"
+                      key={key}
+                      onClick={() => {
+                        onSelect(key)
+                        onClose()
+                      }}
+                    >
+                      {/* only the first ten views carry digit shortcuts */}
+                      <kbd>{i < 10 ? (i + 1) % 10 : '·'}</kbd>
+                      <span>{label}</span>
                     </button>
                   ))}
                 </div>
@@ -91,15 +145,23 @@ export default function KeysOverlay({ open, views, onClose, onSelect }) {
           ) : (
             <div className="keys-scroll">
               {activeTab.items.filter(match).map(([k, desc]) => (
-                <button type="button" className="keys-row link wide" key={k} title="click to copy"
-                  onClick={() => copy(k)}>
-                  <kbd>{k}</kbd><span>{desc}</span>
-                  {copied === k && <em className="keys-copied" role="status" aria-live="polite">copied ✓</em>}
+                <button
+                  type="button"
+                  className="keys-row link wide"
+                  key={k}
+                  title="click to copy"
+                  onClick={() => copy(k)}
+                >
+                  <kbd>{k}</kbd>
+                  <span>{desc}</span>
+                  {copied === k && (
+                    <em className="keys-copied" role="status" aria-live="polite">
+                      copied ✓
+                    </em>
+                  )}
                 </button>
               ))}
-              {activeTab.items.filter(match).length === 0 && (
-                <div className="keys-empty">nothing matches "{q}"</div>
-              )}
+              {activeTab.items.filter(match).length === 0 && <div className="keys-empty">nothing matches "{q}"</div>}
             </div>
           )}
         </div>

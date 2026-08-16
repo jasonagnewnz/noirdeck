@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, useData } from '../api.js'
-import { getJSON } from '../ide/ideApi.js'
-import TermPane from '../ide/TermPane.jsx'
+import ActionsBar from '../ide/ActionsBar.jsx'
 import FileExplorer from '../ide/FileExplorer.jsx'
 import FileViewer from '../ide/FileViewer.jsx'
-import ActionsBar from '../ide/ActionsBar.jsx'
+import { getJSON } from '../ide/ideApi.js'
+import TermPane from '../ide/TermPane.jsx'
 
 export default function Workspace({ launch }) {
   const { data: fleet } = useData('/fleet', 0)
@@ -24,13 +24,19 @@ export default function Workspace({ launch }) {
   const refresh = async () => {
     const rows = await api('/workspace')
     setSessions(rows)
-    try { setPaused(await api('/workspace/paused')) } catch { setPaused([]) }
+    try {
+      setPaused(await api('/workspace/paused'))
+    } catch {
+      setPaused([])
+    }
     return rows
   }
   // on load, pick up an existing session's project so the IDE shell (explorer,
   // actions strip) has context even before the user touches the picker
   useEffect(() => {
-    refresh().then((rows) => { if (rows.length && !project) setProject(rows[0].project) })
+    refresh().then((rows) => {
+      if (rows.length && !project) setProject(rows[0].project)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -41,7 +47,10 @@ export default function Workspace({ launch }) {
       await refresh()
       setActive(r.id)
       return r
-    } catch (e) { setErr(e.message); throw e }
+    } catch (e) {
+      setErr(e.message)
+      throw e
+    }
   }
 
   // resume handed over from the Sessions view
@@ -55,7 +64,11 @@ export default function Workspace({ launch }) {
   }, [launch])
 
   const stop = async (sid) => {
-    try { await fetch(`/api/workspace/${sid}`, { method: 'DELETE' }) } catch { /* gone */ }
+    try {
+      await fetch(`/api/workspace/${sid}`, { method: 'DELETE' })
+    } catch {
+      /* gone */
+    }
     await refresh()
     if (active === sid) setActive(null)
   }
@@ -68,7 +81,9 @@ export default function Workspace({ launch }) {
       await api(`/workspace/${sid}/pause`, { body: {} })
       await refresh()
       if (active === sid) setActive(null)
-    } catch (e) { setErr(e.message) }
+    } catch (e) {
+      setErr(e.message)
+    }
   }
 
   const resumePaused = async (p) => {
@@ -78,7 +93,9 @@ export default function Workspace({ launch }) {
       setProject(p.project)
       await refresh()
       setActive(r.id)
-    } catch (e) { setErr(e.message) }
+    } catch (e) {
+      setErr(e.message)
+    }
   }
 
   const createRepo = async () => {
@@ -87,12 +104,17 @@ export default function Workspace({ launch }) {
       await api('/workspace/repo', { body: { name: newRepo } })
       setProject(newRepo)
       setNewRepo('')
-    } catch (e) { setErr(e.message) }
+    } catch (e) {
+      setErr(e.message)
+    }
   }
 
   const openFileTab = async (entry) => {
     const id = `file:${project}:${entry.path}`
-    if (fileTabs.some((t) => t.id === id)) { setActive(id); return }
+    if (fileTabs.some((t) => t.id === id)) {
+      setActive(id)
+      return
+    }
     setFileTabs((t) => [...t, { id, kind: 'file', project, path: entry.path, name: entry.name, loading: true }])
     setActive(id)
     try {
@@ -126,7 +148,10 @@ export default function Workspace({ launch }) {
     setErr(null)
     try {
       await api('/queue', { body: { project, title: action.label, prompt: action.overnight } })
-    } catch (e) { setErr(e.message); throw e }
+    } catch (e) {
+      setErr(e.message)
+      throw e
+    }
   }
 
   const activeSession = sessions.find((s) => s.id === active)
@@ -136,35 +161,61 @@ export default function Workspace({ launch }) {
     <>
       <div className="viewhead">
         <h1>Workspace</h1>
-        <p>Real Claude Code sessions inside the platform — same auth, same skills, same memory.
-          "With briefing" starts the session already knowing the project state.</p>
+        <p>
+          Real Claude Code sessions inside the platform — same auth, same skills, same memory. "With briefing" starts
+          the session already knowing the project state.
+        </p>
       </div>
 
       <div className="panel">
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ minWidth: 240 }}>
-            <label className="fl" htmlFor="ws-project">Project</label>
+            <label className="fl" htmlFor="ws-project">
+              Project
+            </label>
             <select id="ws-project" value={project} onChange={(e) => setProject(e.target.value)}>
               <option value="">— choose repo —</option>
-              {(fleet || []).map((f) => <option key={f.path} value={f.name}>{f.name}</option>)}
+              {(fleet || []).map((f) => (
+                <option key={f.path} value={f.name}>
+                  {f.name}
+                </option>
+              ))}
             </select>
           </div>
           <label htmlFor="ws-briefing" style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 7 }}>
-            <input id="ws-briefing" type="checkbox" style={{ width: 'auto' }} checked={briefing}
-              onChange={(e) => setBriefing(e.target.checked)} />
+            <input
+              id="ws-briefing"
+              type="checkbox"
+              style={{ width: 'auto' }}
+              checked={briefing}
+              onChange={(e) => setBriefing(e.target.checked)}
+            />
             <span className="dim">with briefing</span>
           </label>
-          <button className="act" disabled={!project}
-            onClick={() => start({ project, briefing })}>launch session</button>
+          <button className="act" disabled={!project} onClick={() => start({ project, briefing })}>
+            launch session
+          </button>
           <span className="faint">or</span>
           <div style={{ minWidth: 200 }}>
-            <label className="fl" htmlFor="ws-new-repo">New repo</label>
-            <input id="ws-new-repo" value={newRepo} placeholder="name-of-new-project"
-              onChange={(e) => setNewRepo(e.target.value)} />
+            <label className="fl" htmlFor="ws-new-repo">
+              New repo
+            </label>
+            <input
+              id="ws-new-repo"
+              value={newRepo}
+              placeholder="name-of-new-project"
+              onChange={(e) => setNewRepo(e.target.value)}
+            />
           </div>
-          <button className="act ghost" disabled={!newRepo} onClick={createRepo}>git init</button>
+          <button className="act ghost" disabled={!newRepo} onClick={createRepo}>
+            git init
+          </button>
         </div>
-        {err && <div className="err" role="alert">{err}</div>}
+        {err && (
+          <div className="err" role="alert">
+            {err}
+          </div>
+        )}
         {paused.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <span className="dim">paused — survives shutdowns, resume any time: </span>
@@ -172,7 +223,9 @@ export default function Workspace({ launch }) {
               <span key={p.id} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', marginRight: 10 }}>
                 <span className="chip">{p.project}</span>
                 <span className="faint">{(p.paused_at || '').slice(0, 16)}</span>
-                <button className="act ghost sm" onClick={() => resumePaused(p)}>resume</button>
+                <button className="act ghost sm" onClick={() => resumePaused(p)}>
+                  resume
+                </button>
               </span>
             ))}
           </div>
@@ -181,8 +234,12 @@ export default function Workspace({ launch }) {
 
       {project ? (
         <div className="ide">
-          <FileExplorer project={project} onOpenFile={openFileTab}
-            collapsed={explorerCollapsed} onToggleCollapse={() => setExplorerCollapsed((v) => !v)} />
+          <FileExplorer
+            project={project}
+            onOpenFile={openFileTab}
+            collapsed={explorerCollapsed}
+            onToggleCollapse={() => setExplorerCollapsed((v) => !v)}
+          />
           <div className="ide-main">
             <ActionsBar project={project} onLive={startLiveAction} onOvernight={queueOvernight} busy={actionBusy} />
 
@@ -192,45 +249,86 @@ export default function Workspace({ launch }) {
                   // two sibling buttons, not a clickable span wrapping a nested button —
                   // <button> cannot contain another interactive element
                   <span key={s.id} className={`termtab ${active === s.id ? 'on' : ''}`}>
-                    <button type="button" className="termtab-select"
+                    <button
+                      type="button"
+                      className="termtab-select"
                       aria-current={active === s.id ? 'true' : undefined}
-                      onClick={() => { setActive(s.id); setProject(s.project) }}>
-                      {s.project}{s.resumed ? ' (resumed)' : ''}
+                      onClick={() => {
+                        setActive(s.id)
+                        setProject(s.project)
+                      }}
+                    >
+                      {s.project}
+                      {s.resumed ? ' (resumed)' : ''}
                     </button>
-                    <button className="x" title="pause — safe to shut down, resume later"
+                    <button
+                      className="x"
+                      title="pause — safe to shut down, resume later"
                       aria-label={`Pause session: ${s.project} (survives shutdown)`}
-                      onClick={(e) => { e.stopPropagation(); pause(s.id) }}>⏸</button>
-                    <button className="x" aria-label={`Close session tab: ${s.project}`}
-                      onClick={(e) => { e.stopPropagation(); stop(s.id) }}>×</button>
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        pause(s.id)
+                      }}
+                    >
+                      ⏸
+                    </button>
+                    <button
+                      className="x"
+                      aria-label={`Close session tab: ${s.project}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        stop(s.id)
+                      }}
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
                 {fileTabs.map((t) => (
                   <span key={t.id} className={`termtab filetab ${active === t.id ? 'on' : ''}`}>
-                    <button type="button" className="termtab-select" title={`${t.project}/${t.path}`}
+                    <button
+                      type="button"
+                      className="termtab-select"
+                      title={`${t.project}/${t.path}`}
                       aria-current={active === t.id ? 'true' : undefined}
-                      onClick={() => setActive(t.id)}>
+                      onClick={() => setActive(t.id)}
+                    >
                       {t.name}
                     </button>
-                    <button className="x" aria-label={`Close file tab: ${t.name}`}
-                      onClick={(e) => { e.stopPropagation(); closeFileTab(t.id) }}>×</button>
+                    <button
+                      className="x"
+                      aria-label={`Close file tab: ${t.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        closeFileTab(t.id)
+                      }}
+                    >
+                      ×
+                    </button>
                   </span>
                 ))}
               </div>
             )}
 
             <div className="tabbody">
-              {activeSession && <TermPane key={activeSession.id} sid={activeSession.id} injectPrompt={injections[activeSession.id]} />}
+              {activeSession && (
+                <TermPane key={activeSession.id} sid={activeSession.id} injectPrompt={injections[activeSession.id]} />
+              )}
               {activeFile && <FileViewer key={activeFile.id} tab={activeFile} />}
               {!activeSession && !activeFile && (
                 <div className="tabbody-empty">
-                  <div className="faint">no tab open — launch a session above, run an action, or open a file from the explorer</div>
+                  <div className="faint">
+                    no tab open — launch a session above, run an action, or open a file from the explorer
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
       ) : (
-        <div className="panel"><div className="faint">choose a project above to open its explorer and sessions</div></div>
+        <div className="panel">
+          <div className="faint">choose a project above to open its explorer and sessions</div>
+        </div>
       )}
     </>
   )

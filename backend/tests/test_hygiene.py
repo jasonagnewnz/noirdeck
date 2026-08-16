@@ -27,8 +27,7 @@ def test_scan_finds_dupes_tiny_and_dangling(mem):
     assert ["dup_a.md", "dup_b.md"] in r["exact_dupes"]
     assert any({p["a"], p["b"]} == {"near_a.md", "near_b.md"} for p in r["near_dupes"])
     assert any(t["file"] == "tiny.md" for t in r["tiny"])
-    assert any(dl["file"] == "linker.md" and dl["links"] == ["does_not_exist"]
-               for dl in r["dangling_links"])
+    assert any(dl["file"] == "linker.md" and dl["links"] == ["does_not_exist"] for dl in r["dangling_links"])
     # dup_a resolves as a real link target — must NOT be dangling
     assert all("dup_a" not in dl["links"] for dl in r["dangling_links"])
 

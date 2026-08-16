@@ -42,6 +42,7 @@ def test_pty_roundtrip_and_reap(projects):
         term.resize(120, 40)  # no crash on a finished/finishing pty is acceptable
         mgr.reap()
         assert mgr.listing() == []
+
     asyncio.run(run())
 
 
@@ -66,6 +67,7 @@ def test_interactive_write(projects):
                 break
             await asyncio.sleep(0.1)
         assert not term.alive()
+
     asyncio.run(run())
 
 
@@ -78,6 +80,7 @@ def test_session_cap(projects):
             mgr.start("demo", argv_override=["sleep", "5"])
         for sid in list(mgr.sessions):
             mgr.stop(sid)
+
     asyncio.run(run())
 
 
@@ -94,7 +97,9 @@ def test_init_repo(projects):
 def test_latest_transcript_session_id(tmp_path):
     import os
     import time
+
     from app.workspace import latest_transcript_session_id
+
     claude = tmp_path / "claude"
     cwd = tmp_path / "projects" / "demo"
     ns = claude / "projects" / str(cwd).replace("/", "-")
@@ -117,6 +122,7 @@ def test_latest_transcript_session_id(tmp_path):
 
 def test_continue_last_builds_continue_argv(projects, monkeypatch):
     import app.workspace as ws
+
     captured = {}
 
     class FakeTerm:
@@ -124,8 +130,10 @@ def test_continue_last_builds_continue_argv(projects, monkeypatch):
             captured["argv"] = argv
             self.project, self.cwd, self.argv = project, cwd, argv
             self.id = "fake"
+
         def start(self):
             pass
+
     monkeypatch.setattr(ws, "TermSession", FakeTerm)
     monkeypatch.setattr(ws, "claude_bin", lambda: "claude")
     mgr = WorkspaceManager(projects)

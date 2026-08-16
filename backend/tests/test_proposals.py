@@ -16,7 +16,9 @@ def conn(tmp_path):
 def _insert(conn, target):
     cur = conn.execute(
         "INSERT INTO proposals (kind,title,body,target_path,status,created_at) "
-        "VALUES ('skill','t','BODY',?, 'proposed',?)", (target, utcnow()))
+        "VALUES ('skill','t','BODY',?, 'proposed',?)",
+        (target, utcnow()),
+    )
     conn.commit()
     return cur.lastrowid
 

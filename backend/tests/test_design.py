@@ -1,6 +1,5 @@
 import json
 import subprocess
-import threading
 import time
 
 import pytest
@@ -11,15 +10,17 @@ from app.design import DesignStudio
 from app.workspace import WorkspaceError
 
 # Writes the mock file DesignStudio points at via $DESIGN_OUT, then a done verdict.
-SUCCESS_STUB = ["bash", "-c",
-                'echo "<html><body>mock</body></html>" > "$DESIGN_OUT"; '
-                'echo \'VERDICT: {"status":"done","summary":"stub direction"}\'; #']
+SUCCESS_STUB = [
+    "bash",
+    "-c",
+    'echo "<html><body>mock</body></html>" > "$DESIGN_OUT"; '
+    'echo \'VERDICT: {"status":"done","summary":"stub direction"}\'; #',
+]
 
 # Prints a done verdict but never touches $DESIGN_OUT — used both to simulate a
 # mock-writing failure (propose) and as a harmless stand-in for the apply session
 # (apply never checks for a file, only the verdict).
-VERDICT_ONLY_STUB = ["bash", "-c",
-                     'echo \'VERDICT: {"status":"done","summary":"stub direction"}\'; #']
+VERDICT_ONLY_STUB = ["bash", "-c", 'echo \'VERDICT: {"status":"done","summary":"stub direction"}\'; #']
 
 
 @pytest.fixture

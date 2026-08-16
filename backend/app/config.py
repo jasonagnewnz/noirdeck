@@ -1,4 +1,5 @@
 """Environment-driven settings. Fails closed on a missing Claude dir."""
+
 from __future__ import annotations
 
 import os
@@ -16,8 +17,7 @@ def _path(env: str, default: str) -> Path:
     return Path(os.environ.get(env, default)).expanduser()
 
 
-_MODEL_DEFAULTS = {"think": "claude-fable-5", "build": "claude-sonnet-5",
-                   "review": "claude-opus-4-8"}
+_MODEL_DEFAULTS = {"think": "claude-fable-5", "build": "claude-sonnet-5", "review": "claude-opus-4-8"}
 
 
 def model(role: str) -> str:

@@ -1,4 +1,5 @@
 """CLI entry for the nightly timer: `python -m app.miner.cli [heuristic|nightly]`."""
+
 from __future__ import annotations
 
 import json

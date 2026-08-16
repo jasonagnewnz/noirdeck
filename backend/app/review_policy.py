@@ -6,6 +6,7 @@ anyway (fail-safe), and security-flagged paths ALWAYS review regardless of
 size. Skipping is only allowed when the change is measurably small, fully
 tracked, and the deterministic QA gates found nothing blocking — the exact
 territory where a paid review pass reliably finds nothing the gates didn't."""
+
 from __future__ import annotations
 
 import re
@@ -15,13 +16,16 @@ from pathlib import Path
 # Paths where a small diff can still be a large mistake.
 SECURITY_PATH = re.compile(
     r"(auth|guard|secret|token|crypt|passw|permission|proposal|tenan|session"
-    r"|login|acl|sandbox|redact|arming)", re.I)
+    r"|login|acl|sandbox|redact|arming)",
+    re.I,
+)
 
 SMALL_CHANGE_LINES = 40
 
 
-def review_needed(lines_changed: int, files: list[str], gates_overall: str,
-                  untracked: list[str] | None = None) -> tuple[bool, str]:
+def review_needed(
+    lines_changed: int, files: list[str], gates_overall: str, untracked: list[str] | None = None
+) -> tuple[bool, str]:
     """(needed, reason). Reasons are operator-facing — they appear in phase logs."""
     if untracked:
         return True, f"{len(untracked)} untracked file(s) present — content unmeasured, reviewing"
@@ -31,15 +35,16 @@ def review_needed(lines_changed: int, files: list[str], gates_overall: str,
     if gates_overall == "BLOCKER":
         return True, "a deterministic QA gate is at BLOCKER"
     if lines_changed <= SMALL_CHANGE_LINES:
-        return False, (f"small change ({lines_changed} lines), no security paths, "
-                       f"gates {gates_overall} — deterministic rule, no model review")
+        return False, (
+            f"small change ({lines_changed} lines), no security paths, "
+            f"gates {gates_overall} — deterministic rule, no model review"
+        )
     return True, f"substantial change ({lines_changed} lines)"
 
 
 def _git(repo: Path, *args: str) -> tuple[int, str]:
     try:
-        r = subprocess.run(["git", "-C", str(repo), *args],
-                           capture_output=True, text=True, timeout=20)
+        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=20)
         return r.returncode, r.stdout
     except (subprocess.TimeoutExpired, OSError):
         return 1, ""

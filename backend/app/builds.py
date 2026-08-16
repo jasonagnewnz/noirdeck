@@ -10,6 +10,7 @@ Pipeline: plan → build → test-until-green → adversarial review → docs & 
 - Each headless phase inherits the machine's Claude auth and the global CLAUDE.md,
   so estate governance applies inside every phase automatically.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,39 +43,59 @@ GUARDRAILS = """
 from .config import model as _model  # noqa: E402
 
 PHASES: list[tuple[str, str, int, str]] = [
-    ("plan", _model("think"), 25,
-     "PHASE 1 — PLAN. Design this software before any product code: write MASTER_PLAN.md "
-     "(problem, decisions, data model, security model, assumptions, definition of done), "
-     "docs/ARCHITECTURE.md, and scaffold the repo skeleton (.gitignore covering .env*, "
-     ".env.example if config is needed, test harness wiring). Choose boring, operable "
-     "technology. Commit when done."),
-    ("build", _model("build"), 80,
-     "PHASE 2 — BUILD. Implement the software per MASTER_PLAN.md, small verifiable "
-     "increments, tests alongside code. Fail-closed on missing config. If the software "
-     "has ANY user interface, it must lead with design: read "
-     "~/.claude/skills/frontend-design/SKILL.md if present and commit to one bold, "
-     "coherent, enterprise-grade aesthetic (distinctive typography, committed palette "
-     "via CSS variables, intentional composition, a few high-impact motion moments) — "
-     "never default-looking, never purple-gradient-on-white AI slop. Commit when done."),
-    ("test", _model("build"), 50,
-     "PHASE 3 — TEST. Run the full test suite and make it genuinely green: fix the code, "
-     "never weaken or delete tests. Add missing tests for error handling, edge cases, and "
-     "any security boundary. Actually execute the software once end-to-end and fix what "
-     "breaks. Commit when done."),
-    ("review", _model("review"), 90,
-     "PHASE 4 — ADVERSARIAL REVIEW. Review the whole repo as a hostile senior reviewer: "
-     "security (input validation, secrets, injection, authz), correctness, data handling, "
-     "operability — and design: if there is a UI, judge it as a demanding design director "
-     "(would this pass as a polished enterprise product, or does it look generated?). "
-     "FIX everything you find; re-run tests after fixes. Commit when done."),
-    ("finish", _model("build"), 60,
-     "PHASE 5 — FINISH. Complete README.md (what it is, how to run it, how to verify it "
-     "works), docs/RUNBOOK.md, and a final MASTER_PLAN.md status section listing all "
-     "assumptions made and anything the owner should decide before shipping. Then verify "
-     "BOUNDED: run the test suite once and one real end-to-end invocation; do NOT build "
-     "fresh venvs/clean checkouts — that verification belongs to the owner's go-live. "
-     "If deliverables already exist from a prior attempt, confirm rather than redo. "
-     "Commit when done."),
+    (
+        "plan",
+        _model("think"),
+        25,
+        "PHASE 1 — PLAN. Design this software before any product code: write MASTER_PLAN.md "
+        "(problem, decisions, data model, security model, assumptions, definition of done), "
+        "docs/ARCHITECTURE.md, and scaffold the repo skeleton (.gitignore covering .env*, "
+        ".env.example if config is needed, test harness wiring). Choose boring, operable "
+        "technology. Commit when done.",
+    ),
+    (
+        "build",
+        _model("build"),
+        80,
+        "PHASE 2 — BUILD. Implement the software per MASTER_PLAN.md, small verifiable "
+        "increments, tests alongside code. Fail-closed on missing config. If the software "
+        "has ANY user interface, it must lead with design: read "
+        "~/.claude/skills/frontend-design/SKILL.md if present and commit to one bold, "
+        "coherent, enterprise-grade aesthetic (distinctive typography, committed palette "
+        "via CSS variables, intentional composition, a few high-impact motion moments) — "
+        "never default-looking, never purple-gradient-on-white AI slop. Commit when done.",
+    ),
+    (
+        "test",
+        _model("build"),
+        50,
+        "PHASE 3 — TEST. Run the full test suite and make it genuinely green: fix the code, "
+        "never weaken or delete tests. Add missing tests for error handling, edge cases, and "
+        "any security boundary. Actually execute the software once end-to-end and fix what "
+        "breaks. Commit when done.",
+    ),
+    (
+        "review",
+        _model("review"),
+        90,
+        "PHASE 4 — ADVERSARIAL REVIEW. Review the whole repo as a hostile senior reviewer: "
+        "security (input validation, secrets, injection, authz), correctness, data handling, "
+        "operability — and design: if there is a UI, judge it as a demanding design director "
+        "(would this pass as a polished enterprise product, or does it look generated?). "
+        "FIX everything you find; re-run tests after fixes. Commit when done.",
+    ),
+    (
+        "finish",
+        _model("build"),
+        60,
+        "PHASE 5 — FINISH. Complete README.md (what it is, how to run it, how to verify it "
+        "works), docs/RUNBOOK.md, and a final MASTER_PLAN.md status section listing all "
+        "assumptions made and anything the owner should decide before shipping. Then verify "
+        "BOUNDED: run the test suite once and one real end-to-end invocation; do NOT build "
+        "fresh venvs/clean checkouts — that verification belongs to the owner's go-live. "
+        "If deliverables already exist from a prior attempt, confirm rather than redo. "
+        "Commit when done.",
+    ),
 ]
 
 PHASE_TIMEOUT_S = 2400  # 40 min per phase
@@ -115,20 +136,27 @@ class BuildRunner:
         self._update(build_id, log=json.dumps(log))
 
     # --- lifecycle ---
-    def start(self, name: str, prompt: str, gated: bool = False,
-              intake: dict | None = None, acceptance: list | None = None) -> int:
+    def start(
+        self, name: str, prompt: str, gated: bool = False, intake: dict | None = None, acceptance: list | None = None
+    ) -> int:
         target = init_repo(self.settings.projects_dir, name)
         conn = self._db()
         try:
             cur = conn.execute(
                 "INSERT INTO builds (name,path,prompt,status,created_at,gated,intake,acceptance) "
                 "VALUES (?,?,?,'queued',?,?,?,?)",
-                (name, str(target), prompt, utcnow(), int(gated),
-                 json.dumps(intake) if intake else None,
-                 json.dumps(acceptance) if acceptance else None))
+                (
+                    name,
+                    str(target),
+                    prompt,
+                    utcnow(),
+                    int(gated),
+                    json.dumps(intake) if intake else None,
+                    json.dumps(acceptance) if acceptance else None,
+                ),
+            )
             build_id = cur.lastrowid
-            audit(conn, "operator", "build_started",
-                  f"id={build_id} name={name} gated={int(gated)}")
+            audit(conn, "operator", "build_started", f"id={build_id} name={name} gated={int(gated)}")
             conn.commit()
         finally:
             conn.close()
@@ -150,11 +178,11 @@ class BuildRunner:
             elif action == "revise":
                 if not feedback.strip():
                     raise ValueError("revise requires feedback")
-                audit(conn, "operator", "plan_revision_requested",
-                      f"id={build_id} feedback={feedback[:120]}")
-                new_prompt = (row["prompt"] +
-                              f"\n\nOPERATOR FEEDBACK ON YOUR PREVIOUS PLAN (address it):"
-                              f"\n{feedback.strip()[:2000]}")
+                audit(conn, "operator", "plan_revision_requested", f"id={build_id} feedback={feedback[:120]}")
+                new_prompt = (
+                    row["prompt"] + f"\n\nOPERATOR FEEDBACK ON YOUR PREVIOUS PLAN (address it):"
+                    f"\n{feedback.strip()[:2000]}"
+                )
                 self._update(build_id, prompt=new_prompt, status="running", plan_summary=None)
                 threading.Thread(target=self._run, args=(build_id, 0), daemon=True).start()
             else:
@@ -184,17 +212,31 @@ class BuildRunner:
             return self.claude_argv_base + [prompt]
         from .guard import guard_settings_args
         from .workspace import claude_bin
-        return [claude_bin(), "-p", prompt, "--output-format", "json", "--model", model,
-                "--max-turns", str(max_turns), "--permission-mode", "acceptEdits",
-                *guard_settings_args()]
+
+        return [
+            claude_bin(),
+            "-p",
+            prompt,
+            "--output-format",
+            "json",
+            "--model",
+            model,
+            "--max-turns",
+            str(max_turns),
+            "--permission-mode",
+            "acceptEdits",
+            *guard_settings_args(),
+        ]
 
     def _run_phase(self, build_id: int, cwd: Path, argv: list[str]) -> tuple[dict, int]:
         import os
         import signal as _signal
+
         # own process group: phase runners spawn grandchildren that would otherwise
         # survive a kill and hold the stdout pipe open (hung a real build)
-        proc = subprocess.Popen(argv, cwd=str(cwd), stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, text=True, start_new_session=True)
+        proc = subprocess.Popen(
+            argv, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True
+        )
         self.procs[build_id] = proc
         try:
             out, err = proc.communicate(timeout=PHASE_TIMEOUT_S)
@@ -204,8 +246,11 @@ class BuildRunner:
             except ProcessLookupError:
                 pass
             proc.communicate()  # reap + close pipes
-            return {"status": "blocked", "summary": "phase exceeded 40-minute cap",
-                    "question": "Phase timed out — resume the build or split the brief?"}, 0
+            return {
+                "status": "blocked",
+                "summary": "phase exceeded 40-minute cap",
+                "question": "Phase timed out — resume the build or split the brief?",
+            }, 0
         finally:
             self.procs.pop(build_id, None)
         try:
@@ -225,12 +270,17 @@ class BuildRunner:
             except (json.JSONDecodeError, ValueError):
                 pass
             if result_text or subtype:
-                return {"status": "blocked",
-                        "summary": f"phase ended early ({subtype or f'exit {proc.returncode}'}): "
-                                   f"{(result_text or '')[-300:]}",
-                        "question": "Phase hit a session limit — resume the build to continue."}, tokens or 0
-            return {"status": "blocked", "summary": (err or "claude exited nonzero")[-400:],
-                    "question": "Phase failed to run — see summary."}, 0
+                return {
+                    "status": "blocked",
+                    "summary": f"phase ended early ({subtype or f'exit {proc.returncode}'}): "
+                    f"{(result_text or '')[-300:]}",
+                    "question": "Phase hit a session limit — resume the build to continue.",
+                }, tokens or 0
+            return {
+                "status": "blocked",
+                "summary": (err or "claude exited nonzero")[-400:],
+                "question": "Phase failed to run — see summary.",
+            }, 0
         if result_text is not None:
             return _parse_verdict(result_text), tokens or 0
         # test stubs / plain-text output: parse the verdict straight from stdout
@@ -242,14 +292,17 @@ class BuildRunner:
         try:
             self._run_inner(build_id, start_idx)
         except Exception as exc:  # noqa: BLE001
-            self._update(build_id, status="blocked", finished_at=utcnow(),
-                         question=f"Pipeline crashed: {type(exc).__name__}: {exc}"[:600])
+            self._update(
+                build_id,
+                status="blocked",
+                finished_at=utcnow(),
+                question=f"Pipeline crashed: {type(exc).__name__}: {exc}"[:600],
+            )
 
     def resume(self, build_id: int) -> None:
         row = self._row(build_id)
         if not row or row["status"] not in ("blocked", "cancelled", "attention"):
-            raise ValueError(f"build {build_id} is not resumable "
-                             f"({row['status'] if row else 'missing'})")
+            raise ValueError(f"build {build_id} is not resumable ({row['status'] if row else 'missing'})")
         log = json.loads(row["log"] or "[]")
         # DISTINCT phases: a revised plan logs 'plan' done twice — counting entries
         # would skip a real phase on resume
@@ -265,7 +318,8 @@ class BuildRunner:
 
     def _run_inner(self, build_id: int, start_idx: int = 0) -> None:
         from .context_pack import context_pack
-        from .review_policy import diff_since, head as git_head, review_needed
+        from .review_policy import diff_since, review_needed
+        from .review_policy import head as git_head
 
         row = self._row(build_id)
         cwd = Path(row["path"])
@@ -294,43 +348,59 @@ class BuildRunner:
                 stats = diff_since(cwd, baseline_head)
                 if stats is not None:
                     needed, reason = review_needed(
-                        stats["lines"], stats["files"], qa_before["overall"], stats["untracked"])
+                        stats["lines"], stats["files"], qa_before["overall"], stats["untracked"]
+                    )
                     if not needed:
                         # the deterministic gates already judged this change —
                         # a paid review pass can't earn its tokens here
-                        self._append_log(build_id, {
-                            "phase": key, "model": "(skipped)", "seconds": 0,
-                            "status": "done", "summary": f"review skipped: {reason}",
-                            "qa_overall": qa_before["overall"], "tokens": 0})
+                        self._append_log(
+                            build_id,
+                            {
+                                "phase": key,
+                                "model": "(skipped)",
+                                "seconds": 0,
+                                "status": "done",
+                                "summary": f"review skipped: {reason}",
+                                "qa_overall": qa_before["overall"],
+                                "tokens": 0,
+                            },
+                        )
                         prior_summary = f"review skipped: {reason}"
                         continue
 
-            gate_feedback = "; ".join(
-                f"{g['id']}: {g['evidence']}" for g in qa_before["gates"]
-                if g["verdict"] != "PASS") or "all gates pass"
+            gate_feedback = (
+                "; ".join(f"{g['id']}: {g['evidence']}" for g in qa_before["gates"] if g["verdict"] != "PASS")
+                or "all gates pass"
+            )
             pack = context_pack(cwd, self.settings)
             phase_prompt = (
                 f"You are one phase of an unattended build pipeline.\n\n"
-                f"THE FULL BUILD BRIEF:\n{full_prompt}\n\n"
-                + (f"{pack}\n\n" if pack else "")
-                + f"{instruction}\n\n"
+                f"THE FULL BUILD BRIEF:\n{full_prompt}\n\n" + (f"{pack}\n\n" if pack else "") + f"{instruction}\n\n"
                 f"Previous phase summary: {prior_summary or 'none — this is the first phase'}\n"
                 f"Objective QA gate state before this phase: {gate_feedback}\n"
-                f"{GUARDRAILS}")
+                f"{GUARDRAILS}"
+            )
             t0 = time.monotonic()
-            verdict, tokens = self._run_phase(
-                build_id, cwd, self._phase_argv(model, max_turns, phase_prompt))
+            verdict, tokens = self._run_phase(build_id, cwd, self._phase_argv(model, max_turns, phase_prompt))
             total_tokens += tokens
             qa_after = evaluate_project(cwd)
-            self._append_log(build_id, {
-                "phase": key, "model": model, "seconds": round(time.monotonic() - t0),
-                "status": verdict.get("status"), "summary": str(verdict.get("summary", ""))[:500],
-                "qa_overall": qa_after["overall"], "tokens": tokens,
-            })
+            self._append_log(
+                build_id,
+                {
+                    "phase": key,
+                    "model": model,
+                    "seconds": round(time.monotonic() - t0),
+                    "status": verdict.get("status"),
+                    "summary": str(verdict.get("summary", ""))[:500],
+                    "qa_overall": qa_after["overall"],
+                    "tokens": tokens,
+                },
+            )
             self._update(build_id, tokens_out=total_tokens)
             if verdict.get("status") != "done":
-                self._update(build_id, status="blocked", finished_at=utcnow(),
-                             question=str(verdict.get("question", ""))[:800])
+                self._update(
+                    build_id, status="blocked", finished_at=utcnow(), question=str(verdict.get("question", ""))[:800]
+                )
                 return
             prior_summary = str(verdict.get("summary", ""))[:600]
 
@@ -338,6 +408,7 @@ class BuildRunner:
             # for the operator's plain-English approval before any code is written
             if idx == 0 and row["gated"]:
                 from .guided import read_plain_plan
+
                 plan = read_plain_plan(cwd) or prior_summary
                 self._update(build_id, status="awaiting_plan", plan_summary=plan[:4000])
                 conn = self._db()
@@ -350,13 +421,17 @@ class BuildRunner:
         final_qa = evaluate_project(cwd)
         status = "done" if final_qa["overall"] != "BLOCKER" else "attention"
         from .guided import evidence_pack
+
         evidence = evidence_pack(cwd, json.loads(self._row(build_id)["log"] or "[]"))
-        self._update(build_id, status=status, phase="complete", finished_at=utcnow(),
-                     evidence=json.dumps(evidence))
+        self._update(build_id, status=status, phase="complete", finished_at=utcnow(), evidence=json.dumps(evidence))
         conn = self._db()
         try:
-            audit(conn, "builds", "build_finished",
-                  f"id={build_id} status={status} qa={final_qa['overall']} tokens={total_tokens}")
+            audit(
+                conn,
+                "builds",
+                "build_finished",
+                f"id={build_id} status={status} qa={final_qa['overall']} tokens={total_tokens}",
+            )
         finally:
             conn.close()
 
@@ -367,7 +442,8 @@ class BuildRunner:
             conn.execute(
                 "UPDATE builds SET status='blocked', question='Server restarted mid-build — "
                 "review the repo state and start a new build or finish in the Workspace.' "
-                "WHERE status IN ('queued','running')")
+                "WHERE status IN ('queued','running')"
+            )
             conn.commit()
         finally:
             conn.close()

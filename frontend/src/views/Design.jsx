@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, useData } from '../api.js'
 import { usePager } from '../pager.jsx'
+import { ViewHead } from '../ui.jsx'
 
 const LIBRARIES = [
   ['mix', 'Mix it up'],
@@ -32,7 +33,9 @@ export default function Design() {
   const [roundPage, roundPager] = usePager(rounds || [], 5)
 
   const refresh = async () => setRounds(await api('/design'))
-  useEffect(() => { refresh() }, [])
+  useEffect(() => {
+    refresh()
+  }, [])
 
   // Poll only while something is in flight — proposing (mocks rendering) or applying (writing to the repo).
   useEffect(() => {
@@ -43,22 +46,31 @@ export default function Design() {
   }, [rounds])
 
   const propose = async (e) => {
-    e.preventDefault(); setErr(null); setBusy(true)
+    e.preventDefault()
+    setErr(null)
+    setBusy(true)
     try {
       await api('/design', { body: form })
       setForm((f) => ({ ...f, brief: '' }))
       await refresh()
-    } catch (ex) { setErr(ex.message) }
-    finally { setBusy(false) }
+    } catch (ex) {
+      setErr(ex.message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const applyVariant = async (round, key) => {
-    setErr(null); setApplyingId(round.id)
+    setErr(null)
+    setApplyingId(round.id)
     try {
       await api(`/design/${round.id}/apply`, { body: { variant: key } })
       await refresh()
-    } catch (ex) { setErr(ex.message) }
-    finally { setApplyingId(null) }
+    } catch (ex) {
+      setErr(ex.message)
+    } finally {
+      setApplyingId(null)
+    }
   }
 
   const dismiss = async (round) => {
@@ -68,56 +80,106 @@ export default function Design() {
       const r = await fetch(`/api/design/${round.id}`, { method: 'DELETE' })
       if (!r.ok) throw new Error(r.statusText || 'dismiss failed')
       await refresh()
-    } catch (ex) { setErr(ex.message) }
+    } catch (ex) {
+      setErr(ex.message)
+    }
   }
 
   return (
     <>
-      <div className="viewhead">
-        <h1>Design Studio</h1>
-        <p>Propose a few directions, compare live mocks side-by-side, apply the one you like —
-          mocks never touch the repo; apply writes to the real frontend and stops at code-ready.</p>
-      </div>
+      <ViewHead
+        title="Design Studio"
+        helpId="design"
+        hint="Propose a few directions, compare live mocks side-by-side, apply the one you like — mocks never touch the repo; apply writes to the real frontend and stops at code-ready."
+      />
 
       <div className="panel">
         <h2>Propose a round</h2>
+        <p className="sechint">
+          Pick a repo, describe the look you're after, and three visual directions are mocked in parallel as sandboxed
+          previews — compare, then apply the winner or dismiss the round.
+        </p>
         <form onSubmit={propose}>
-          <label className="fl" htmlFor="design-project">Project</label>
-          <select id="design-project" value={form.project} required
-            onChange={(e) => setForm({ ...form, project: e.target.value })}>
+          <label className="fl" htmlFor="design-project">
+            Project
+          </label>
+          <select
+            id="design-project"
+            value={form.project}
+            required
+            onChange={(e) => setForm({ ...form, project: e.target.value })}
+          >
             <option value="">— choose repo —</option>
-            {(fleet || []).map((f) => <option key={f.path} value={f.name}>{f.name}</option>)}
+            {(fleet || []).map((f) => (
+              <option key={f.path} value={f.name}>
+                {f.name}
+              </option>
+            ))}
           </select>
-          <label className="fl" htmlFor="design-brief">Brief</label>
-          <textarea id="design-brief" rows={4} value={form.brief} required
+          <label className="fl" htmlFor="design-brief">
+            Brief
+          </label>
+          <textarea
+            id="design-brief"
+            rows={4}
+            value={form.brief}
+            required
             placeholder="the client dashboard — dense tables, live status, dark"
-            onChange={(e) => setForm({ ...form, brief: e.target.value })} />
-          <label className="fl" htmlFor="design-library">Library</label>
-          <select id="design-library" value={form.library} onChange={(e) => setForm({ ...form, library: e.target.value })}>
-            {LIBRARIES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            onChange={(e) => setForm({ ...form, brief: e.target.value })}
+          />
+          <label className="fl" htmlFor="design-library">
+            Library
+          </label>
+          <select
+            id="design-library"
+            value={form.library}
+            onChange={(e) => setForm({ ...form, library: e.target.value })}
+          >
+            {LIBRARIES.map(([v, label]) => (
+              <option key={v} value={v}>
+                {label}
+              </option>
+            ))}
           </select>
           <p className="faint" style={{ marginTop: 6 }}>
-            Mix it up pairs each variant with a different UI library, so you're comparing frameworks
-            head-to-head as well as directions — that's the default. Pick one of the others to hold
-            the library fixed and only vary direction.
+            Mix it up pairs each variant with a different UI library, so you're comparing frameworks head-to-head as
+            well as directions — that's the default. Pick one of the others to hold the library fixed and only vary
+            direction.
           </p>
           <div style={{ marginTop: 10 }}>
-            <button className="act" type="submit" disabled={busy}>propose variants</button>
+            <button className="act" type="submit" disabled={busy}>
+              propose variants
+            </button>
           </div>
         </form>
-        {err && <div className="err" role="alert">{err}</div>}
+        {err && (
+          <div className="err" role="alert">
+            {err}
+          </div>
+        )}
       </div>
 
+      {(rounds || []).length > 0 && (
+        <div className="listhead">
+          Rounds · <b>{(rounds || []).length}</b>
+        </div>
+      )}
       {roundPager && <div className="panel">{roundPager}</div>}
       {roundPage.map((r) => (
         <div className="panel" key={r.id}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-            <h2 style={{ marginBottom: 0 }}>#{r.id} <b>{r.project}</b> — {r.brief} ({LIB_LABEL[r.library] || r.library}){' '}
+            <h2 style={{ marginBottom: 0 }}>
+              #{r.id} <b>{r.project}</b> — {r.brief} ({LIB_LABEL[r.library] || r.library}){' '}
               <span className={`pill ${ROUND_PILL[r.status] || ''}`}>{r.status}</span>
             </h2>
-            <button className="act ghost" style={{ flexShrink: 0 }}
-              disabled={r.status === 'applying'} onClick={() => dismiss(r)}>
-              dismiss</button>
+            <button
+              className="act ghost"
+              style={{ flexShrink: 0 }}
+              disabled={r.status === 'applying'}
+              onClick={() => dismiss(r)}
+            >
+              dismiss
+            </button>
           </div>
 
           <div className="variant-grid">
@@ -132,26 +194,46 @@ export default function Design() {
                     <span className={`pill ${VARIANT_PILL[v.status] || ''}`} style={{ marginLeft: 4 }}>
                       {v.status}
                     </span>
-                    {isApplied && <span className="pill done" style={{ marginLeft: 4 }}>applied</span>}
+                    {isApplied && (
+                      <span className="pill done" style={{ marginLeft: 4 }}>
+                        applied
+                      </span>
+                    )}
                   </div>
 
                   {v.status === 'running' && <div className="loading">rendering mock…</div>}
-                  {v.status === 'failed' && <div className="err" role="alert">{v.summary || 'mock render failed'}</div>}
+                  {v.status === 'failed' && (
+                    <div className="err" role="alert">
+                      {v.summary || 'mock render failed'}
+                    </div>
+                  )}
 
                   {v.status === 'done' && (
                     <>
-                      {v.summary && <p className="dim" style={{ fontSize: 12 }}>{v.summary}</p>}
+                      {v.summary && (
+                        <p className="dim" style={{ fontSize: 12 }}>
+                          {v.summary}
+                        </p>
+                      )}
                       <div className="mockframe">
                         <iframe src={`/api/design/${r.id}/mock/${v.key}`} sandbox="" title={`${r.id}-${v.key} mock`} />
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <a className="act ghost" style={{ textDecoration: 'none', display: 'inline-block' }}
-                          href={`/api/design/${r.id}/mock/${v.key}`} target="_blank" rel="noopener noreferrer">
+                        <a
+                          className="act ghost"
+                          style={{ textDecoration: 'none', display: 'inline-block' }}
+                          href={`/api/design/${r.id}/mock/${v.key}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           open full
                         </a>
                         {canApply && (
-                          <button className="act" disabled={applyingId === r.id || r.status === 'applying'}
-                            onClick={() => applyVariant(r, v.key)}>
+                          <button
+                            className="act"
+                            disabled={applyingId === r.id || r.status === 'applying'}
+                            onClick={() => applyVariant(r, v.key)}
+                          >
                             {applyingId === r.id ? 'applying…' : 'apply'}
                           </button>
                         )}
@@ -164,14 +246,22 @@ export default function Design() {
           </div>
 
           {r.status === 'applied' && r.apply_summary && (
-            <div className="kickoff" style={{ marginTop: 10 }}>{r.apply_summary}</div>
+            <div className="kickoff" style={{ marginTop: 10 }}>
+              {r.apply_summary}
+            </div>
           )}
           {r.status === 'apply-blocked' && (
-            <div className="err" role="alert" style={{ marginTop: 10 }}>apply blocked — {r.apply_summary || 'see logs'}</div>
+            <div className="err" role="alert" style={{ marginTop: 10 }}>
+              apply blocked — {r.apply_summary || 'see logs'}
+            </div>
           )}
         </div>
       ))}
-      {(rounds || []).length === 0 && <div className="panel"><div className="faint">no design rounds yet</div></div>}
+      {(rounds || []).length === 0 && (
+        <div className="panel">
+          <div className="faint">no design rounds yet</div>
+        </div>
+      )}
     </>
   )
 }

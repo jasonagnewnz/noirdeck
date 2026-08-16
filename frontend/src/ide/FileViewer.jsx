@@ -12,7 +12,14 @@ const fmtSize = (n) => {
 // Syntax highlighting is a hand-rolled tokenizer (./highlight.js), no runtime
 // dependency — see that file for the token-to-theme-token mapping.
 export default function FileViewer({ tab }) {
-  if (tab.error) return <div className="panel"><div className="err" role="alert">{tab.error}</div></div>
+  if (tab.error)
+    return (
+      <div className="panel">
+        <div className="err" role="alert">
+          {tab.error}
+        </div>
+      </div>
+    )
   if (tab.loading) return <div className="loading">reading file…</div>
 
   const lines = tokenizeLines(tab.content ?? '', tab.path)
@@ -43,9 +50,13 @@ export default function FileViewer({ tab }) {
               <span className="code-text">
                 {tokens.length
                   ? tokens.map((t, j) =>
-                      t.type === 'plain'
-                        ? <React.Fragment key={j}>{t.text}</React.Fragment>
-                        : <span className={`tok-${t.type}`} key={j}>{t.text}</span>
+                      t.type === 'plain' ? (
+                        <React.Fragment key={j}>{t.text}</React.Fragment>
+                      ) : (
+                        <span className={`tok-${t.type}`} key={j}>
+                          {t.text}
+                        </span>
+                      )
                     )
                   : ' '}
               </span>

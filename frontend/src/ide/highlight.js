@@ -13,21 +13,26 @@ const LANGS = {
   python:
     /(?<comment>#[^\n]*)|(?<string>(?:[rRbBuUfF]{1,2})?(?:"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'))|(?<number>\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(?<keyword>\b(?:False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield)\b)/gm,
 
-  js:
-    /(?<comment>\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(?<string>"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^\\`])*`)|(?<number>\b0[xX][0-9a-fA-F]+\b|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(?<keyword>\b(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|if|import|in|instanceof|let|new|of|return|static|super|switch|this|throw|try|typeof|var|void|while|with|yield|async|await|true|false|null|undefined|interface|type|enum|implements|private|protected|public|readonly|namespace|declare|as)\b)/gm,
+  js: /(?<comment>\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(?<string>"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^\\`])*`)|(?<number>\b0[xX][0-9a-fA-F]+\b|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(?<keyword>\b(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|if|import|in|instanceof|let|new|of|return|static|super|switch|this|throw|try|typeof|var|void|while|with|yield|async|await|true|false|null|undefined|interface|type|enum|implements|private|protected|public|readonly|namespace|declare|as)\b)/gm,
 
-  json:
-    /(?<string>"(?:\\.|[^"\\\n])*")|(?<number>-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(?<keyword>\b(?:true|false|null)\b)/g,
+  json: /(?<string>"(?:\\.|[^"\\\n])*")|(?<number>-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b)|(?<keyword>\b(?:true|false|null)\b)/g,
 
   markdown:
     /(?<heading>^#{1,6}[^\n]*)|(?<string>```[\s\S]*?```|`[^`\n]*`)|(?<keyword>\*\*[^\n]*?\*\*|__[^\n]*?__|\*[^\n*]+?\*)/gm,
 }
 
 const EXT_LANG = {
-  py: 'python', pyw: 'python',
-  js: 'js', jsx: 'js', mjs: 'js', cjs: 'js', ts: 'js', tsx: 'js',
+  py: 'python',
+  pyw: 'python',
+  js: 'js',
+  jsx: 'js',
+  mjs: 'js',
+  cjs: 'js',
+  ts: 'js',
+  tsx: 'js',
   json: 'json',
-  md: 'markdown', markdown: 'markdown',
+  md: 'markdown',
+  markdown: 'markdown',
 }
 
 export function langForPath(path) {
@@ -49,6 +54,7 @@ export function tokenizeLines(content, path) {
   const tokens = []
   let cursor = 0
   let match
+  // biome-ignore lint/suspicious/noAssignInExpressions: standard regex exec-loop idiom
   while ((match = re.exec(content))) {
     if (match.index > cursor) tokens.push({ type: 'plain', text: content.slice(cursor, match.index) })
     const type = Object.keys(match.groups).find((k) => match.groups[k] !== undefined)

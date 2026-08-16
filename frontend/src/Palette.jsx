@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api.js'
 import { PALETTE_SHORTCUTS } from './ide/claudeRef.js'
 import { useFocusTrap } from './ide/useFocusTrap.js'
@@ -48,9 +48,18 @@ export default function Palette({ open, onClose }) {
     setCopiedKey(null)
     let alive = true
     api('/skills')
-      .then((data) => { if (alive) { setSkills(Array.isArray(data) ? data : []); setSkillsError(null) } })
-      .catch((e) => { if (alive) setSkillsError(e.message || 'failed to load skills') })
-    return () => { alive = false }
+      .then((data) => {
+        if (alive) {
+          setSkills(Array.isArray(data) ? data : [])
+          setSkillsError(null)
+        }
+      })
+      .catch((e) => {
+        if (alive) setSkillsError(e.message || 'failed to load skills')
+      })
+    return () => {
+      alive = false
+    }
   }, [open])
 
   useEffect(() => () => clearTimeout(copyTimer.current), [])
@@ -84,20 +93,26 @@ export default function Palette({ open, onClose }) {
     ]
   }, [skills])
 
-  const filteredSections = useMemo(() => (
-    sections
-      .map((s) => ({ ...s, items: s.items.filter((it) => matches(query, it.title, it.subtitle)) }))
-      .filter((s) => s.items.length > 0)
-  ), [sections, query])
+  const filteredSections = useMemo(
+    () =>
+      sections
+        .map((s) => ({ ...s, items: s.items.filter((it) => matches(query, it.title, it.subtitle)) }))
+        .filter((s) => s.items.length > 0),
+    [sections, query]
+  )
 
   const flat = useMemo(() => filteredSections.flatMap((s) => s.items), [filteredSections])
   const idxById = useMemo(() => {
     const m = new Map()
-    flat.forEach((it, i) => m.set(it.id, i))
+    flat.forEach((it, i) => {
+      m.set(it.id, i)
+    })
     return m
   }, [flat])
 
-  useEffect(() => { setActiveIndex(0) }, [query])
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [query])
   useEffect(() => {
     if (activeIndex >= flat.length) setActiveIndex(Math.max(0, flat.length - 1))
   }, [flat, activeIndex])
@@ -123,16 +138,33 @@ export default function Palette({ open, onClose }) {
   }
 
   const onKeyDown = (e) => {
-    if (e.key === 'Escape') { e.preventDefault(); onClose?.(); return }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex((i) => Math.min(i + 1, flat.length - 1)); return }
-    if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((i) => Math.max(i - 1, 0)); return }
-    if (e.key === 'Enter') { e.preventDefault(); activate(flat[activeIndex]) }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      onClose?.()
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.min(i + 1, flat.length - 1))
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      activate(flat[activeIndex])
+    }
   }
 
   return (
     <div
       className="jcp-backdrop"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.() }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose?.()
+      }}
       onKeyDown={onKeyDown}
     >
       <style>{`
@@ -193,10 +225,20 @@ export default function Palette({ open, onClose }) {
             aria-activedescendant={flat.length ? `jcp-opt-${activeIndex}` : undefined}
             data-autofocus
           />
-          {skillsError && <div className="err" role="alert" style={{ fontSize: 11, marginTop: 6 }}>skills: {skillsError}</div>}
+          {skillsError && (
+            <div className="err" role="alert" style={{ fontSize: 11, marginTop: 6 }}>
+              skills: {skillsError}
+            </div>
+          )}
         </div>
-        <div className="jcp-list" ref={listRef} id="jcp-listbox" role="listbox"
-          aria-label="Search results" tabIndex={0}>
+        <div
+          className="jcp-list"
+          ref={listRef}
+          id="jcp-listbox"
+          role="listbox"
+          aria-label="Search results"
+          tabIndex={0}
+        >
           {flat.length === 0 && <div className="jcp-empty">no matches</div>}
           {filteredSections.map((section) => (
             <div key={section.key}>
@@ -218,7 +260,11 @@ export default function Palette({ open, onClose }) {
                     <span className={`chip${item.kind === 'skill' ? ' hot' : ''}`}>{KIND_LABEL[item.kind]}</span>
                     <span className="jcp-title">{item.title}</span>
                     {item.subtitle && <span className="jcp-subtitle">— {item.subtitle}</span>}
-                    {copiedKey === item.id && <span className="pill done" role="status" aria-live="polite">copied ✓</span>}
+                    {copiedKey === item.id && (
+                      <span className="pill done" role="status" aria-live="polite">
+                        copied ✓
+                      </span>
+                    )}
                   </div>
                 )
               })}

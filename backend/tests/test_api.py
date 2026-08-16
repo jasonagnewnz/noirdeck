@@ -8,8 +8,10 @@ def test_api_smoke(tmp_path, monkeypatch, claude_dir):
     (tmp_path / "projects").mkdir()
 
     import app.main as main
+
     importlib.reload(main)
     from fastapi.testclient import TestClient
+
     client = TestClient(main.app)
 
     health = client.get("/api/health").json()
@@ -39,6 +41,8 @@ def test_api_smoke(tmp_path, monkeypatch, claude_dir):
     # browser-boundary hardening: foreign Host (DNS rebinding) and foreign Origin
     # (cross-site request) are both rejected on every route
     assert client.get("/api/health", headers={"host": "evil.example"}).status_code == 403
-    assert client.post("/api/workspace", headers={"origin": "https://evil.example"},
-                       json={"project": "x"}).status_code == 403
+    assert (
+        client.post("/api/workspace", headers={"origin": "https://evil.example"}, json={"project": "x"}).status_code
+        == 403
+    )
     assert client.get("/api/health", headers={"origin": "http://localhost:4747"}).status_code == 200

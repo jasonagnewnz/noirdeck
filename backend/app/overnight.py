@@ -7,6 +7,7 @@ Contract:
   question for the operator and the runner MOVES ON — one ambiguity never stops the night.
 - Never pushes, deploys, or takes outward-facing action: stops at code-ready.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,18 +19,19 @@ import time
 from pathlib import Path
 
 from .config import Settings
-from .db import audit, connect, init_db, utcnow
-from .readers.skills import list_agents
 
 # Routing table: explicit pinned IDs, never family aliases (override via
 # NOIRDECK_MODEL_THINK/BUILD/REVIEW — see config.model()).
 from .config import model as _model
+from .db import audit, connect, init_db, utcnow
+from .readers.skills import list_agents
 
 _ROUTES = [
-    (re.compile(r"(security|auth|secret|tenan|schema|migrat|billing|invoice|reconcil|perform|review)", re.I),
-     _model("review")),
-    (re.compile(r"(architect|design|trade[- ]?off|strategy|root[- ]?cause|why)", re.I),
-     _model("think")),
+    (
+        re.compile(r"(security|auth|secret|tenan|schema|migrat|billing|invoice|reconcil|perform|review)", re.I),
+        _model("review"),
+    ),
+    (re.compile(r"(architect|design|trade[- ]?off|strategy|root[- ]?cause|why)", re.I), _model("think")),
 ]
 _DEFAULT_MODEL = _model("build")
 
@@ -61,7 +63,9 @@ def route_model(text: str) -> str:
 _HEAVY_HINT = re.compile(
     r"(architect|redesign|\bdesign\b|migrat|refactor|rewrite|overhaul|restructur"
     r"|schema|security|audit|investigat|root[- ]?cause|strategy"
-    r"|across (the|all)|every (file|module|route|view|page)|end[- ]?to[- ]?end|pipeline)", re.I)
+    r"|across (the|all)|every (file|module|route|view|page)|end[- ]?to[- ]?end|pipeline)",
+    re.I,
+)
 _HEAVY_PROMPT_CHARS = 900
 
 
@@ -91,8 +95,7 @@ def route_agent(text: str, claude_dir: Path) -> str | None:
         desc = _stems(agent["description"])
         name_hits = len(task & name)
         overlap = len(task & desc)
-        eligible = (name_hits >= 1 and overlap >= 2) or \
-                   (overlap >= 5 and desc and overlap >= 0.2 * len(desc))
+        eligible = (name_hits >= 1 and overlap >= 2) or (overlap >= 5 and desc and overlap >= 0.2 * len(desc))
         score = 10 * name_hits + overlap
         if eligible and score > best_score:
             best, best_score = agent["name"], score
@@ -127,14 +130,15 @@ def _git_state(project_dir: Path) -> dict | None:
     Snapshotted around each session to detect work a failed run strands in the
     SHARED working tree (the tree is not ours alone — never auto-revert it)."""
     try:
-        head = subprocess.run(["git", "-C", str(project_dir), "rev-parse", "HEAD"],
-                              capture_output=True, text=True, timeout=15)
+        head = subprocess.run(
+            ["git", "-C", str(project_dir), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=15
+        )
         if head.returncode != 0:
             return None
-        porcelain = subprocess.run(["git", "-C", str(project_dir), "status", "--porcelain"],
-                                   capture_output=True, text=True, timeout=15)
-        return {"head": head.stdout.strip(),
-                "dirty": {ln[3:] for ln in porcelain.stdout.splitlines() if len(ln) > 3}}
+        porcelain = subprocess.run(
+            ["git", "-C", str(project_dir), "status", "--porcelain"], capture_output=True, text=True, timeout=15
+        )
+        return {"head": head.stdout.strip(), "dirty": {ln[3:] for ln in porcelain.stdout.splitlines() if len(ln) > 3}}
     except OSError:
         return None
 
@@ -142,22 +146,28 @@ def _git_state(project_dir: Path) -> dict | None:
 def _parse_verdict(result_text: str) -> dict:
     idx = result_text.rfind("VERDICT:")
     if idx < 0:
-        return {"status": "blocked", "summary": result_text[-300:],
-                "question": "Session ended without a structured verdict — review the summary."}
+        return {
+            "status": "blocked",
+            "summary": result_text[-300:],
+            "question": "Session ended without a structured verdict — review the summary.",
+        }
     try:
-        raw = result_text[idx + len("VERDICT:"):].strip()
+        raw = result_text[idx + len("VERDICT:") :].strip()
         end = raw.rfind("}")
-        return json.loads(raw[:end + 1])
+        return json.loads(raw[: end + 1])
     except (json.JSONDecodeError, ValueError):
-        return {"status": "blocked", "summary": result_text[-300:],
-                "question": "Verdict line was malformed — review the summary."}
+        return {
+            "status": "blocked",
+            "summary": result_text[-300:],
+            "question": "Verdict line was malformed — review the summary.",
+        }
 
 
 def _session_argv(model: str, max_turns: int, prompt: str, readonly: bool = False) -> list[str]:
     from .guard import guard_settings_args
     from .workspace import claude_bin
-    argv = [claude_bin(), "-p", prompt, "--output-format", "json",
-            "--model", model, "--max-turns", str(max_turns)]
+
+    argv = [claude_bin(), "-p", prompt, "--output-format", "json", "--model", model, "--max-turns", str(max_turns)]
     if readonly:
         # planning stage: the tool set itself is read-only — a plan that edits
         # isn't a plan. --tools is variadic; keep it LAST so it can't swallow flags.
@@ -186,9 +196,12 @@ def _execute(argv: list[str], cwd: Path, timeout: int = 3600) -> tuple[bool, str
         tin = usage.get("input_tokens")
         tout = usage.get("output_tokens") or 0
         text = str(obj.get("result") or "")
-    note = (f"rc={proc.returncode}" + (f" subtype={subtype}" if subtype else "")
-            + f"; stderr: {(proc.stderr or '').strip()[-200:] or '(empty)'}"
-            + f"; result: {text[-200:] or '(none)'}")
+    note = (
+        f"rc={proc.returncode}"
+        + (f" subtype={subtype}" if subtype else "")
+        + f"; stderr: {(proc.stderr or '').strip()[-200:] or '(empty)'}"
+        + f"; result: {text[-200:] or '(none)'}"
+    )
     return False, text, tin, tout, note
 
 
@@ -200,11 +213,14 @@ things that look easy but aren't here, ACCEPTANCE (how the builder proves it wor
 No code, no fluff — every line must change what the builder does. Output ONLY the brief.
 """
 
-_CHECK_INSTRUCTION = """
+_CHECK_INSTRUCTION = (
+    """
 You are the CHECK pass after an unattended change. Review ONLY the change described
 below as a hostile senior reviewer — correctness, security, data handling, tests.
 FIX anything real you find and re-run the relevant tests; ignore style nits.
-""" + _GUARDRAILS
+"""
+    + _GUARDRAILS
+)
 
 
 def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) -> None:
@@ -213,8 +229,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
     from .review_policy import diff_since, review_needed
 
     project_dir = Path(task["project"]).expanduser()
-    conn.execute("UPDATE queue SET status='running', started_at=? WHERE id=?",
-                 (utcnow(), task["id"]))
+    conn.execute("UPDATE queue SET status='running', started_at=? WHERE id=?", (utcnow(), task["id"]))
     conn.commit()
 
     text_all = task["title"] + " " + task["prompt"]
@@ -228,7 +243,11 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
         base_prompt += f"\n\nPreferred specialist subagent for delegation if useful: {agent}"
     pack = context_pack(project_dir, settings)
 
-    verdict = {"status": "blocked", "summary": "runner error", "question": "Runner failed before the session produced output."}
+    verdict = {
+        "status": "blocked",
+        "summary": "runner error",
+        "question": "Runner failed before the session produced output.",
+    }
     tokens_in = None
     tokens_out = 0
     stage_notes: list[str] = []
@@ -236,11 +255,10 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
     try:
         brief = ""
         if weight == "heavy":
-            plan_prompt = (f"{pack}\n\n" if pack else "") + \
-                f"THE TASK:\n{base_prompt}\n{_PLAN_INSTRUCTION}"
+            plan_prompt = (f"{pack}\n\n" if pack else "") + f"THE TASK:\n{base_prompt}\n{_PLAN_INSTRUCTION}"
             ok, text, _tin, tout, note = _execute(
-                _session_argv(_model("think"), 12, plan_prompt, readonly=True),
-                project_dir, timeout=1200)
+                _session_argv(_model("think"), 12, plan_prompt, readonly=True), project_dir, timeout=1200
+            )
             tokens_out += tout
             if ok and text.strip():
                 brief = text.strip()[:6000]
@@ -253,11 +271,12 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
 
         do_prompt = (f"{pack}\n\n" if pack else "") + base_prompt
         if brief:
-            do_prompt += ("\n\nEXECUTION BRIEF from the planning pass "
-                          "(follow it unless it is clearly wrong on the ground):\n" + brief)
+            do_prompt += (
+                "\n\nEXECUTION BRIEF from the planning pass "
+                "(follow it unless it is clearly wrong on the ground):\n" + brief
+            )
         do_prompt += _GUARDRAILS
-        ok, text, tokens_in, tout, note = _execute(
-            _session_argv(model, 40, do_prompt), project_dir)
+        ok, text, tokens_in, tout, note = _execute(_session_argv(model, 40, do_prompt), project_dir)
         tokens_out += tout
         if ok:
             verdict = _parse_verdict(text)
@@ -272,17 +291,19 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                 needed, reason = True, "change could not be measured — reviewing (fail-safe)"
             else:
                 gates = evaluate_project(project_dir, light=True)["overall"]
-                needed, reason = review_needed(stats["lines"], stats["files"], gates,
-                                               stats["untracked"])
+                needed, reason = review_needed(stats["lines"], stats["files"], gates, stats["untracked"])
             if needed:
                 changed = ", ".join((stats or {}).get("files", [])[:20]) or "(unmeasured)"
-                check_prompt = ((f"{pack}\n\n" if pack else "")
-                                + f"THE TASK THAT WAS JUST EXECUTED:\n{base_prompt}\n\n"
-                                + f"BUILDER'S OWN SUMMARY: {verdict.get('summary', '')}\n"
-                                + f"FILES CHANGED: {changed}\n"
-                                + _CHECK_INSTRUCTION)
+                check_prompt = (
+                    (f"{pack}\n\n" if pack else "")
+                    + f"THE TASK THAT WAS JUST EXECUTED:\n{base_prompt}\n\n"
+                    + f"BUILDER'S OWN SUMMARY: {verdict.get('summary', '')}\n"
+                    + f"FILES CHANGED: {changed}\n"
+                    + _CHECK_INSTRUCTION
+                )
                 ok2, text2, _tin2, tout2, note2 = _execute(
-                    _session_argv(_model("review"), 25, check_prompt), project_dir, timeout=1800)
+                    _session_argv(_model("review"), 25, check_prompt), project_dir, timeout=1800
+                )
                 tokens_out += tout2
                 if ok2:
                     v2 = _parse_verdict(text2)
@@ -290,16 +311,21 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                         stage_notes.append(f"check passed ({tout2} tok)")
                     else:
                         stage_notes.append(f"check flagged issues ({tout2} tok)")
-                        verdict = {"status": "blocked",
-                                   "summary": f"{verdict.get('summary', '')} | check: {v2.get('summary', '')}"[:1800],
-                                   "question": v2.get("question") or "The check pass flagged issues — see summary."}
+                        verdict = {
+                            "status": "blocked",
+                            "summary": f"{verdict.get('summary', '')} | check: {v2.get('summary', '')}"[:1800],
+                            "question": v2.get("question") or "The check pass flagged issues — see summary.",
+                        }
                 else:
                     stage_notes.append(f"check failed to run ({note2[:120]}) — result stands unreviewed")
             else:
                 stage_notes.append(f"check skipped: {reason}")
     except subprocess.TimeoutExpired:
-        verdict = {"status": "blocked", "summary": "A session exceeded its time cap.",
-                   "question": "Split this task or raise the cap?"}
+        verdict = {
+            "status": "blocked",
+            "summary": "A session exceeded its time cap.",
+            "question": "Split this task or raise the cap?",
+        }
     except (OSError, json.JSONDecodeError) as exc:
         verdict["summary"] = f"{type(exc).__name__}: {exc}"[:300]
     if stage_notes:
@@ -310,21 +336,38 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
     if before and after:
         stranded = sorted(after["dirty"] - before["dirty"])
         if stranded:
-            note = (f"session left {len(stranded)} uncommitted file(s) in the shared tree: "
-                    + ", ".join(stranded[:6]) + ("…" if len(stranded) > 6 else ""))
+            note = (
+                f"session left {len(stranded)} uncommitted file(s) in the shared tree: "
+                + ", ".join(stranded[:6])
+                + ("…" if len(stranded) > 6 else "")
+            )
             audit(conn, "overnight", "tree_stranded", f"id={task['id']} {note}"[:300])
             if status == "blocked":
-                verdict["question"] = ((verdict.get("question") or "")
-                                       + f" ⚠ {note} — review, commit or revert before "
-                                         f"any other commit in this repo.")
+                verdict["question"] = (
+                    verdict.get("question") or ""
+                ) + f" ⚠ {note} — review, commit or revert before any other commit in this repo."
     conn.execute(
         "UPDATE queue SET status=?, model=?, agent_type=?, weight=?, verdict=?, question=?, "
         "tokens_in=?, tokens_out=?, finished_at=? WHERE id=?",
-        (status, model, agent, weight, str(verdict.get("summary", ""))[:2000],
-         (verdict.get("question") or "")[:1000] if status == "blocked" else None,
-         tokens_in, tokens_out, utcnow(), task["id"]))
-    audit(conn, "overnight", f"task_{status}",
-          f"id={task['id']} model={model} weight={weight} agent={agent or '-'} tokens_out={tokens_out}")
+        (
+            status,
+            model,
+            agent,
+            weight,
+            str(verdict.get("summary", ""))[:2000],
+            (verdict.get("question") or "")[:1000] if status == "blocked" else None,
+            tokens_in,
+            tokens_out,
+            utcnow(),
+            task["id"],
+        ),
+    )
+    audit(
+        conn,
+        "overnight",
+        f"task_{status}",
+        f"id={task['id']} model={model} weight={weight} agent={agent or '-'} tokens_out={tokens_out}",
+    )
     conn.commit()
 
 
@@ -337,6 +380,7 @@ def run_queue(settings: Settings, window_hours: float | None, once: bool) -> dic
     if not settings.overnight_armed:
         return {"skipped": True, "reason": "NOIRDECK_OVERNIGHT_ARMED != true (fail-closed)"}
     from .arming import check, consume
+
     init_db(settings.db_path)
     conn = connect(settings.db_path)
     deadline = time.monotonic() + (window_hours or 6) * 3600
@@ -350,8 +394,7 @@ def run_queue(settings: Settings, window_hours: float | None, once: bool) -> dic
             if not allowed:
                 audit(conn, "overnight", "run_halted", f"contract: {reason}")
                 return {"tasks_run": done, "halted": reason}
-            task = conn.execute(
-                "SELECT * FROM queue WHERE status='queued' ORDER BY id LIMIT 1").fetchone()
+            task = conn.execute("SELECT * FROM queue WHERE status='queued' ORDER BY id LIMIT 1").fetchone()
             if not task:
                 break
             run_task(conn, settings, task)

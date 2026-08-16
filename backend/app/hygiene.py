@@ -3,6 +3,7 @@ Zero-egress: pure heuristics over ~/.claude, no LLM calls. Findings are
 read-only; the ONLY write path is a consolidation proposal through the
 existing propose→approve spine (the operator approves, nothing is auto-rewritten,
 originals are never deleted by this module)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -27,7 +28,7 @@ def _norm(text: str) -> str:
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end != -1:
-            text = text[end + 4:]
+            text = text[end + 4 :]
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
@@ -107,8 +108,10 @@ def scan_namespace(mem_dir: Path) -> dict:
         mentioned = set(re.findall(r"[\w\-]+", idx_text))
         index_missing_files = sorted(r for r in referenced if not (mem_dir / r).exists())
         unindexed = sorted(
-            f.name for f in files
-            if f.name not in referenced and f.stem not in mentioned
+            f.name
+            for f in files
+            if f.name not in referenced
+            and f.stem not in mentioned
             and f.stem.removeprefix("feedback_") not in mentioned
             and ("fb_" + f.stem.removeprefix("feedback_")) not in mentioned
         )
@@ -153,6 +156,7 @@ def report(claude_dir: Path, namespace: str | None = None) -> dict:
     """Hygiene report. Default scope: the primary namespace (the only one
     proposals may write to); pass namespace to scan any other single one."""
     import time
+
     ns = namespace or primary_namespace()
     # ns is caller input used as a path component — single segment, direct
     # child of projects/ only (same escape class as the files API fix)
@@ -172,22 +176,26 @@ def report(claude_dir: Path, namespace: str | None = None) -> dict:
         "primary_namespace": primary_namespace(),
         "namespace_report": scan_namespace(mem) if mem.is_dir() else None,
         "skill_dupes": scan_skills(claude_dir),
-        "available_namespaces": sorted(
-            p.parent.name for p in projects.glob("*/memory") if p.is_dir()
-        ) if projects.is_dir() else [],
+        "available_namespaces": sorted(p.parent.name for p in projects.glob("*/memory") if p.is_dir())
+        if projects.is_dir()
+        else [],
     }
     findings = 0
     nr = out["namespace_report"]
     if nr:
-        findings = (len(nr["exact_dupes"]) + len(nr["near_dupes"]) + len(nr["tiny"])
-                    + len(nr["dangling_links"]) + len(nr["index_missing_files"]))
+        findings = (
+            len(nr["exact_dupes"])
+            + len(nr["near_dupes"])
+            + len(nr["tiny"])
+            + len(nr["dangling_links"])
+            + len(nr["index_missing_files"])
+        )
     out["finding_count"] = findings + len(out["skill_dupes"])
     _cache[key] = (time.monotonic(), out)
     return out
 
 
-def propose_merge(conn: sqlite3.Connection, claude_dir: Path, namespace: str | None,
-                  files: list[str]) -> dict:
+def propose_merge(conn: sqlite3.Connection, claude_dir: Path, namespace: str | None, files: list[str]) -> dict:
     """Draft ONE consolidation proposal from 2+ memory files. The proposal
     targets a NEW merged file; originals are untouched — the proposal body
     tells the operator which files it supersedes so deletion stays a human act."""
@@ -212,19 +220,22 @@ def propose_merge(conn: sqlite3.Connection, claude_dir: Path, namespace: str | N
     merged_name = f"{stem}_merged.md"
     body = (
         f"---\nname: {stem}_merged\n"
-        f"description: \"Consolidated from {len(files)} overlapping memories: "
-        f"{', '.join(slugs)}. TIDY the duplicated sections before/after approving.\"\n"
+        f'description: "Consolidated from {len(files)} overlapping memories: '
+        f'{", ".join(slugs)}. TIDY the duplicated sections before/after approving."\n'
         "metadata:\n  type: reference\n---\n\n"
         "> DRAFT MERGE — sections below are concatenated sources. Deduplicate by hand\n"
-        f"> or in a session, then delete the superseded originals: {', '.join(files)}\n\n"
-        + "\n---\n\n".join(parts)
+        f"> or in a session, then delete the superseded originals: {', '.join(files)}\n\n" + "\n---\n\n".join(parts)
     )
     cur = conn.execute(
         "INSERT INTO proposals (kind,title,body,target_path,status,created_at) VALUES (?,?,?,?,'proposed',?)",
-        ("memory_merge", f"Merge {len(files)} overlapping memories → {merged_name}",
-         body, f"projects/{namespace}/memory/{merged_name}", utcnow()),
+        (
+            "memory_merge",
+            f"Merge {len(files)} overlapping memories → {merged_name}",
+            body,
+            f"projects/{namespace}/memory/{merged_name}",
+            utcnow(),
+        ),
     )
     conn.commit()
-    audit(conn, "operator", "hygiene_merge_proposed",
-          f"id={cur.lastrowid} files={','.join(files)[:120]}")
+    audit(conn, "operator", "hygiene_merge_proposed", f"id={cur.lastrowid} files={','.join(files)[:120]}")
     return {"proposal_id": cur.lastrowid, "target": merged_name}

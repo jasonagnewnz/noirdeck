@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getJSON } from './ideApi.js'
 import { THEMES } from './themes.js'
 
@@ -12,36 +12,58 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
 
   useEffect(() => {
     let alive = true
-    const load = () => getJSON('/workspace')
-      .then((rows) => alive && setSessionCount(Array.isArray(rows) ? rows.length : 0))
-      .catch(() => { /* leave last-known value */ })
+    const load = () =>
+      getJSON('/workspace')
+        .then((rows) => alive && setSessionCount(Array.isArray(rows) ? rows.length : 0))
+        .catch(() => {
+          /* leave last-known value */
+        })
     load()
     const t = setInterval(load, 15000)
-    return () => { alive = false; clearInterval(t) }
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
   }, [])
 
   useEffect(() => {
     let alive = true
-    getJSON('/health').then((d) => alive && setVersion(d.version)).catch(() => { /* leave blank */ })
-    return () => { alive = false }
+    getJSON('/health')
+      .then((d) => alive && setVersion(d.version))
+      .catch(() => {
+        /* leave blank */
+      })
+    return () => {
+      alive = false
+    }
   }, [])
 
   const [vault, setVault] = useState(null)
   useEffect(() => {
     let alive = true
-    const load = () => getJSON('/vault')
-      .then((d) => alive && setVault(d)).catch(() => { /* leave last-known */ })
+    const load = () =>
+      getJSON('/vault')
+        .then((d) => alive && setVault(d))
+        .catch(() => {
+          /* leave last-known */
+        })
     load()
     const t = setInterval(load, 10 * 60 * 1000)
-    return () => { alive = false; clearInterval(t) }
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
   }, [])
-  const vaultAgeH = vault?.last_verified
-    ? (Date.now() - new Date(vault.last_verified).getTime()) / 3600000 : null
-  const vaultState = !vault ? null
-    : !vault.configured ? ['off', 'vault off']
-    : vaultAgeH === null ? ['warn', 'vault: no verified backup yet']
-    : vaultAgeH <= 48 ? ['ok', `vault ✓ ${vaultAgeH < 1 ? '<1h' : Math.round(vaultAgeH) + 'h'}`]
-    : ['warn', `vault ! ${Math.round(vaultAgeH / 24)}d since verified backup`]
+  const vaultAgeH = vault?.last_verified ? (Date.now() - new Date(vault.last_verified).getTime()) / 3600000 : null
+  const vaultState = !vault
+    ? null
+    : !vault.configured
+      ? ['off', 'vault off']
+      : vaultAgeH === null
+        ? ['warn', 'vault: no verified backup yet']
+        : vaultAgeH <= 48
+          ? ['ok', `vault ✓ ${vaultAgeH < 1 ? '<1h' : Math.round(vaultAgeH) + 'h'}`]
+          : ['warn', `vault ! ${Math.round(vaultAgeH / 24)}d since verified backup`]
 
   const proposalsPending = overview?.proposals_pending || 0
   const queueCounts = overview?.queue || {}
@@ -64,18 +86,29 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
         sessions <b>{sessionCount === null ? '—' : sessionCount}</b>
       </span>
       {vaultState && vaultState[0] !== 'off' && (
-        <span className="sb-item" role="status" aria-live="polite"
-          title="offsite backup — last verified restore">
+        <span className="sb-item" role="status" aria-live="polite" title="offsite backup — last verified restore">
           <b className={vaultState[0] === 'warn' ? 'sb-accent' : ''}>{vaultState[1]}</b>
         </span>
       )}
       <span className="sb-spacer" />
-      <select className="sb-theme" aria-label="Theme" value={theme}
-        onChange={(e) => onSetTheme?.(e.target.value)}>
-        {THEMES.map((t) => <option key={t.key} value={t.key} title={t.blurb}>{t.name}</option>)}
+      <select className="sb-theme" aria-label="Theme" value={theme} onChange={(e) => onSetTheme?.(e.target.value)}>
+        {THEMES.map((t) => (
+          <option key={t.key} value={t.key} title={t.blurb}>
+            {t.name}
+          </option>
+        ))}
       </select>
-      <button className="sb-kbd" onClick={onOpenKeys} title="Quick keys (?)" aria-label="Open quick keys help">?</button>
-      <button className="sb-kbd" onClick={onOpenPalette} title="Command palette (Ctrl/Cmd+K)" aria-label="Open command palette">⌘K</button>
+      <button className="sb-kbd" onClick={onOpenKeys} title="Quick keys (?)" aria-label="Open quick keys help">
+        ?
+      </button>
+      <button
+        className="sb-kbd"
+        onClick={onOpenPalette}
+        title="Command palette (Ctrl/Cmd+K)"
+        aria-label="Open command palette"
+      >
+        ⌘K
+      </button>
       <span className="sb-version">noirdeck{version ? ` v${version}` : ''}</span>
     </div>
   )

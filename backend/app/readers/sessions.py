@@ -3,6 +3,7 @@
 A transcript can be hundreds of MB across the estate; the dashboard only needs
 "what was the task, when, and did it finish" — head 64KB + tail 64KB answers all three.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,9 @@ _HEAD_BYTES = 65536
 _TAIL_BYTES = 65536
 _OPEN_LOOP = re.compile(
     r"(next steps?|shall i|do you want|let me know|waiting (on|for)|blocked|"
-    r"once you (confirm|approve)|\?\s*$)", re.IGNORECASE)
+    r"once you (confirm|approve)|\?\s*$)",
+    re.IGNORECASE,
+)
 
 _cache: dict[str, tuple[float, dict]] = {}
 
@@ -97,7 +100,7 @@ def namespace_display(ns: str) -> str:
     """Best-effort prettifier for the path-encoded namespace directory name."""
     home_ns = str(Path.home()).replace("/", "-")
     if ns.startswith(home_ns + "-projects-"):
-        return ns[len(home_ns + "-projects-"):]
+        return ns[len(home_ns + "-projects-") :]
     if ns == home_ns:
         return "(home estate)"
     return ns

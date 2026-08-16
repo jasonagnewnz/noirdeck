@@ -15,8 +15,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def _guard(payload) -> subprocess.CompletedProcess:
     raw = payload if isinstance(payload, str) else json.dumps(payload)
-    return subprocess.run([sys.executable, str(GUARD_SCRIPT)], input=raw,
-                          capture_output=True, text=True, timeout=10)
+    return subprocess.run([sys.executable, str(GUARD_SCRIPT)], input=raw, capture_output=True, text=True, timeout=10)
 
 
 def _bash(cmd: str):
@@ -47,7 +46,7 @@ ALLOWED = [
     "python -m pytest -q",
     "curl -s http://127.0.0.1:8000/health",
     "systemctl --user status noirdeck",
-    "grep -r 'push' src/",   # word inside other text, not a git push
+    "grep -r 'push' src/",  # word inside other text, not a git push
 ]
 
 
@@ -112,8 +111,10 @@ def test_contract_expiry_and_token_cap(conn):
     ok, reason = check(conn, "mining")
     assert not ok and "budget exhausted" in reason
     arm(conn, "mining", hours=1)
-    conn.execute("UPDATE arm_contracts SET armed_until='2020-01-01T00:00:00+00:00' "
-                 "WHERE revoked_at IS NULL AND subsystem='mining'")
+    conn.execute(
+        "UPDATE arm_contracts SET armed_until='2020-01-01T00:00:00+00:00' "
+        "WHERE revoked_at IS NULL AND subsystem='mining'"
+    )
     conn.commit()
     ok, reason = check(conn, "mining")
     assert not ok and "expired" in reason
@@ -135,14 +136,22 @@ def test_arm_validation(conn):
 def test_run_queue_halts_without_contract(tmp_path, monkeypatch, claude_dir):
     from app import overnight
     from app.config import Settings
+
     db = tmp_path / "q.db"
     init_db(db)
     c = sqlite3.connect(db)
-    c.execute("INSERT INTO queue (project,title,prompt,status,created_at) "
-              "VALUES ('/x','t','p','queued','2026-01-01')")
-    c.commit(); c.close()
-    settings = Settings(claude_dir=claude_dir, projects_dir=tmp_path, db_path=db,
-                        port=1, mining_armed=False, overnight_armed=True, mine_max_batches=1)
+    c.execute("INSERT INTO queue (project,title,prompt,status,created_at) VALUES ('/x','t','p','queued','2026-01-01')")
+    c.commit()
+    c.close()
+    settings = Settings(
+        claude_dir=claude_dir,
+        projects_dir=tmp_path,
+        db_path=db,
+        port=1,
+        mining_armed=False,
+        overnight_armed=True,
+        mine_max_batches=1,
+    )
     ran = []
     monkeypatch.setattr(overnight, "run_task", lambda *a, **k: ran.append(1))
     out = overnight.run_queue(settings, 0.01, once=True)

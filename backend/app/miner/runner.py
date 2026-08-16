@@ -4,6 +4,7 @@ Fail-closed: refuses unless NOIRDECK_MINING_ARMED=true. Dedup via mined_files
 (path+mtime) so no transcript version is ever mined twice — dry-run cost runaways
 are an estate-documented failure mode. Batches are capped per run.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,7 @@ from pathlib import Path
 from ..config import Settings
 from ..db import audit, utcnow
 from ..miner.redact import redact
-from ..readers.sessions import _text_of, _iter_json  # bounded readers
+from ..readers.sessions import _iter_json, _text_of  # bounded readers
 
 _BATCH_CHARS = 20000
 _PROMPT = """You are analysing REDACTED excerpts of a developer's own Claude Code session
@@ -52,7 +53,8 @@ def pick_unmined(conn: sqlite3.Connection, claude_dir: Path, max_files: int) -> 
         return []
     all_files = sorted(
         (p for ns in projects.iterdir() if ns.is_dir() for p in ns.glob("*.jsonl")),
-        key=lambda p: p.stat().st_mtime, reverse=True,
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
     )
     picked: list[Path] = []
     for p in all_files:
@@ -81,22 +83,35 @@ def run_llm_mining(conn: sqlite3.Connection, settings: Settings) -> dict:
         if not texts:
             conn.execute(
                 "INSERT OR REPLACE INTO mined_files (path,mtime,mined_at) VALUES (?,?,?)",
-                (str(path), path.stat().st_mtime, utcnow()))
+                (str(path), path.stat().st_mtime, utcnow()),
+            )
             conn.commit()
             continue
         blob = "\n---\n".join(texts)[:_BATCH_CHARS]
         clean, counts = redact(blob)
         results["redactions"] += sum(counts.values())
         try:
-            from ..overnight import parse_cli_json
-            from ..workspace import claude_bin
             from ..config import model as _mining_model_fn
             from ..guard import guard_settings_args
+            from ..overnight import parse_cli_json
+            from ..workspace import claude_bin
+
             proc = subprocess.run(
-                [claude_bin(), "-p", _PROMPT + clean, "--output-format", "json",
-                 "--max-turns", "1", "--model", _mining_model_fn("build"),
-                 *guard_settings_args()],
-                capture_output=True, text=True, timeout=300,
+                [
+                    claude_bin(),
+                    "-p",
+                    _PROMPT + clean,
+                    "--output-format",
+                    "json",
+                    "--max-turns",
+                    "1",
+                    "--model",
+                    _mining_model_fn("build"),
+                    *guard_settings_args(),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
             result_text = parse_cli_json(proc.stdout)[0] if proc.returncode == 0 else None
         except (subprocess.TimeoutExpired, OSError, json.JSONDecodeError):
@@ -104,22 +119,25 @@ def run_llm_mining(conn: sqlite3.Connection, settings: Settings) -> dict:
         if result_text:
             try:
                 start, end = result_text.find("{"), result_text.rfind("}")
-                data = json.loads(result_text[start:end + 1]) if start >= 0 else {}
+                data = json.loads(result_text[start : end + 1]) if start >= 0 else {}
             except (json.JSONDecodeError, ValueError):
                 data = {}
             for note in (data.get("methodology_notes") or [])[:5]:
                 conn.execute(
                     "INSERT INTO insights (kind,title,body,source,created_at) VALUES (?,?,?,?,?)",
-                    ("methodology", str(note)[:120], str(note), path.name, utcnow()))
+                    ("methodology", str(note)[:120], str(note), path.name, utcnow()),
+                )
                 results["insights"] += 1
             for note in (data.get("memory_notes") or [])[:5]:
                 conn.execute(
                     "INSERT INTO insights (kind,title,body,source,created_at) VALUES (?,?,?,?,?)",
-                    ("memory", str(note)[:120], str(note), path.name, utcnow()))
+                    ("memory", str(note)[:120], str(note), path.name, utcnow()),
+                )
                 results["insights"] += 1
         conn.execute(
             "INSERT OR REPLACE INTO mined_files (path,mtime,mined_at) VALUES (?,?,?)",
-            (str(path), path.stat().st_mtime, utcnow()))
+            (str(path), path.stat().st_mtime, utcnow()),
+        )
         conn.commit()
         results["batches"] += 1
         consume(conn, "mining", tasks=1)

@@ -1,5 +1,6 @@
 """SQLite layer. Additive-only migrations: NEVER edit a shipped entry in MIGRATIONS —
 the high-water scheme would silently skip the change on existing databases. Append."""
+
 from __future__ import annotations
 
 import sqlite3

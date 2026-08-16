@@ -1,5 +1,6 @@
 """Propose → approve → execute. Approval is the ONLY path that writes into ~/.claude.
 Targets are allowlisted, traversal-checked, never silently overwritten, and audited."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -63,14 +64,15 @@ def approve(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int, overwr
 
     conn.execute(
         "UPDATE proposals SET status='approved', decided_at=?, prior_body=?, prior_existed=? WHERE id=?",
-        (utcnow(), prior_body, prior_existed, proposal_id))
-    audit(conn, "operator", "proposal_approved",
-          f"id={proposal_id} kind={row['kind']} target={row['target_path'] or '-'}")
+        (utcnow(), prior_body, prior_existed, proposal_id),
+    )
+    audit(
+        conn, "operator", "proposal_approved", f"id={proposal_id} kind={row['kind']} target={row['target_path'] or '-'}"
+    )
     return {"id": proposal_id, "written_to": written_to}
 
 
-def revert(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int,
-           overwrite: bool = False) -> dict:
+def revert(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int, overwrite: bool = False) -> dict:
     """Undo an applied proposal: restore the pre-apply snapshot, or remove the
     file if the approval created it. Refuses when the file has drifted from what
     the approval wrote (someone edited it since) unless overwrite is explicit —
@@ -85,14 +87,13 @@ def revert(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int,
     if not row["target_path"]:
         raise ProposalError(f"proposal {proposal_id} wrote no file, nothing to revert")
     if row["prior_existed"] is None:
-        raise ProposalError(
-            f"proposal {proposal_id} predates undo support — no pre-apply snapshot exists")
+        raise ProposalError(f"proposal {proposal_id} predates undo support — no pre-apply snapshot exists")
 
     target = _resolve_target(claude_dir, row["target_path"])
     if target.exists() and target.read_text() != row["body"] and not overwrite:
         raise ProposalError(
-            "file changed since this was applied (pass overwrite=true to revert anyway): "
-            f"{row['target_path']}")
+            f"file changed since this was applied (pass overwrite=true to revert anyway): {row['target_path']}"
+        )
 
     if row["prior_existed"]:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -102,11 +103,8 @@ def revert(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int,
         target.unlink(missing_ok=True)
         outcome = "removed the file this approval created"
 
-    conn.execute(
-        "UPDATE proposals SET status='reverted', reverted_at=? WHERE id=?",
-        (utcnow(), proposal_id))
-    audit(conn, "operator", "proposal_reverted",
-          f"id={proposal_id} target={row['target_path']} ({outcome})")
+    conn.execute("UPDATE proposals SET status='reverted', reverted_at=? WHERE id=?", (utcnow(), proposal_id))
+    audit(conn, "operator", "proposal_reverted", f"id={proposal_id} target={row['target_path']} ({outcome})")
     return {"id": proposal_id, "outcome": outcome}
 
 
@@ -117,7 +115,7 @@ def dismiss(conn: sqlite3.Connection, proposal_id: int, note: str = "") -> dict:
     if row["status"] != "proposed":
         raise ProposalError(f"proposal {proposal_id} already {row['status']}")
     conn.execute(
-        "UPDATE proposals SET status='dismissed', decided_at=?, note=? WHERE id=?",
-        (utcnow(), note, proposal_id))
+        "UPDATE proposals SET status='dismissed', decided_at=?, note=? WHERE id=?", (utcnow(), note, proposal_id)
+    )
     audit(conn, "operator", "proposal_dismissed", f"id={proposal_id}")
     return {"id": proposal_id}

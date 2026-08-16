@@ -3,6 +3,7 @@
 Guard (estate landmine): only treat <dir> as a repo if <dir>/.git exists — `git -C`
 walks UP to an enclosing repo otherwise and reports the wrong project.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -13,7 +14,9 @@ def _git(repo: Path, *args: str) -> str | None:
     try:
         r = subprocess.run(
             ["git", "-C", str(repo), *args],
-            capture_output=True, text=True, timeout=8,
+            capture_output=True,
+            text=True,
+            timeout=8,
         )
         return r.stdout.strip() if r.returncode == 0 else None
     except (subprocess.TimeoutExpired, OSError):
@@ -53,6 +56,7 @@ def fleet(projects_dir: Path) -> list[dict]:
     overview endpoint hangs for tens of seconds (bit the first live run)."""
     import time
     from concurrent.futures import ThreadPoolExecutor
+
     if _cache["data"] is not None and time.monotonic() - _cache["ts"] < _TTL:
         return _cache["data"]
     dirs = repo_dirs(projects_dir)

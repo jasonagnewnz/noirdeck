@@ -5,6 +5,7 @@ subsystem additionally needs an ACTIVE contract: not revoked, not expired,
 task/token budget not exhausted. So autonomous runs require BOTH a deploy-time
 capability (env) and a session-scoped, expiring consent (contract) — and an
 armed system disarms ITSELF when the window closes or the budget is spent."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -26,8 +27,8 @@ def _now() -> datetime:
 
 def _active_row(conn: sqlite3.Connection, subsystem: str) -> sqlite3.Row | None:
     return conn.execute(
-        "SELECT * FROM arm_contracts WHERE subsystem=? AND revoked_at IS NULL "
-        "ORDER BY id DESC LIMIT 1", (subsystem,)).fetchone()
+        "SELECT * FROM arm_contracts WHERE subsystem=? AND revoked_at IS NULL ORDER BY id DESC LIMIT 1", (subsystem,)
+    ).fetchone()
 
 
 def _is_live(row: sqlite3.Row | None) -> bool:
@@ -42,8 +43,9 @@ def _is_live(row: sqlite3.Row | None) -> bool:
     return True
 
 
-def arm(conn: sqlite3.Connection, subsystem: str, hours: float,
-        max_tasks: int | None = None, max_tokens: int | None = None) -> dict:
+def arm(
+    conn: sqlite3.Connection, subsystem: str, hours: float, max_tasks: int | None = None, max_tokens: int | None = None
+) -> dict:
     if subsystem not in SUBSYSTEMS:
         raise ArmingError(f"unknown subsystem {subsystem!r}")
     if not (0 < hours <= MAX_HOURS):
@@ -55,11 +57,13 @@ def arm(conn: sqlite3.Connection, subsystem: str, hours: float,
     revoke(conn, subsystem, quiet=True)  # one active contract per subsystem
     until = (_now() + timedelta(hours=hours)).isoformat()
     cur = conn.execute(
-        "INSERT INTO arm_contracts (subsystem, armed_until, max_tasks, max_tokens, created_at) "
-        "VALUES (?,?,?,?,?)", (subsystem, until, max_tasks, max_tokens, utcnow()))
+        "INSERT INTO arm_contracts (subsystem, armed_until, max_tasks, max_tokens, created_at) VALUES (?,?,?,?,?)",
+        (subsystem, until, max_tasks, max_tokens, utcnow()),
+    )
     conn.commit()
-    audit(conn, "operator", "armed",
-          f"subsystem={subsystem} until={until} max_tasks={max_tasks} max_tokens={max_tokens}")
+    audit(
+        conn, "operator", "armed", f"subsystem={subsystem} until={until} max_tasks={max_tasks} max_tokens={max_tokens}"
+    )
     return {"id": cur.lastrowid, "subsystem": subsystem, "armed_until": until}
 
 
@@ -92,7 +96,8 @@ def consume(conn: sqlite3.Connection, subsystem: str, tasks: int = 1, tokens: in
         return
     conn.execute(
         "UPDATE arm_contracts SET used_tasks=used_tasks+?, used_tokens=used_tokens+? WHERE id=?",
-        (tasks, tokens, row["id"]))
+        (tasks, tokens, row["id"]),
+    )
     conn.commit()
 
 

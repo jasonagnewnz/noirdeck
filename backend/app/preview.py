@@ -7,6 +7,7 @@ multi-segment or dot form could escape — 4th instance of that class), and ever
 served file must resolve inside the discovered preview root. The frontend
 embeds this in a sandboxed iframe (no same-origin), so previewed code can't
 reach the noirdeck API with page authority."""
+
 from __future__ import annotations
 
 import mimetypes
@@ -47,8 +48,7 @@ def preview_root(settings: Settings, project: str) -> Path | None:
 def info(settings: Settings, project: str) -> dict:
     root = preview_root(settings, project)
     repo = _safe_project(settings, project)
-    return {"available": root is not None,
-            "entry": str(root.relative_to(repo)) if root else None}
+    return {"available": root is not None, "entry": str(root.relative_to(repo)) if root else None}
 
 
 def resolve_file(settings: Settings, project: str, path: str) -> tuple[Path, str]:

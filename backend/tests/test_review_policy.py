@@ -16,8 +16,13 @@ def test_substantial_change_reviews():
 
 
 def test_security_path_always_reviews_even_tiny():
-    for f in ("app/auth.py", "backend/app/proposals.py", "lib/token_store.js",
-              "ops/pipeline-guard.py", "app/arming.py"):
+    for f in (
+        "app/auth.py",
+        "backend/app/proposals.py",
+        "lib/token_store.js",
+        "ops/pipeline-guard.py",
+        "app/arming.py",
+    ):
         needed, reason = review_needed(1, [f], "PASS", [])
         assert needed, f
         assert "security-flagged" in reason
@@ -37,9 +42,12 @@ def test_untracked_files_review_fail_safe():
 def repo(tmp_path):
     r = tmp_path / "r"
     r.mkdir()
+
     def git(*a):
-        subprocess.run(["git", "-C", str(r), "-c", "user.name=t", "-c", "user.email=t@t", *a],
-                       check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(r), "-c", "user.name=t", "-c", "user.email=t@t", *a], check=True, capture_output=True
+        )
+
     git("init", "-q", "-b", "main")
     (r / "a.py").write_text("one\ntwo\n")
     git("add", "-A")
@@ -50,8 +58,11 @@ def repo(tmp_path):
 def test_diff_since_counts_committed_and_working_changes(repo):
     baseline = head(repo)
     (repo / "a.py").write_text("one\ntwo\nthree\nfour\n")
-    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t",
-                    "commit", "-aqm", "grow"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-aqm", "grow"],
+        check=True,
+        capture_output=True,
+    )
     (repo / "a.py").write_text("one\ntwo\nthree\nfour\nfive\n")  # uncommitted on top
     stats = diff_since(repo, baseline)
     assert stats["files"] == ["a.py"]

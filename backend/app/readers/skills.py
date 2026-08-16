@@ -1,4 +1,5 @@
 """Skills and agents catalogues from ~/.claude."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,15 +22,17 @@ def list_skills(claude_dir: Path) -> list[dict]:
             stat = skill_md.stat()
         except OSError:
             continue
-        out.append({
-            "name": fm.get("name") or entry.name,
-            "description": (fm.get("description") or "").strip(),
-            "model": fm.get("model"),
-            "dir": entry.name,
-            "size": stat.st_size,
-            "mtime": stat.st_mtime,
-            "has_references": any(p.is_dir() for p in entry.iterdir()),
-        })
+        out.append(
+            {
+                "name": fm.get("name") or entry.name,
+                "description": (fm.get("description") or "").strip(),
+                "model": fm.get("model"),
+                "dir": entry.name,
+                "size": stat.st_size,
+                "mtime": stat.st_mtime,
+                "has_references": any(p.is_dir() for p in entry.iterdir()),
+            }
+        )
     return out
 
 
@@ -44,12 +47,14 @@ def list_agents(claude_dir: Path) -> list[dict]:
         except OSError:
             continue
         fm, _ = parse_frontmatter(f)
-        out.append({
-            "name": fm.get("name") or f.stem,
-            "description": (fm.get("description") or "").strip()[:600],
-            "model": fm.get("model"),
-            "tools": fm.get("tools"),
-            "file": f.name,
-            "mtime": mtime,
-        })
+        out.append(
+            {
+                "name": fm.get("name") or f.stem,
+                "description": (fm.get("description") or "").strip()[:600],
+                "model": fm.get("model"),
+                "tools": fm.get("tools"),
+                "file": f.name,
+                "mtime": mtime,
+            }
+        )
     return out

@@ -8,15 +8,16 @@
 - The design doctrine below is distilled from the estate frontend-design skill;
   sessions are also pointed at the full skill file on disk.
 """
+
 from __future__ import annotations
 
 import json
 import subprocess
 import threading
-import time
 from pathlib import Path
 
-from .config import Settings, model as _model
+from .config import Settings
+from .config import model as _model
 from .db import audit, connect, utcnow
 from .overnight import _parse_verdict, parse_cli_json
 from .workspace import validate_cwd
@@ -36,7 +37,10 @@ The full skill lives at ~/.claude/skills/frontend-design/SKILL.md — read it if
 
 DIRECTIONS = [
     ("instrument", "terminal instrument-panel: mono-dominant type, hairline grids, signal-color accents on graphite"),
-    ("editorial", "luxury editorial: oversized serif display type, magazine grid, restrained ink palette, one metallic accent"),
+    (
+        "editorial",
+        "luxury editorial: oversized serif display type, magazine grid, restrained ink palette, one metallic accent",
+    ),
     ("aurora", "aurora glass: deep-space ground, layered translucent panels, soft neon gradients used sparingly"),
     ("brutalist", "refined brutalism: raw blocks, exposed structure, huge type, stark contrast, one shock color"),
     ("botanical", "organic calm: warm paper tones, botanical accents, soft shadows, humanist type, unhurried spacing"),
@@ -99,29 +103,43 @@ class DesignStudio:
                 if v["key"] == key:
                     v.update(fields)
             done = all(v["status"] in ("done", "failed") for v in variants)
-            conn.execute("UPDATE design_rounds SET variants=?, status=? WHERE id=?",
-                         (json.dumps(variants),
-                          "ready" if done else "proposing", round_id))
+            conn.execute(
+                "UPDATE design_rounds SET variants=?, status=? WHERE id=?",
+                (json.dumps(variants), "ready" if done else "proposing", round_id),
+            )
             conn.commit()
         finally:
             conn.close()
 
-    def _run_claude(self, prompt: str, cwd: Path, model: str, max_turns: int,
-                    timeout: int, env_extra: dict | None = None) -> dict:
+    def _run_claude(
+        self, prompt: str, cwd: Path, model: str, max_turns: int, timeout: int, env_extra: dict | None = None
+    ) -> dict:
         import os
 
         from .workspace import claude_bin
+
         if self.claude_argv_base is not None:
             argv = self.claude_argv_base + [prompt]
         else:
             from .guard import guard_settings_args
-            argv = [claude_bin(), "-p", prompt, "--output-format", "json", "--model", model,
-                    "--max-turns", str(max_turns), "--permission-mode", "acceptEdits",
-                    *guard_settings_args()]
+
+            argv = [
+                claude_bin(),
+                "-p",
+                prompt,
+                "--output-format",
+                "json",
+                "--model",
+                model,
+                "--max-turns",
+                str(max_turns),
+                "--permission-mode",
+                "acceptEdits",
+                *guard_settings_args(),
+            ]
         env = dict(os.environ, **(env_extra or {}))
         try:
-            proc = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True,
-                                  timeout=timeout, env=env)
+            proc = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True, timeout=timeout, env=env)
         except subprocess.TimeoutExpired:
             return {"status": "blocked", "summary": "timed out"}
         if proc.returncode != 0:
@@ -141,7 +159,9 @@ class DesignStudio:
         try:
             cur = conn.execute(
                 "INSERT INTO design_rounds (project,brief,library,status,variants,created_at) "
-                "VALUES (?,?,?,'proposing','[]',?)", (project, brief, library, utcnow()))
+                "VALUES (?,?,?,'proposing','[]',?)",
+                (project, brief, library, utcnow()),
+            )
             round_id = cur.lastrowid
             # rotate direction pairing by round id so consecutive rounds differ
             libs = list(LIBRARIES) if library == "mix" else [library]
@@ -149,10 +169,10 @@ class DesignStudio:
             for i in range(n):
                 d_key, d_desc = DIRECTIONS[(round_id * 3 + i) % len(DIRECTIONS)]
                 l_key = libs[(round_id + i) % len(libs)] if library == "mix" else library
-                variants.append({"key": f"v{i + 1}", "direction": d_key, "library": l_key,
-                                 "status": "running", "summary": ""})
-            conn.execute("UPDATE design_rounds SET variants=? WHERE id=?",
-                         (json.dumps(variants), round_id))
+                variants.append(
+                    {"key": f"v{i + 1}", "direction": d_key, "library": l_key, "status": "running", "summary": ""}
+                )
+            conn.execute("UPDATE design_rounds SET variants=? WHERE id=?", (json.dumps(variants), round_id))
             audit(conn, "operator", "design_proposed", f"round={round_id} project={project} lib={library}")
             conn.commit()
         finally:
@@ -160,8 +180,7 @@ class DesignStudio:
         stage = self.staging_root / str(round_id)
         stage.mkdir(parents=True, exist_ok=True)
         for v in variants:
-            threading.Thread(target=self._make_mock,
-                             args=(round_id, project, brief, v, stage), daemon=True).start()
+            threading.Thread(target=self._make_mock, args=(round_id, project, brief, v, stage), daemon=True).start()
         return round_id
 
     def _make_mock(self, round_id: int, project: str, brief: str, v: dict, stage: Path) -> None:
@@ -169,8 +188,7 @@ class DesignStudio:
         try:
             self._make_mock_inner(round_id, project, brief, v, stage)
         except Exception as exc:  # noqa: BLE001
-            self._update_variant(round_id, v["key"], status="failed",
-                                 summary=f"{type(exc).__name__}: {exc}"[:300])
+            self._update_variant(round_id, v["key"], status="failed", summary=f"{type(exc).__name__}: {exc}"[:300])
 
     def _make_mock_inner(self, round_id: int, project: str, brief: str, v: dict, stage: Path) -> None:
         out = stage / f"{v['key']}.html"
@@ -183,13 +201,15 @@ class DesignStudio:
             f"{DOCTRINE}\n"
             f"Write the mock to exactly this path: {out}\n"
             f"(The same path is in $DESIGN_OUT.)\n"
-            f"{MOCK_GUARDRAILS}")
-        verdict = self._run_claude(prompt, stage, _model("build"), 8, MOCK_TIMEOUT_S,
-                                   env_extra={"DESIGN_OUT": str(out)})
+            f"{MOCK_GUARDRAILS}"
+        )
+        verdict = self._run_claude(
+            prompt, stage, _model("build"), 8, MOCK_TIMEOUT_S, env_extra={"DESIGN_OUT": str(out)}
+        )
         ok = verdict.get("status") == "done" and out.is_file()
-        self._update_variant(round_id, v["key"],
-                             status="done" if ok else "failed",
-                             summary=str(verdict.get("summary", ""))[:300])
+        self._update_variant(
+            round_id, v["key"], status="done" if ok else "failed", summary=str(verdict.get("summary", ""))[:300]
+        )
 
     # --- apply ---
     def apply(self, round_id: int, variant_key: str) -> None:
@@ -202,15 +222,15 @@ class DesignStudio:
             v = next((x for x in variants if x["key"] == variant_key), None)
             if not v or v["status"] != "done":
                 raise ValueError("variant not ready")
-            conn.execute("UPDATE design_rounds SET status='applying', applied_variant=? WHERE id=?",
-                         (variant_key, round_id))
+            conn.execute(
+                "UPDATE design_rounds SET status='applying', applied_variant=? WHERE id=?", (variant_key, round_id)
+            )
             audit(conn, "operator", "design_applied", f"round={round_id} variant={variant_key}")
             conn.commit()
             project, brief = row["project"], row["brief"]
         finally:
             conn.close()
-        threading.Thread(target=self._apply_worker,
-                         args=(round_id, project, brief, v), daemon=True).start()
+        threading.Thread(target=self._apply_worker, args=(round_id, project, brief, v), daemon=True).start()
 
     def requeue_stale(self) -> None:
         """Server restart kills variant threads — mark their rounds honestly."""
@@ -225,8 +245,9 @@ class DesignStudio:
                     if v["status"] == "running":
                         v["status"] = "failed"
                         v["summary"] = "server restarted mid-generation — propose again"
-                conn.execute("UPDATE design_rounds SET variants=?, status='ready' WHERE id=?",
-                             (json.dumps(variants), r["id"]))
+                conn.execute(
+                    "UPDATE design_rounds SET variants=?, status='ready' WHERE id=?", (json.dumps(variants), r["id"])
+                )
             conn.commit()
         finally:
             conn.close()
@@ -242,13 +263,16 @@ class DesignStudio:
             f"UI system for the real implementation: {LIBRARIES[v['library']]} "
             f"Install and use the real library packages where that is the natural fit; "
             f"otherwise translate the language into the project's existing stack.\n"
-            f"{DOCTRINE}\n{APPLY_GUARDRAILS}")
+            f"{DOCTRINE}\n{APPLY_GUARDRAILS}"
+        )
         verdict = self._run_claude(prompt, repo, _model("build"), 60, APPLY_TIMEOUT_S)
         conn = self._db()
         try:
             status = "applied" if verdict.get("status") == "done" else "apply-blocked"
-            conn.execute("UPDATE design_rounds SET status=?, apply_summary=? WHERE id=?",
-                         (status, str(verdict.get("summary", ""))[:500], round_id))
+            conn.execute(
+                "UPDATE design_rounds SET status=?, apply_summary=? WHERE id=?",
+                (status, str(verdict.get("summary", ""))[:500], round_id),
+            )
             audit(conn, "design", "design_apply_finished", f"round={round_id} status={status}")
             conn.commit()
         finally:
@@ -256,6 +280,7 @@ class DesignStudio:
 
     def mock_path(self, round_id: int, variant_key: str) -> Path:
         import re
+
         if not re.fullmatch(r"v[0-9]{1,2}", variant_key):
             raise ValueError("bad variant key")
         path = (self.staging_root / str(int(round_id)) / f"{variant_key}.html").resolve()

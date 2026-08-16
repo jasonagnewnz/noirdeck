@@ -1,4 +1,5 @@
 """Memory namespaces: ~/.claude/projects/<ns>/memory/*.md"""
+
 from __future__ import annotations
 
 import re
@@ -8,8 +9,24 @@ from pathlib import Path
 from .frontmatter import parse_frontmatter
 
 _STOP = {
-    "the", "a", "and", "for", "with", "not", "are", "is", "of", "to", "in", "on",
-    "feedback", "fb", "reference", "gotcha", "check", "api",
+    "the",
+    "a",
+    "and",
+    "for",
+    "with",
+    "not",
+    "are",
+    "is",
+    "of",
+    "to",
+    "in",
+    "on",
+    "feedback",
+    "fb",
+    "reference",
+    "gotcha",
+    "check",
+    "api",
 }
 
 
@@ -29,6 +46,7 @@ _TTL = 120  # 15k+ frontmatter reads across 133 namespaces — never do it per r
 
 def list_memories(claude_dir: Path) -> list[dict]:
     import time
+
     hit = _cache.get(str(claude_dir))
     if hit and time.monotonic() - hit[0] < _TTL:
         return hit[1]
@@ -39,16 +57,19 @@ def list_memories(claude_dir: Path) -> list[dict]:
                 continue
             fm, _ = parse_frontmatter(f, max_bytes=4096)
             meta = fm.get("metadata") or {}
-            out.append({
-                "namespace": ns_name,
-                "name": fm.get("name") or f.stem,
-                "description": (fm.get("description") or "").strip(),
-                "type": meta.get("type") if isinstance(meta, dict) else None,
-                "file": f.name,
-                "size": f.stat().st_size,
-                "mtime": f.stat().st_mtime,
-            })
+            out.append(
+                {
+                    "namespace": ns_name,
+                    "name": fm.get("name") or f.stem,
+                    "description": (fm.get("description") or "").strip(),
+                    "type": meta.get("type") if isinstance(meta, dict) else None,
+                    "file": f.name,
+                    "size": f.stat().st_size,
+                    "mtime": f.stat().st_mtime,
+                }
+            )
     import time
+
     _cache[str(claude_dir)] = (time.monotonic(), out)
     return out
 
@@ -74,12 +95,14 @@ def group_memories(memories: list[dict], min_group: int = 4) -> list[dict]:
         if key in seen_membersets:
             continue
         seen_membersets.add(key)
-        groups.append({
-            "namespace": ns,
-            "topic": tok,
-            "count": len(members),
-            "members": sorted(m["name"] for m in members),
-        })
+        groups.append(
+            {
+                "namespace": ns,
+                "topic": tok,
+                "count": len(members),
+                "members": sorted(m["name"] for m in members),
+            }
+        )
     groups.sort(key=lambda g: -g["count"])
     return groups
 

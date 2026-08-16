@@ -8,6 +8,7 @@ like the rest of the app — this endpoint is shell-equivalent access by design.
 Auth: sessions inherit the machine's existing Claude CLI auth (~/.claude). There is
 no separate platform login; if the CLI is ever logged out, /login runs in the pane.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,6 +35,7 @@ class WorkspaceError(RuntimeError):
 def claude_bin() -> str:
     """Resolve the claude CLI even under systemd, whose PATH lacks ~/.local/bin."""
     import shutil
+
     found = shutil.which("claude")
     if found:
         return found
@@ -145,9 +147,14 @@ class WorkspaceManager:
             self.sessions[sid].close()
             del self.sessions[sid]
 
-    def start(self, project: str, initial_prompt: str | None = None,
-              resume_session_id: str | None = None, continue_last: bool = False,
-              argv_override: list[str] | None = None) -> TermSession:
+    def start(
+        self,
+        project: str,
+        initial_prompt: str | None = None,
+        resume_session_id: str | None = None,
+        continue_last: bool = False,
+        argv_override: list[str] | None = None,
+    ) -> TermSession:
         self.reap()
         if len(self.sessions) >= MAX_SESSIONS:
             raise WorkspaceError(f"session cap reached ({MAX_SESSIONS}) — close one first")
@@ -184,10 +191,15 @@ class WorkspaceManager:
 
     def listing(self) -> list[dict]:
         self.reap()
-        return [{
-            "id": t.id, "project": t.project, "alive": t.alive(),
-            "resumed": "--resume" in t.argv,
-        } for t in self.sessions.values()]
+        return [
+            {
+                "id": t.id,
+                "project": t.project,
+                "alive": t.alive(),
+                "resumed": "--resume" in t.argv,
+            }
+            for t in self.sessions.values()
+        ]
 
 
 def latest_transcript_session_id(claude_dir: Path, cwd: Path) -> str | None:
@@ -209,14 +221,16 @@ def latest_transcript_session_id(claude_dir: Path, cwd: Path) -> str | None:
 def init_repo(projects_dir: Path, name: str) -> Path:
     """Create + git-init a new empty repo under the projects dir."""
     import subprocess
+
     if not NAME_RE.match(name):
         raise WorkspaceError("repo name must be [A-Za-z0-9._-], max 64 chars")
     target = projects_dir / name
     if target.exists():
         raise WorkspaceError(f"{name} already exists")
     target.mkdir(parents=True)
-    r = subprocess.run(["git", "-C", str(target), "init", "-q", "-b", "main"],
-                       capture_output=True, text=True, timeout=15)
+    r = subprocess.run(
+        ["git", "-C", str(target), "init", "-q", "-b", "main"], capture_output=True, text=True, timeout=15
+    )
     if r.returncode != 0:
         raise WorkspaceError(f"git init failed: {r.stderr[:200]}")
     return target

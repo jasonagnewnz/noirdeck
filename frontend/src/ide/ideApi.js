@@ -5,7 +5,11 @@ export async function getJSON(path) {
   const r = await fetch(`/api${path}`)
   if (!r.ok) {
     let detail = r.statusText
-    try { detail = (await r.json()).detail || detail } catch { /* keep statusText */ }
+    try {
+      detail = (await r.json()).detail || detail
+    } catch {
+      /* keep statusText */
+    }
     throw new Error(detail)
   }
   return r.json()

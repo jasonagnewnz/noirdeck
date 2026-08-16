@@ -17,8 +17,23 @@ def vault_env(tmp_path, monkeypatch, claude_dir):
     dirty = proj / "wip-app"
     dirty.mkdir()
     subprocess.run(["git", "-C", str(dirty), "init", "-q"], check=True)
-    subprocess.run(["git", "-C", str(dirty), "-c", "user.email=t@t", "-c", "user.name=t",
-                    "commit", "-q", "--allow-empty", "-m", "local only"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(dirty),
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "local only",
+        ],
+        check=True,
+    )
     repo = tmp_path / "resticrepo"
     passfile = tmp_path / "pass"
     passfile.write_text("test-passphrase\n")
@@ -29,9 +44,12 @@ def vault_env(tmp_path, monkeypatch, claude_dir):
     monkeypatch.setenv("NOIRDECK_DB_PATH", str(tmp_path / "v.db"))
     s = Settings.load()
     init_db(s.db_path)
-    subprocess.run([vault.restic_bin(), "-r", str(repo), "init"],
-                   env={"RESTIC_PASSWORD_FILE": str(passfile), "PATH": "/usr/bin:/bin"},
-                   capture_output=True, check=True)
+    subprocess.run(
+        [vault.restic_bin(), "-r", str(repo), "init"],
+        env={"RESTIC_PASSWORD_FILE": str(passfile), "PATH": "/usr/bin:/bin"},
+        capture_output=True,
+        check=True,
+    )
     return s
 
 

@@ -4,8 +4,7 @@ import pytest
 
 from app.builds import PHASES, BuildRunner
 from app.db import connect
-from app.guided import (INTAKE_QUESTIONS, acceptance_criteria, compose_brief,
-                        read_plain_plan, validate_answers)
+from app.guided import INTAKE_QUESTIONS, acceptance_criteria, compose_brief, read_plain_plan, validate_answers
 from tests.test_builds import _wait_status, settings  # noqa: F401 — fixture reuse
 
 ANSWERS = {
@@ -19,9 +18,12 @@ ANSWERS = {
     "extra": "",
 }
 
-STUB_DONE = ["bash", "-c",
-             'printf \'## The plan in plain English\\nA one-page booking site.\\nNo sign-in.\\n\' > MASTER_PLAN.md; '
-             'echo \'VERDICT: {"status":"done","summary":"phase ok"}\'; true; #']
+STUB_DONE = [
+    "bash",
+    "-c",
+    "printf '## The plan in plain English\\nA one-page booking site.\\nNo sign-in.\\n' > MASTER_PLAN.md; "
+    'echo \'VERDICT: {"status":"done","summary":"phase ok"}\'; true; #',
+]
 
 
 def test_intake_validation_and_brief():
@@ -41,15 +43,17 @@ def test_intake_validation_and_brief():
 
 def test_read_plain_plan_extracts_section(tmp_path):
     (tmp_path / "MASTER_PLAN.md").write_text(
-        "# plan\n\n## The plan in plain English\nline one\nline two\n\n## Tech detail\nstack")
+        "# plan\n\n## The plan in plain English\nline one\nline two\n\n## Tech detail\nstack"
+    )
     assert read_plain_plan(tmp_path) == "line one\nline two"
     assert read_plain_plan(tmp_path / "nowhere") == ""
 
 
 def test_gated_build_parks_at_plan_and_approve_finishes(settings):  # noqa: F811
     runner = BuildRunner(settings, claude_argv_base=STUB_DONE)
-    build_id = runner.start("salon", compose_brief(ANSWERS), gated=True,
-                            intake=ANSWERS, acceptance=acceptance_criteria(ANSWERS))
+    build_id = runner.start(
+        "salon", compose_brief(ANSWERS), gated=True, intake=ANSWERS, acceptance=acceptance_criteria(ANSWERS)
+    )
     row = _wait_status(settings.db_path, build_id, {"awaiting_plan"})
     assert "plain English" not in (row["plan_summary"] or "")  # extracted section, not header
     assert "booking site" in row["plan_summary"]
@@ -99,11 +103,12 @@ def test_plan_decision_guards(settings):  # noqa: F811
 
 # --- recipe cards -------------------------------------------------------------
 
+
 def test_every_recipe_validates_and_matches_question_ids():
     from app.guided import INTAKE_QUESTIONS, RECIPES, compose_brief, validate_answers
+
     qids = {q["id"] for q in INTAKE_QUESTIONS}
-    choice_opts = {q["id"]: {v for v, _ in q["options"]}
-                   for q in INTAKE_QUESTIONS if q["type"] == "choice"}
+    choice_opts = {q["id"]: {v for v, _ in q["options"]} for q in INTAKE_QUESTIONS if q["type"] == "choice"}
     assert len(RECIPES) >= 4
     assert len({r["id"] for r in RECIPES}) == len(RECIPES)
     for r in RECIPES:

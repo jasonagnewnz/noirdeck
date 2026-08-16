@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { ACTIONS } from './prompts.js'
 
 // Actions strip for the currently open project — a "live" run (opens a fresh
@@ -13,7 +13,9 @@ export default function ActionsBar({ project, onLive, onOvernight, busy }) {
       await onOvernight(action)
       setFlash(`queued: ${action.label}`)
       setTimeout(() => setFlash(null), 3000)
-    } catch { /* parent surfaces the error */ }
+    } catch {
+      /* parent surfaces the error */
+    }
   }
 
   return (
@@ -22,13 +24,25 @@ export default function ActionsBar({ project, onLive, onOvernight, busy }) {
       <span className="actionsbar-buttons">
         {ACTIONS.map((a) => (
           <span key={a.key} className="actionsbar-pair">
-            <button className="act" disabled={busy} onClick={() => onLive(a)}>{a.label}</button>
-            <button className="act ghost sm" disabled={busy} title={`Queue "${a.label}" for the overnight runner`}
-              onClick={() => runOvernight(a)}>overnight</button>
+            <button className="act" disabled={busy} onClick={() => onLive(a)}>
+              {a.label}
+            </button>
+            <button
+              className="act ghost sm"
+              disabled={busy}
+              title={`Queue "${a.label}" for the overnight runner`}
+              onClick={() => runOvernight(a)}
+            >
+              overnight
+            </button>
           </span>
         ))}
       </span>
-      {flash && <span className="actionsbar-flash" role="status" aria-live="polite">{flash}</span>}
+      {flash && (
+        <span className="actionsbar-flash" role="status" aria-live="polite">
+          {flash}
+        </span>
+      )}
     </div>
   )
 }

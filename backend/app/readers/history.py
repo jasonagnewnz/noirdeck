@@ -1,4 +1,5 @@
 """history.jsonl intelligence: activity stats, search, repeated-prompt detection."""
+
 from __future__ import annotations
 
 import json
@@ -30,12 +31,14 @@ def load_history(claude_dir: Path) -> list[dict]:
             display = (rec.get("display") or "").strip()
             if not display:
                 continue
-            records.append({
-                "display": display,
-                "ts": rec.get("timestamp", 0),
-                "project": rec.get("project") or "?",
-                "session_id": rec.get("sessionId"),
-            })
+            records.append(
+                {
+                    "display": display,
+                    "ts": rec.get("timestamp", 0),
+                    "project": rec.get("project") or "?",
+                    "session_id": rec.get("sessionId"),
+                }
+            )
     _cache[str(path)] = (stat.st_mtime, records)
     return records
 
@@ -90,12 +93,14 @@ def repeated_prompts(records: list[dict], min_count: int = 3) -> list[dict]:
     out = []
     for key, rs in buckets.items():
         if len(rs) >= min_count:
-            out.append({
-                "normalized": key,
-                "count": len(rs),
-                "example": rs[-1]["display"][:300],
-                "projects": sorted({x["project"] for x in rs}),
-                "last_ts": max(x["ts"] for x in rs),
-            })
+            out.append(
+                {
+                    "normalized": key,
+                    "count": len(rs),
+                    "example": rs[-1]["display"][:300],
+                    "projects": sorted({x["project"] for x in rs}),
+                    "last_ts": max(x["ts"] for x in rs),
+                }
+            )
     out.sort(key=lambda x: -x["count"])
     return out

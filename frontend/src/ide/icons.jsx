@@ -1,5 +1,3 @@
-import React from 'react'
-
 // Inline-SVG stroke icon set for the activity bar. Hand-drawn, zero external
 // assets (matches the zero-egress posture already established for fonts).
 // All icons are decorative by default — the interactive control they sit in
@@ -8,22 +6,32 @@ import React from 'react'
 // order. Pass aria-hidden={false} at a call site if an icon is ever used
 // standalone without a labeled parent control.
 const base = {
-  width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
-  strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round',
-  'aria-hidden': 'true', focusable: 'false',
+  width: 20,
+  height: 20,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.6,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  'aria-hidden': 'true',
+  focusable: 'false',
 }
 
 export const OverviewIcon = (p) => (
   <svg {...base} {...p}>
-    <rect x="3" y="3" width="7.5" height="7.5" rx="1" /><rect x="13.5" y="3" width="7" height="7.5" rx="1" />
-    <rect x="3" y="13" width="7" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" />
+    <rect x="3" y="3" width="7.5" height="7.5" rx="1" />
+    <rect x="13.5" y="3" width="7" height="7.5" rx="1" />
+    <rect x="3" y="13" width="7" height="8" rx="1" />
+    <rect x="13" y="13" width="8" height="8" rx="1" />
   </svg>
 )
 
 export const WorkspaceIcon = (p) => (
   <svg {...base} {...p}>
     <rect x="2.5" y="4" width="19" height="16" rx="1.6" />
-    <path d="M7 9.5l3 2.7-3 2.7" /><path d="M13 15h4.5" />
+    <path d="M7 9.5l3 2.7-3 2.7" />
+    <path d="M13 15h4.5" />
   </svg>
 )
 
@@ -35,14 +43,17 @@ export const BuildsIcon = (p) => (
 
 export const DesignIcon = (p) => (
   <svg {...base} {...p}>
-    <circle cx="8" cy="8" r="2.6" /><circle cx="16" cy="8" r="2.6" />
-    <circle cx="8" cy="16" r="2.6" /><circle cx="16" cy="16" r="2.6" />
+    <circle cx="8" cy="8" r="2.6" />
+    <circle cx="16" cy="8" r="2.6" />
+    <circle cx="8" cy="16" r="2.6" />
+    <circle cx="16" cy="16" r="2.6" />
   </svg>
 )
 
 export const SessionsIcon = (p) => (
   <svg {...base} {...p}>
-    <circle cx="12" cy="12" r="9" /><path d="M12 7.5v5l3.3 1.9" />
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7.5v5l3.3 1.9" />
   </svg>
 )
 
@@ -81,6 +92,14 @@ export const QualityIcon = (p) => (
   </svg>
 )
 
+export const HelpIcon = (p) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.4 9.3a2.7 2.7 0 1 1 3.8 2.5c-.9.4-1.2 1-1.2 2" />
+    <path d="M12 17h.01" />
+  </svg>
+)
+
 export const ICONS = {
   overview: OverviewIcon,
   workspace: WorkspaceIcon,
@@ -92,18 +111,42 @@ export const ICONS = {
   proposals: ProposalsIcon,
   queue: QueueIcon,
   quality: QualityIcon,
+  help: HelpIcon,
 }
 
 export const ChevronIcon = (p) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
-    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...p}>
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+    {...p}
+  >
     <path d="M8 5l8 7-8 7" />
   </svg>
 )
 
 export const FileDotIcon = (p) => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...p}>
-    <path d="M6 2.5h8l4 4v15H6z" /><path d="M14 2.5V7h4" />
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    focusable="false"
+    {...p}
+  >
+    <path d="M6 2.5h8l4 4v15H6z" />
+    <path d="M14 2.5V7h4" />
   </svg>
 )

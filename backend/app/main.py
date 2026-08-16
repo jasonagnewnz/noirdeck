@@ -1,4 +1,5 @@
 """noirdeck API + SPA server. Binds 127.0.0.1 only (see docs/SECURITY.md)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,8 +13,11 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from . import arming, ask, digest, guided, hygiene, improve, preview, vault
+from .builds import BuildRunner
 from .config import REPO_ROOT, Settings, primary_namespace
 from .db import audit, connect, init_db, utcnow
+from .design import DesignStudio
 from .miner.heuristics import run_heuristics
 from .miner.runner import run_llm_mining
 from .overnight import requeue_stale_running, route_agent, route_model
@@ -23,15 +27,11 @@ from .readers import history as hist
 from .readers.commits import fleet_feed, fleet_flags, follow_on_flags, recent_commits
 from .readers.files import FilesError, list_dir, read_file
 from .readers.fleet import fleet, fleet_attention
-from . import arming, ask, digest, guided, hygiene, improve, preview, vault
 from .readers.memories import group_memories, list_memories, memory_stats
 from .readers.sessions import namespace_display, recent_sessions
 from .readers.skills import list_agents, list_skills
 from .version import VERSION
-from .builds import BuildRunner
-from .design import DesignStudio
-from .workspace import (WorkspaceError, WorkspaceManager, init_repo,
-                        latest_transcript_session_id)
+from .workspace import WorkspaceError, WorkspaceManager, init_repo, latest_transcript_session_id
 
 settings = Settings.load()
 init_db(settings.db_path)
@@ -58,6 +58,7 @@ def _origin_ok(origin: str | None) -> bool:
     if not origin:
         return True  # non-browser client (curl, tests) — host check still applies
     from urllib.parse import urlparse
+
     return urlparse(origin).hostname in _ALLOWED_HOSTS
 
 
@@ -65,8 +66,10 @@ def _origin_ok(origin: str | None) -> bool:
 async def local_browser_boundary(request, call_next):
     if not _hostname_ok(request.headers.get("host")) or not _origin_ok(request.headers.get("origin")):
         from fastapi.responses import JSONResponse
+
         return JSONResponse({"detail": "forbidden origin/host"}, status_code=403)
     return await call_next(request)
+
 
 # re-queue tasks orphaned by a crash mid-run
 _c = connect(settings.db_path)
@@ -95,8 +98,13 @@ def db():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": VERSION, "claude_dir": str(settings.claude_dir),
-            "mining_armed": settings.mining_armed, "overnight_armed": settings.overnight_armed}
+    return {
+        "status": "ok",
+        "version": VERSION,
+        "claude_dir": str(settings.claude_dir),
+        "mining_armed": settings.mining_armed,
+        "overnight_armed": settings.overnight_armed,
+    }
 
 
 @app.get("/api/overview")
@@ -107,10 +115,10 @@ def overview():
     states = fleet(settings.projects_dir)
     conn = db()
     try:
-        pending = conn.execute(
-            "SELECT COUNT(*) c FROM proposals WHERE status='proposed'").fetchone()["c"]
-        queue_counts = {r["status"]: r["c"] for r in conn.execute(
-            "SELECT status, COUNT(*) c FROM queue GROUP BY status").fetchall()}
+        pending = conn.execute("SELECT COUNT(*) c FROM proposals WHERE status='proposed'").fetchone()["c"]
+        queue_counts = {
+            r["status"]: r["c"] for r in conn.execute("SELECT status, COUNT(*) c FROM queue GROUP BY status").fetchall()
+        }
     finally:
         conn.close()
     mems = list_memories(settings.claude_dir)
@@ -148,10 +156,14 @@ def _improve_assets() -> dict:
     already satisfies the proposals write allowlist (skills + the primary
     memory namespace), so 'addable' and 'approvable' can never disagree."""
     ns = primary_namespace()
-    skills = [{"label": s["name"], "target_path": f"skills/{s['dir']}/SKILL.md"}
-              for s in list_skills(settings.claude_dir)]
-    memories = [{"label": m["name"], "target_path": f"projects/{ns}/memory/{m['file']}"}
-                for m in list_memories(settings.claude_dir) if m["namespace"] == ns]
+    skills = [
+        {"label": s["name"], "target_path": f"skills/{s['dir']}/SKILL.md"} for s in list_skills(settings.claude_dir)
+    ]
+    memories = [
+        {"label": m["name"], "target_path": f"projects/{ns}/memory/{m['file']}"}
+        for m in list_memories(settings.claude_dir)
+        if m["namespace"] == ns
+    ]
     return {"skill": skills, "memory": memories}
 
 
@@ -175,14 +187,15 @@ def improve_status():
             "model": improve.local_model(),
             "model_available": improve._model_in(improve.local_model(), avail),
             "models": avail,
-            "repos": [dict(r) for r in conn.execute(
-                "SELECT * FROM improve_repos ORDER BY project").fetchall()],
-            "changes": [dict(r) for r in conn.execute(
-                "SELECT * FROM improve_changes ORDER BY id DESC LIMIT 50").fetchall()],
+            "repos": [dict(r) for r in conn.execute("SELECT * FROM improve_repos ORDER BY project").fetchall()],
+            "changes": [
+                dict(r) for r in conn.execute("SELECT * FROM improve_changes ORDER BY id DESC LIMIT 50").fetchall()
+            ],
             "learning": improve.decision_stats(conn),
-            "targets": [dict(r) | {"armed": bool(r["armed_until"] and r["armed_until"] > utcnow())}
-                        for r in conn.execute(
-                            "SELECT * FROM improve_targets ORDER BY kind, target_path").fetchall()],
+            "targets": [
+                dict(r) | {"armed": bool(r["armed_until"] and r["armed_until"] > utcnow())}
+                for r in conn.execute("SELECT * FROM improve_targets ORDER BY kind, target_path").fetchall()
+            ],
             "assets": _improve_assets(),
         }
     finally:
@@ -209,14 +222,18 @@ def improve_map(body: ImproveRepoBody):
         conn.execute(
             "INSERT INTO improve_repos (project, enabled, created_at) VALUES (?,?,?) "
             "ON CONFLICT(project) DO UPDATE SET enabled=excluded.enabled",
-            (body.project, int(body.enabled), utcnow()))
+            (body.project, int(body.enabled), utcnow()),
+        )
         if "model" in body.model_fields_set:
-            conn.execute("UPDATE improve_repos SET model=? WHERE project=?",
-                         (model, body.project))
+            conn.execute("UPDATE improve_repos SET model=? WHERE project=?", (model, body.project))
         conn.commit()
-        audit(conn, "operator", "improve_repo_mapped",
-              f"{body.project} enabled={int(body.enabled)}"
-              + (f" model={model or 'default'}" if "model" in body.model_fields_set else ""))
+        audit(
+            conn,
+            "operator",
+            "improve_repo_mapped",
+            f"{body.project} enabled={int(body.enabled)}"
+            + (f" model={model or 'default'}" if "model" in body.model_fields_set else ""),
+        )
         return {"project": body.project, "enabled": body.enabled, "model": model}
     finally:
         conn.close()
@@ -252,10 +269,10 @@ def improve_target_add(body: ImproveTargetBody):
         conn.execute(
             "INSERT INTO improve_targets (kind, target_path, model, created_at) "
             "VALUES (?,?,?,?) ON CONFLICT(target_path) DO UPDATE SET model=excluded.model",
-            (body.kind, body.target_path, model, utcnow()))
+            (body.kind, body.target_path, model, utcnow()),
+        )
         conn.commit()
-        audit(conn, "operator", "improve_target_added",
-              f"{body.kind} {body.target_path} model={model or 'default'}")
+        audit(conn, "operator", "improve_target_added", f"{body.kind} {body.target_path} model={model or 'default'}")
         return {"kind": body.kind, "target_path": body.target_path, "armed": False}
     finally:
         conn.close()
@@ -283,8 +300,7 @@ def improve_target_action(tid: int, body: ImproveTargetAction):
         else:
             raise HTTPException(400, f"unknown action {body.action!r}")
         conn.commit()
-        audit(conn, "operator", f"improve_target_{body.action}",
-              f"id={tid} {row['target_path']} {detail}")
+        audit(conn, "operator", f"improve_target_{body.action}", f"id={tid} {row['target_path']} {detail}")
         return {"id": tid, "action": body.action}
     finally:
         conn.close()
@@ -333,8 +349,10 @@ def vault_run():
 def arming_status():
     conn = db()
     try:
-        return {"contracts": arming.status(conn),
-                "env": {"overnight": settings.overnight_armed, "mining": settings.mining_armed}}
+        return {
+            "contracts": arming.status(conn),
+            "env": {"overnight": settings.overnight_armed, "mining": settings.mining_armed},
+        }
     finally:
         conn.close()
 
@@ -421,10 +439,10 @@ _commit_cache: dict = {"ts": 0.0, "data": None}
 @app.get("/api/commits")
 def commits_route():
     import time as _t
+
     if _commit_cache["data"] is not None and _t.monotonic() - _commit_cache["ts"] < 120:
         return _commit_cache["data"]
-    data = {"feed": fleet_feed(settings.projects_dir),
-            "follow_on": fleet_flags(settings.projects_dir)}
+    data = {"feed": fleet_feed(settings.projects_dir), "follow_on": fleet_flags(settings.projects_dir)}
     _commit_cache.update(ts=_t.monotonic(), data=data)
     return data
 
@@ -436,8 +454,11 @@ def build_kickoff(project: str, repo, state: dict, sess: list[dict]) -> str:
         + (f" has {state['dirty_files']} uncommitted file(s)" if state["dirty_files"] else "")
         + (f" and {state['unpushed_commits']} unpushed commit(s)" if state["unpushed_commits"] else "")
         + ". "
-        + (f"Last session ended unfinished: \"{sess[0]['last_assistant'][-200:]}\" — pick that up first."
-           if sess and sess[0]["open_loop"] else "No open loop detected in the last session.")
+        + (
+            f'Last session ended unfinished: "{sess[0]["last_assistant"][-200:]}" — pick that up first.'
+            if sess and sess[0]["open_loop"]
+            else "No open loop detected in the last session."
+        )
     )
 
 
@@ -450,6 +471,7 @@ def briefing(project: str):
     sess = recent_sessions(settings.claude_dir, limit=5, namespace=ns)
     mem_dir = settings.claude_dir / "projects" / ns / "memory"
     from .readers.fleet import repo_state
+
     state = repo_state(repo)
     kickoff = build_kickoff(project, repo, state, sess)
     return {
@@ -466,6 +488,7 @@ def briefing(project: str):
 
 
 # --- proposals ---
+
 
 class DecisionBody(BaseModel):
     overwrite: bool = False
@@ -536,13 +559,13 @@ def mine_llm():
 def insights():
     conn = db()
     try:
-        return [dict(r) for r in conn.execute(
-            "SELECT * FROM insights ORDER BY id DESC LIMIT 100").fetchall()]
+        return [dict(r) for r in conn.execute("SELECT * FROM insights ORDER BY id DESC LIMIT 100").fetchall()]
     finally:
         conn.close()
 
 
 # --- QA gates ---
+
 
 @app.get("/api/qa")
 def qa_all():
@@ -559,6 +582,7 @@ def qa_one(project: str):
 
 # --- overnight queue ---
 
+
 class TaskBody(BaseModel):
     project: str
     title: str
@@ -574,8 +598,7 @@ class AnswerBody(BaseModel):
 def queue_list():
     conn = db()
     try:
-        return [dict(r) for r in conn.execute(
-            "SELECT * FROM queue ORDER BY id DESC LIMIT 200").fetchall()]
+        return [dict(r) for r in conn.execute("SELECT * FROM queue ORDER BY id DESC LIMIT 200").fetchall()]
     finally:
         conn.close()
 
@@ -593,8 +616,16 @@ def queue_add(body: TaskBody):
         cur = conn.execute(
             "INSERT INTO queue (project,title,prompt,agent_type,model,weight,status,created_at) "
             "VALUES (?,?,?,?,?,?,'queued',?)",
-            (str(repo), body.title, body.prompt,
-             route_agent(text, settings.claude_dir), route_model(text), body.weight, utcnow()))
+            (
+                str(repo),
+                body.title,
+                body.prompt,
+                route_agent(text, settings.claude_dir),
+                route_model(text),
+                body.weight,
+                utcnow(),
+            ),
+        )
         audit(conn, "operator", "task_queued", f"id={cur.lastrowid} title={body.title[:80]}")
         conn.commit()
         return {"id": cur.lastrowid}
@@ -611,9 +642,7 @@ def queue_answer(tid: int, body: AnswerBody):
             raise HTTPException(404, "no such task")
         if row["status"] != "blocked":
             raise HTTPException(409, f"task is {row['status']}, not blocked")
-        conn.execute(
-            "UPDATE queue SET answer=?, status='queued', question=NULL WHERE id=?",
-            (body.answer, tid))
+        conn.execute("UPDATE queue SET answer=?, status='queued', question=NULL WHERE id=?", (body.answer, tid))
         audit(conn, "operator", "task_answered", f"id={tid}")
         conn.commit()
         return {"id": tid, "status": "queued"}
@@ -662,17 +691,21 @@ async def workspace_start(body: WorkspaceStart):
         repo = settings.projects_dir / body.project
         ns = str(repo).replace("/", "-")
         from .readers.fleet import repo_state
+
         sess = recent_sessions(settings.claude_dir, limit=5, namespace=ns)
         initial = build_kickoff(body.project, repo, repo_state(repo), sess)
     try:
-        term = workspace.start(body.project, initial_prompt=initial,
-                               resume_session_id=body.resume_session_id)
+        term = workspace.start(body.project, initial_prompt=initial, resume_session_id=body.resume_session_id)
     except WorkspaceError as e:
         raise HTTPException(409, str(e))
     conn = db()
     try:
-        audit(conn, "operator", "workspace_started",
-              f"id={term.id} project={body.project} resume={body.resume_session_id or '-'}")
+        audit(
+            conn,
+            "operator",
+            "workspace_started",
+            f"id={term.id} project={body.project} resume={body.resume_session_id or '-'}",
+        )
     finally:
         conn.close()
     return {"id": term.id, "project": term.project}
@@ -695,9 +728,12 @@ class PauseBody(BaseModel):
 async def workspace_paused_list():
     conn = db()
     try:
-        return [dict(r) for r in conn.execute(
-            "SELECT * FROM paused_sessions WHERE resumed_at IS NULL "
-            "ORDER BY id DESC LIMIT 20").fetchall()]
+        return [
+            dict(r)
+            for r in conn.execute(
+                "SELECT * FROM paused_sessions WHERE resumed_at IS NULL ORDER BY id DESC LIMIT 20"
+            ).fetchall()
+        ]
     finally:
         conn.close()
 
@@ -717,14 +753,17 @@ async def workspace_pause(sid: str, body: PauseBody):
     conn = db()
     try:
         cur = conn.execute(
-            "INSERT INTO paused_sessions (project, claude_session_id, label, paused_at) "
-            "VALUES (?,?,?,?)",
-            (project, claude_session, (body.label or "").strip()[:120] or None, utcnow()))
+            "INSERT INTO paused_sessions (project, claude_session_id, label, paused_at) VALUES (?,?,?,?)",
+            (project, claude_session, (body.label or "").strip()[:120] or None, utcnow()),
+        )
         conn.commit()
-        audit(conn, "operator", "workspace_paused",
-              f"id={sid} project={project} claude_session={claude_session or 'unknown'}")
-        return {"paused_id": cur.lastrowid, "project": project,
-                "claude_session_id": claude_session}
+        audit(
+            conn,
+            "operator",
+            "workspace_paused",
+            f"id={sid} project={project} claude_session={claude_session or 'unknown'}",
+        )
+        return {"paused_id": cur.lastrowid, "project": project, "claude_session_id": claude_session}
     finally:
         conn.close()
 
@@ -734,22 +773,20 @@ async def workspace_pause(sid: str, body: PauseBody):
 async def workspace_resume_paused(pid: int):
     conn = db()
     try:
-        row = conn.execute(
-            "SELECT * FROM paused_sessions WHERE id=? AND resumed_at IS NULL",
-            (pid,)).fetchone()
+        row = conn.execute("SELECT * FROM paused_sessions WHERE id=? AND resumed_at IS NULL", (pid,)).fetchone()
         if not row:
             raise HTTPException(404, "no such paused session (or already resumed)")
         try:
-            term = workspace.start(row["project"],
-                                   resume_session_id=row["claude_session_id"],
-                                   continue_last=row["claude_session_id"] is None)
+            term = workspace.start(
+                row["project"],
+                resume_session_id=row["claude_session_id"],
+                continue_last=row["claude_session_id"] is None,
+            )
         except WorkspaceError as e:
             raise HTTPException(409, str(e))
-        conn.execute("UPDATE paused_sessions SET resumed_at=? WHERE id=?",
-                     (utcnow(), pid))
+        conn.execute("UPDATE paused_sessions SET resumed_at=? WHERE id=?", (utcnow(), pid))
         conn.commit()
-        audit(conn, "operator", "workspace_resumed",
-              f"paused={pid} project={row['project']} new={term.id}")
+        audit(conn, "operator", "workspace_resumed", f"paused={pid} project={row['project']} new={term.id}")
         return {"id": term.id, "project": row["project"]}
     finally:
         conn.close()
@@ -836,8 +873,7 @@ def _build_row(r) -> dict:
 def builds_list():
     conn = db()
     try:
-        return [_build_row(r) for r in conn.execute(
-            "SELECT * FROM builds ORDER BY id DESC LIMIT 50").fetchall()]
+        return [_build_row(r) for r in conn.execute("SELECT * FROM builds ORDER BY id DESC LIMIT 50").fetchall()]
     finally:
         conn.close()
 
@@ -845,8 +881,9 @@ def builds_list():
 @app.post("/api/builds")
 def builds_start(body: BuildStart):
     if len(body.prompt.strip()) < 40:
-        raise HTTPException(400, "give the FULL brief — a build prompt under 40 chars "
-                                 "will not produce production-quality software")
+        raise HTTPException(
+            400, "give the FULL brief — a build prompt under 40 chars will not produce production-quality software"
+        )
     try:
         build_id = builds_runner.start(body.name.strip(), body.prompt)
     except WorkspaceError as e:
@@ -880,7 +917,8 @@ def builds_start_guided(body: GuidedStart):
             guided.compose_brief(body.answers),
             gated=True,
             intake=body.answers,
-            acceptance=guided.acceptance_criteria(body.answers))
+            acceptance=guided.acceptance_criteria(body.answers),
+        )
     except WorkspaceError as e:
         raise HTTPException(409, str(e))
     return {"id": build_id, "name": body.name, "gated": True}
@@ -916,6 +954,7 @@ def builds_resume(build_id: int):
 
 
 # --- morning digest + ask-your-estate (Overview) ---
+
 
 @app.get("/api/digest")
 def digest_route():
@@ -959,6 +998,7 @@ def ask_get(job_id: str):
 
 # --- try-it preview: a build's static web output, read-only, for a sandboxed iframe ---
 
+
 @app.get("/api/preview-info/{project}")
 def preview_info(project: str):
     try:
@@ -977,6 +1017,7 @@ def preview_file(project: str, path: str = ""):
 
 
 # --- project file browsing (read-only, for the IDE shell) ---
+
 
 @app.get("/api/files/{project}")
 def files_list(project: str, path: str = ""):
@@ -1066,13 +1107,17 @@ def design_mock(rid: int, variant: str):
     if not path.is_file():
         raise HTTPException(404, "mock not generated yet")
     # LLM-generated HTML is untrusted: render with zero script authority
-    return FileResponse(path, media_type="text/html", headers={
-        "Content-Security-Policy":
-            "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:",
-    })
+    return FileResponse(
+        path,
+        media_type="text/html",
+        headers={
+            "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:",
+        },
+    )
 
 
 # --- live events (SSE) ---
+
 
 @app.get("/api/events")
 async def events():
@@ -1082,12 +1127,16 @@ async def events():
         except ImportError:
             yield "event: error\ndata: watchfiles missing\n\n"
             return
-        watch_paths = [p for p in (
-            settings.claude_dir / "skills",
-            settings.claude_dir / "agents",
-            settings.claude_dir / "projects" / primary_namespace() / "memory",
-            settings.claude_dir / "history.jsonl",
-        ) if p.exists()]
+        watch_paths = [
+            p
+            for p in (
+                settings.claude_dir / "skills",
+                settings.claude_dir / "agents",
+                settings.claude_dir / "projects" / primary_namespace() / "memory",
+                settings.claude_dir / "history.jsonl",
+            )
+            if p.exists()
+        ]
         yield f"data: {json.dumps({'type': 'hello', 'ts': time.time()})}\n\n"
 
         queue: asyncio.Queue = asyncio.Queue()

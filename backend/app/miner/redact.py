@@ -1,12 +1,16 @@
 """Secret-shape redaction. Applied to ALL transcript text before it reaches an LLM
 prompt. Matches by VALUE shape, not filename (estate rule: filename scans miss
 hardcoded secrets). Raw matches are never logged — only counts."""
+
 from __future__ import annotations
 
 import re
 
 PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("private_key_block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]{0,8000}?-----END [A-Z ]*PRIVATE KEY-----")),
+    (
+        "private_key_block",
+        re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]{0,8000}?-----END [A-Z ]*PRIVATE KEY-----"),
+    ),
     ("aws_access_key", re.compile(r"\b(A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}\b")),
     ("github_token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b")),
     ("github_pat", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{22,}\b")),
@@ -16,7 +20,12 @@ PATTERNS: list[tuple[str, re.Pattern]] = [
     ("google_key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b")),
     ("bearer_header", re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{16,}")),
-    ("kv_secret", re.compile(r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|client[_-]?secret|access[_-]?key)\b\s*[=:]\s*[\"']?[^\s\"',;]{6,}")),
+    (
+        "kv_secret",
+        re.compile(
+            r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|client[_-]?secret|access[_-]?key)\b\s*[=:]\s*[\"']?[^\s\"',;]{6,}"
+        ),
+    ),
 ]
 
 

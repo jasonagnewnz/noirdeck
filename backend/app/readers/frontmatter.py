@@ -1,4 +1,5 @@
 """Minimal YAML frontmatter parsing for SKILL.md / agent / memory files."""
+
 from __future__ import annotations
 
 from pathlib import Path

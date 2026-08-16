@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { api } from '../../api.js'
 
 // A guided (gated) build card, narrated in plain English for a non-technical
@@ -44,26 +44,30 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
 
   const [statusText, pillClass] = FRIENDLY[b.status] || [b.status, b.status]
   const doneSet = new Set(b.log.filter((l) => l.status === 'done').map((l) => l.phase))
-  const activePhase = (b.status === 'running' || b.status === 'blocked') ? b.phase : null
+  const activePhase = b.status === 'running' || b.status === 'blocked' ? b.phase : null
   const finished = b.status === 'done' || b.status === 'attention'
 
   const decide = async (action) => {
-    setErr(null); setBusy(action)
+    setErr(null)
+    setBusy(action)
     try {
       await api(`/builds/${b.id}/plan`, { body: { action, feedback } })
-      setRevising(false); setFeedback('')
+      setRevising(false)
+      setFeedback('')
     } catch (ex) {
       // 409 = the build is no longer waiting on the plan; the card refreshes itself.
-      setErr(`That didn't go through — ${ex.message}. This page updates itself, ` +
-        'so the card above should show where the build really is.')
+      setErr(
+        `That didn't go through — ${ex.message}. This page updates itself, ` +
+          'so the card above should show where the build really is.'
+      )
     } finally {
-      setBusy(null); refresh()
+      setBusy(null)
+      refresh()
     }
   }
 
   const ev = b.evidence
-  const phaseDone = (name) =>
-    !!(ev && (ev.phases || []).some((p) => p.phase === name && p.status === 'done'))
+  const phaseDone = (name) => !!(ev && (ev.phases || []).some((p) => p.phase === name && p.status === 'done'))
   const stdPass = {
     'std-tests': !!ev && /passed/i.test(ev.tests || '') && phaseDone('test'),
     'std-gates': !!ev && ev.qa_overall !== 'BLOCKER',
@@ -74,29 +78,46 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
 
   return (
     <>
-      <h2>#{b.id} — <b>{b.name}</b>{' '}
-        <span className={`pill ${pillClass}`}>{statusText}</span></h2>
+      <h2>
+        #{b.id} — <b>{b.name}</b> <span className={`pill ${pillClass}`}>{statusText}</span>
+      </h2>
 
       {/* narrated progress stepper */}
       <div aria-label="Build progress" className="stepper">
         {STEPS.map(([key, label]) => {
           if (doneSet.has(key)) {
-            return <span key={key} className="chip" aria-label={`${label} — finished`}>
-              ✓ {label}</span>
+            return (
+              <span key={key} className="chip" aria-label={`${label} — finished`}>
+                ✓ {label}
+              </span>
+            )
           }
           if (activePhase === key) {
-            return b.status === 'blocked'
-              ? <span key={key} className="pill blocked"
-                  aria-label={`${label} — stuck, needs your attention`}>{label} — stuck</span>
-              : <span key={key} className="pill running"
-                  aria-label={`${label} — happening now`}>{label}…</span>
+            return b.status === 'blocked' ? (
+              <span key={key} className="pill blocked" aria-label={`${label} — stuck, needs your attention`}>
+                {label} — stuck
+              </span>
+            ) : (
+              <span key={key} className="pill running" aria-label={`${label} — happening now`}>
+                {label}…
+              </span>
+            )
           }
-          return <span key={key} className="chip pending"
-            aria-label={`${label} — not started yet`}>{label}</span>
+          return (
+            <span key={key} className="chip pending" aria-label={`${label} — not started yet`}>
+              {label}
+            </span>
+          )
         })}
-        {b.phase === 'complete'
-          ? <span className="chip hot" aria-label="Done">Done</span>
-          : <span className="chip pending" aria-label="Done — not yet">Done</span>}
+        {b.phase === 'complete' ? (
+          <span className="chip hot" aria-label="Done">
+            Done
+          </span>
+        ) : (
+          <span className="chip pending" aria-label="Done — not yet">
+            Done
+          </span>
+        )}
       </div>
 
       {/* plan approval gate */}
@@ -107,20 +128,34 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
             {b.plan_summary || 'The plan is still being written up — check back in a moment.'}
           </div>
           <div className="btnrow">
-            <button className="act" disabled={!!busy}
-              onClick={() => decide('approve')}>Approve — start building</button>
-            <button className="act ghost" aria-expanded={revising} disabled={!!busy}
-              onClick={() => setRevising((r) => !r)}>Request changes</button>
+            <button className="act" disabled={!!busy} onClick={() => decide('approve')}>
+              Approve — start building
+            </button>
+            <button
+              className="act ghost"
+              aria-expanded={revising}
+              disabled={!!busy}
+              onClick={() => setRevising((r) => !r)}
+            >
+              Request changes
+            </button>
           </div>
           {revising && (
             <div style={{ marginTop: 8 }}>
-              <label className="fl" htmlFor={`plan-fb-${b.id}`}>What should change?</label>
-              <textarea id={`plan-fb-${b.id}`} rows={3} value={feedback}
+              <label className="fl" htmlFor={`plan-fb-${b.id}`}>
+                What should change?
+              </label>
+              <textarea
+                id={`plan-fb-${b.id}`}
+                rows={3}
+                value={feedback}
                 placeholder="Tell the planner what to change — plain English is perfect"
-                onChange={(e) => setFeedback(e.target.value)} />
+                onChange={(e) => setFeedback(e.target.value)}
+              />
               <div style={{ marginTop: 6 }}>
-                <button className="act" disabled={!!busy || !feedback.trim()}
-                  onClick={() => decide('revise')}>Send changes back</button>
+                <button className="act" disabled={!!busy || !feedback.trim()} onClick={() => decide('revise')}>
+                  Send changes back
+                </button>
               </div>
             </div>
           )}
@@ -129,12 +164,18 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
               {busy === 'approve' ? 'Starting the build…' : 'Sending your feedback to the planner…'}
             </div>
           )}
-          {err && <div className="err" role="alert">{err}</div>}
+          {err && (
+            <div className="err" role="alert">
+              {err}
+            </div>
+          )}
         </div>
       )}
 
       {b.question && b.status !== 'awaiting_plan' && (
-        <div className="kickoff" style={{ marginTop: 8 }}>The builder asks: {b.question}</div>
+        <div className="kickoff" style={{ marginTop: 8 }}>
+          The builder asks: {b.question}
+        </div>
       )}
 
       {/* acceptance checklist + evidence, once the build has finished */}
@@ -149,23 +190,27 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
               {operatorChecks.map((c) => {
                 const cid = `b${b.id}-acc-${c.id}`
                 return (
-                  <div key={c.id}
-                    style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '4px 0' }}>
-                    <input type="checkbox" id={cid} checked={!!checked[c.id]}
+                  <div key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '4px 0' }}>
+                    <input
+                      type="checkbox"
+                      id={cid}
+                      checked={!!checked[c.id]}
                       style={{ width: 'auto', margin: '3px 0 0', flexShrink: 0 }}
-                      onChange={(e) =>
-                        setChecked((s) => ({ ...s, [c.id]: e.target.checked }))} />
-                    <label htmlFor={cid} style={{ cursor: 'pointer' }}>{c.text}</label>
+                      onChange={(e) => setChecked((s) => ({ ...s, [c.id]: e.target.checked }))}
+                    />
+                    <label htmlFor={cid} style={{ cursor: 'pointer' }}>
+                      {c.text}
+                    </label>
                   </div>
                 )
               })}
             </>
           )}
           {standardChecks.map((c) => (
-            <div key={c.id}
-              style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '4px 0' }}>
+            <div key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '4px 0' }}>
               <span className={`pill ${stdPass[c.id] ? 'PASS' : 'GAP'}`}>
-                {stdPass[c.id] ? 'checked ✓' : 'needs a look'}</span>
+                {stdPass[c.id] ? 'checked ✓' : 'needs a look'}
+              </span>
               <span>{STD_TEXT[c.id] || c.text}</span>
             </div>
           ))}
@@ -185,15 +230,21 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
             </div>
             <table style={{ marginTop: 8 }}>
               <thead>
-                <tr><th>step</th><th>time</th><th>result</th><th className="num">tokens</th></tr>
+                <tr>
+                  <th>step</th>
+                  <th>time</th>
+                  <th>result</th>
+                  <th className="num">tokens</th>
+                </tr>
               </thead>
               <tbody>
                 {(ev.phases || []).map((p, i) => (
                   <tr key={i}>
                     <td>{p.phase}</td>
                     <td>{fmtTime(p.seconds)}</td>
-                    <td><span className={`pill ${p.status === 'done' ? 'done' : 'blocked'}`}>
-                      {p.status}</span></td>
+                    <td>
+                      <span className={`pill ${p.status === 'done' ? 'done' : 'blocked'}`}>{p.status}</span>
+                    </td>
                     <td className="num">{p.tokens ?? '—'}</td>
                   </tr>
                 ))}
@@ -206,30 +257,51 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
       {/* actions */}
       <div className="btnrow">
         <button className="act ghost" onClick={() => openWorkspace({ project: b.name })}>
-          open in workspace</button>
+          open in workspace
+        </button>
         {(b.status === 'running' || b.status === 'queued') && (
-          <button className="act ghost"
-            onClick={async () => { await api(`/builds/${b.id}/cancel`, { body: {} }); refresh() }}>
-            stop this build</button>
+          <button
+            className="act ghost"
+            onClick={async () => {
+              await api(`/builds/${b.id}/cancel`, { body: {} })
+              refresh()
+            }}
+          >
+            stop this build
+          </button>
         )}
         {(b.status === 'blocked' || b.status === 'cancelled' || b.status === 'attention') && (
-          <button className="act"
+          <button
+            className="act"
             onClick={async () => {
-              try { await api(`/builds/${b.id}/resume`, { body: {} }) } catch (ex) { setErr(ex.message) }
+              try {
+                await api(`/builds/${b.id}/resume`, { body: {} })
+              } catch (ex) {
+                setErr(ex.message)
+              }
               refresh()
-            }}>
-            continue this build</button>
+            }}
+          >
+            continue this build
+          </button>
         )}
       </div>
-      {err && b.status !== 'awaiting_plan' && <div className="err" role="alert">{err}</div>}
+      {err && b.status !== 'awaiting_plan' && (
+        <div className="err" role="alert">
+          {err}
+        </div>
+      )}
 
       {/* the raw phase log, for the curious */}
       <details style={{ marginTop: 8 }}>
         <summary>technical detail</summary>
         <div className="mono-block" style={{ marginTop: 6 }}>
-          {b.log.map((l) =>
-            `[${l.phase} · ${l.model} · ${l.seconds}s · qa:${l.qa_overall} · ${l.tokens ?? 0} tok]\n${l.summary}\n\n`,
-          ).join('') || 'no phases completed yet'}
+          {b.log
+            .map(
+              (l) =>
+                `[${l.phase} · ${l.model} · ${l.seconds}s · qa:${l.qa_overall} · ${l.tokens ?? 0} tok]\n${l.summary}\n\n`
+            )
+            .join('') || 'no phases completed yet'}
         </div>
       </details>
     </>

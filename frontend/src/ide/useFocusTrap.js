@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), ' +
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), ' +
   'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 // Shared modal-dialog focus behavior for Palette / KeysOverlay: moves focus
@@ -28,13 +29,18 @@ export function useFocusTrap(containerRef, open) {
     const onKeyDown = (e) => {
       if (e.key !== 'Tab') return
       const items = focusables()
-      if (items.length === 0) { e.preventDefault(); return }
+      if (items.length === 0) {
+        e.preventDefault()
+        return
+      }
       const first = items[0]
       const last = items[items.length - 1]
       if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault(); last.focus()
+        e.preventDefault()
+        last.focus()
       } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault(); first.focus()
+        e.preventDefault()
+        first.focus()
       }
     }
     // capture phase so the trap wins regardless of what else is listening

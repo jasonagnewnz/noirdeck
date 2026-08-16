@@ -5,6 +5,7 @@ The read-only cage is layered: the session's tool set is restricted to
 Read/Grep/Glob (no Bash, no Write, no Edit — the tools simply don't exist in
 the session), and the pipeline guard hook rides along for depth. Answers are
 ephemeral (in-memory): this is a question box, not a records system."""
+
 from __future__ import annotations
 
 import subprocess
@@ -46,12 +47,27 @@ def _prompt(settings: Settings, question: str) -> str:
 def _invoke(settings: Settings, prompt: str) -> subprocess.CompletedProcess:
     """Seam for tests. Variadic --tools is placed last so it can't swallow flags."""
     from .workspace import claude_bin
+
     return subprocess.run(
-        [claude_bin(), "-p", prompt, "--output-format", "json",
-         "--model", model("build"), "--max-turns", "15",
-         *guard_settings_args(),
-         "--tools", "Read", "Grep", "Glob"],
-        capture_output=True, text=True, timeout=TIMEOUT_S,
+        [
+            claude_bin(),
+            "-p",
+            prompt,
+            "--output-format",
+            "json",
+            "--model",
+            model("build"),
+            "--max-turns",
+            "15",
+            *guard_settings_args(),
+            "--tools",
+            "Read",
+            "Grep",
+            "Glob",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=TIMEOUT_S,
         cwd=str(settings.projects_dir),
     )
 
@@ -63,16 +79,18 @@ def _run(settings: Settings, job_id: str) -> None:
         proc = _invoke(settings, _prompt(settings, job["question"]))
         if proc.returncode == 0 and proc.stdout:
             answer, _tin, tout = parse_cli_json(proc.stdout)
-            job.update(status="done", answer=(answer or "").strip() or
-                       "The session returned no answer — try asking more specifically.",
-                       tokens_out=tout)
+            job.update(
+                status="done",
+                answer=(answer or "").strip() or "The session returned no answer — try asking more specifically.",
+                tokens_out=tout,
+            )
         else:
-            job.update(status="error",
-                       answer=f"The answer session failed (rc={proc.returncode}). "
-                              f"{(proc.stderr or '').strip()[-200:]}")
+            job.update(
+                status="error",
+                answer=f"The answer session failed (rc={proc.returncode}). {(proc.stderr or '').strip()[-200:]}",
+            )
     except subprocess.TimeoutExpired:
-        job.update(status="error",
-                   answer=f"Timed out after {TIMEOUT_S // 60} minutes — try a narrower question.")
+        job.update(status="error", answer=f"Timed out after {TIMEOUT_S // 60} minutes — try a narrower question.")
     except Exception as exc:  # a background thread must never die silently
         job.update(status="error", answer=f"{type(exc).__name__}: {exc}"[:300])
     finally:
@@ -89,9 +107,15 @@ def submit(settings: Settings, question: str) -> dict:
         if any(j["status"] == "running" for j in _jobs.values()):
             raise AskError("an answer is already being worked on — wait for it to finish")
         job_id = uuid.uuid4().hex[:12]
-        _jobs[job_id] = {"id": job_id, "question": question, "status": "running",
-                         "answer": None, "seconds": None, "tokens_out": None,
-                         "started_at": time.time()}
+        _jobs[job_id] = {
+            "id": job_id,
+            "question": question,
+            "status": "running",
+            "answer": None,
+            "seconds": None,
+            "tokens_out": None,
+            "started_at": time.time(),
+        }
         while len(_jobs) > KEEP:
             oldest = min(_jobs, key=lambda k: _jobs[k]["started_at"])
             del _jobs[oldest]

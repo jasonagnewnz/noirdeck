@@ -1,14 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 
 export async function api(path, opts) {
-  const r = await fetch(`/api${path}`, opts && {
-    method: opts.method || 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(opts.body ?? {}),
-  })
+  const r = await fetch(
+    `/api${path}`,
+    opts && {
+      method: opts.method || 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(opts.body ?? {}),
+    }
+  )
   if (!r.ok) {
     let detail = r.statusText
-    try { detail = (await r.json()).detail || detail } catch { /* keep statusText */ }
+    try {
+      detail = (await r.json()).detail || detail
+    } catch {
+      /* keep statusText */
+    }
     throw new Error(detail)
   }
   return r.json()
@@ -22,7 +29,9 @@ export function useData(path, bump = 0) {
     api(path)
       .then((data) => alive && setState({ data, error: null, loading: false }))
       .catch((error) => alive && setState({ data: null, error, loading: false }))
-    return () => { alive = false }
+    return () => {
+      alive = false
+    }
   }, [path, bump])
   return state
 }
@@ -41,7 +50,9 @@ export function useEvents() {
         const msg = JSON.parse(ev.data)
         if (msg.type === 'change') setBump((b) => b + 1)
         if (msg.type === 'hello' || msg.type === 'ping') setLive(true)
-      } catch { /* ignore malformed */ }
+      } catch {
+        /* ignore malformed */
+      }
     }
     return () => es.close()
   }, [])

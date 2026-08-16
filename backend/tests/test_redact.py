@@ -3,9 +3,11 @@ from app.miner.redact import redact
 
 def test_redacts_key_shapes():
     text = (
-        "aws AKIAABCDEFGHIJKLMNOP here, gh ghp_" + "a" * 36 +
-        " ant sk-ant-api03-" + "x" * 24 +
-        " password=hunter2secret and Bearer abcdefghijklmnopqrstuvwx"
+        "aws AKIAABCDEFGHIJKLMNOP here, gh ghp_"
+        + "a" * 36
+        + " ant sk-ant-api03-"
+        + "x" * 24
+        + " password=hunter2secret and Bearer abcdefghijklmnopqrstuvwx"
     )
     clean, counts = redact(text)
     assert "AKIA" not in clean
@@ -17,8 +19,10 @@ def test_redacts_key_shapes():
 
 
 def test_redacts_private_key_block_and_jwt():
-    text = ("-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----\n"
-            "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcde12345")
+    text = (
+        "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----\n"
+        "jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcde12345"
+    )
     clean, counts = redact(text)
     assert "MIIabc" not in clean
     assert "eyJhbGci" not in clean

@@ -99,6 +99,4 @@ export const CLAUDE_TABS = [
 ]
 
 // flat feed for the palette's searchable shortcut section
-export const PALETTE_SHORTCUTS = [
-  ...REPL_KEYS, ...PROMPT_TRICKS, ...SLASH_COMMANDS, ...CLI_FLAGS,
-]
+export const PALETTE_SHORTCUTS = [...REPL_KEYS, ...PROMPT_TRICKS, ...SLASH_COMMANDS, ...CLI_FLAGS]

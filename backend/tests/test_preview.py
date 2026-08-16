@@ -17,8 +17,15 @@ def settings(tmp_path, claude_dir):
     (cli / "main.py").write_text("print('no web here')")
     (projects / "rootsite").mkdir()
     (projects / "rootsite" / "index.html").write_text("<p>root-level site</p>")
-    return Settings(claude_dir=claude_dir, projects_dir=projects, db_path=tmp_path / "t.db",
-                    port=1, mining_armed=False, overnight_armed=False, mine_max_batches=1)
+    return Settings(
+        claude_dir=claude_dir,
+        projects_dir=projects,
+        db_path=tmp_path / "t.db",
+        port=1,
+        mining_armed=False,
+        overnight_armed=False,
+        mine_max_batches=1,
+    )
 
 
 def test_info_finds_dist_and_root_entry_points(settings):
