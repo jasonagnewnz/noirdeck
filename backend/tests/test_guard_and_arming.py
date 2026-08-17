@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from app.arming import ArmingError, arm, check, consume, revoke, status
-from app.db import init_db
-from app.guard import GUARD_SCRIPT, guard_settings_args
+from noirdeck.arming import ArmingError, arm, check, consume, revoke, status
+from noirdeck.db import init_db
+from noirdeck.guard import GUARD_SCRIPT, guard_settings_args
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -134,8 +134,8 @@ def test_arm_validation(conn):
 
 
 def test_run_queue_halts_without_contract(tmp_path, monkeypatch, claude_dir):
-    from app import overnight
-    from app.config import Settings
+    from noirdeck import overnight
+    from noirdeck.config import Settings
 
     db = tmp_path / "q.db"
     init_db(db)

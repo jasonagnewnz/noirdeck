@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from app.builds import PHASES, BuildRunner
-from app.db import connect
-from app.guided import INTAKE_QUESTIONS, acceptance_criteria, compose_brief, read_plain_plan, validate_answers
+from noirdeck.builds import PHASES, BuildRunner
+from noirdeck.db import connect
+from noirdeck.guided import INTAKE_QUESTIONS, acceptance_criteria, compose_brief, read_plain_plan, validate_answers
 from tests.test_builds import _wait_status, settings  # noqa: F401 — fixture reuse
 
 ANSWERS = {
@@ -105,7 +105,7 @@ def test_plan_decision_guards(settings):  # noqa: F811
 
 
 def test_every_recipe_validates_and_matches_question_ids():
-    from app.guided import INTAKE_QUESTIONS, RECIPES, compose_brief, validate_answers
+    from noirdeck.guided import INTAKE_QUESTIONS, RECIPES, compose_brief, validate_answers
 
     qids = {q["id"] for q in INTAKE_QUESTIONS}
     choice_opts = {q["id"]: {v for v, _ in q["options"]} for q in INTAKE_QUESTIONS if q["type"] == "choice"}

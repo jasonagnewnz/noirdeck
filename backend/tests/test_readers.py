@@ -1,7 +1,14 @@
-from app.readers.history import history_stats, load_history, repeated_prompts, search_history
-from app.readers.memories import group_memories, list_memories, memory_stats
-from app.readers.sessions import recent_sessions
-from app.readers.skills import list_agents, list_skills
+from noirdeck.readers.history import (
+    group_hits,
+    history_stats,
+    load_history,
+    repeated_prompts,
+    search_grouped,
+    search_history,
+)
+from noirdeck.readers.memories import group_memories, list_memories, memory_stats
+from noirdeck.readers.sessions import recent_sessions
+from noirdeck.readers.skills import list_agents, list_skills
 
 
 def test_skills_and_agents(claude_dir):
@@ -32,6 +39,41 @@ def test_history_stats_and_repeats(claude_dir):
     assert reps and reps[0]["count"] == 4
     hits = search_history(records, "sentinelone")
     assert len(hits) == 4
+
+
+def _rec(display, ts, project="/home/u/projects/a"):
+    return {"display": display, "ts": ts, "project": project, "session_id": str(ts)}
+
+
+def test_near_identical_prompts_collapse_into_one_group():
+    """Punctuation, case and spacing differences are the same habit, not three."""
+    groups = group_hits(
+        [
+            _rec("commit these changes", 300),
+            _rec("Commit these changes.", 200, "/home/u/projects/b"),
+            _rec("commit  these   changes", 100),
+            _rec("deploy the website", 400, "/home/u/projects/c"),
+        ]
+    )
+    assert len(groups) == 2
+    assert groups[0]["display"] == "deploy the website"  # newest group first
+    repeat = next(g for g in groups if g["count"] == 3)
+    assert repeat["display"] == "commit these changes"  # newest wording shown
+    assert repeat["projects"] == ["a", "b"]
+    assert repeat["first_ts"] == 100 and repeat["last_ts"] == 300
+
+
+def test_grouped_search_reports_how_much_it_collapsed():
+    out = search_grouped([_rec("commit these changes", t) for t in (1, 2, 3)] + [_rec("other thing", 4)], "commit")
+    assert out["total"] == 3 and len(out["groups"]) == 1
+    assert out["collapsed"] == 2  # rows removed from the reader's view
+
+
+def test_a_group_keeps_its_members_for_expansion(claude_dir):
+    groups = group_hits([_rec("same prompt", t) for t in range(1, 6)])
+    assert groups[0]["count"] == 5
+    assert [i["ts"] for i in groups[0]["items"]] == [5, 4, 3, 2, 1]
+    assert groups[0]["truncated"] is False
 
 
 def test_sessions_open_loop(claude_dir):

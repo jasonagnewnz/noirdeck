@@ -2,16 +2,16 @@ import { useState } from 'react'
 import { ACTIONS } from './prompts.js'
 
 // Actions strip for the currently open project — a "live" run (opens a fresh
-// terminal session and pastes the prompt in) and a ghost "overnight" run
-// (queues it for the unattended runner). onLive/onOvernight are wired by the
+// terminal session and pastes the prompt in) and a ghost "later" run
+// (queues it for unattended work). onLive/onOvernight are wired by the
 // parent Workspace view to the real POST /api/workspace and POST /api/queue.
-export default function ActionsBar({ project, onLive, onOvernight, busy }) {
+export default function ActionsBar({ project, runtime, model, onLive, onOvernight, busy }) {
   const [flash, setFlash] = useState(null)
 
   const runOvernight = async (action) => {
     try {
       await onOvernight(action)
-      setFlash(`queued: ${action.label}`)
+      setFlash(`runs later: ${action.label}`)
       setTimeout(() => setFlash(null), 3000)
     } catch {
       /* parent surfaces the error */
@@ -20,20 +20,24 @@ export default function ActionsBar({ project, onLive, onOvernight, busy }) {
 
   return (
     <div className="actionsbar">
-      <span className="actionsbar-label">{project}</span>
+      <span className="actionsbar-label">
+        {project} · {runtime || 'Claude Code'}
+        {model ? ` · ${model}` : ''}
+      </span>
       <span className="actionsbar-buttons">
         {ACTIONS.map((a) => (
           <span key={a.key} className="actionsbar-pair">
-            <button className="act" disabled={busy} onClick={() => onLive(a)}>
+            <button type="button" className="act" disabled={busy} onClick={() => onLive(a)}>
               {a.label}
             </button>
             <button
+              type="button"
               className="act ghost sm"
               disabled={busy}
-              title={`Queue "${a.label}" for the overnight runner`}
+              title={`Run "${a.label}" later`}
               onClick={() => runOvernight(a)}
             >
-              overnight
+              later
             </button>
           </span>
         ))}

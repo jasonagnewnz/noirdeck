@@ -8,18 +8,83 @@ import TermPane from '../ide/TermPane.jsx'
 
 export default function Workspace({ launch }) {
   const { data: fleet } = useData('/fleet', 0)
+  const { data: runtime } = useData('/workspace/runtimes', 0)
   const [sessions, setSessions] = useState([])
   const [paused, setPaused] = useState([])
   const [active, setActive] = useState(null)
   const [project, setProject] = useState('')
   const [briefing, setBriefing] = useState(true)
+  const [runner, setRunner] = useState('claude')
+  const [model, setModel] = useState('')
+  const [sourceRunner, setSourceRunner] = useState('claude')
+  const [sourceModel, setSourceModel] = useState('')
+  const [knowledge, setKnowledge] = useState(null)
+  const [useKnowledge, setUseKnowledge] = useState(false)
+  const [methodAdvisor, setMethodAdvisor] = useState(false)
+  const [methodSuggestion, setMethodSuggestion] = useState(null)
+  const [methodDismissed, setMethodDismissed] = useState(false)
+  const [detached, setDetached] = useState({ title: '', prompt: '', weight: '' })
+  const [takeover, setTakeover] = useState({ runner: '', model: '', closeSource: false })
   const [newRepo, setNewRepo] = useState('')
   const [err, setErr] = useState(null)
+  const [notice, setNotice] = useState(null)
   const [fileTabs, setFileTabs] = useState([])
   const [injections, setInjections] = useState({})
   const [actionBusy, setActionBusy] = useState(false)
+  const [taskBusy, setTaskBusy] = useState(false)
+  const [takeoverBusy, setTakeoverBusy] = useState(false)
+  const [methodBusy, setMethodBusy] = useState(false)
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
   const launched = useRef(null)
+  const defaultsLoaded = useRef(false)
+
+  const runners = runtime?.runners || []
+  const selectedRunner = runners.find((r) => r.id === runner)
+  const sourceRunnerMeta = runners.find((r) => r.id === sourceRunner)
+  const activeSession = sessions.find((s) => s.id === active)
+  const activeFile = fileTabs.find((t) => t.id === active)
+  const takeoverRunner =
+    takeover.runner || runners.find((r) => r.live && r.id !== activeSession?.runner)?.id || runner || 'claude'
+  const selectedTakeoverRunner = runners.find((r) => r.id === takeoverRunner)
+
+  useEffect(() => {
+    if (runtime?.defaults && !defaultsLoaded.current) {
+      defaultsLoaded.current = true
+      setRunner(runtime.defaults.runner || 'claude')
+      setModel(runtime.defaults.model || '')
+      setSourceRunner(runtime.defaults.knowledge_source_runner || 'claude')
+      setSourceModel(runtime.defaults.knowledge_source_model || '')
+      setMethodAdvisor(!!runtime.defaults.method_advisor)
+      setTakeover((t) => ({ ...t, runner: runtime.defaults.runner || 'claude' }))
+    }
+  }, [runtime])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the selected project is the reset signal for method suggestions.
+  useEffect(() => {
+    setMethodDismissed(false)
+    setMethodSuggestion(null)
+  }, [project])
+
+  useEffect(() => {
+    if (!methodAdvisor || !project || methodDismissed) {
+      setMethodSuggestion(null)
+      setMethodBusy(false)
+      return undefined
+    }
+    let alive = true
+    const prompt = `${detached.title}\n${detached.prompt}`.trim()
+    setMethodBusy(true)
+    const timer = setTimeout(() => {
+      api('/workspace/method', { body: { project, prompt } })
+        .then((suggestion) => alive && setMethodSuggestion(suggestion))
+        .catch(() => alive && setMethodSuggestion(null))
+        .finally(() => alive && setMethodBusy(false))
+    }, 250)
+    return () => {
+      alive = false
+      clearTimeout(timer)
+    }
+  }, [methodAdvisor, project, detached.title, detached.prompt, methodDismissed])
 
   const refresh = async () => {
     const rows = await api('/workspace')
@@ -33,6 +98,7 @@ export default function Workspace({ launch }) {
   }
   // on load, pick up an existing session's project so the IDE shell (explorer,
   // actions strip) has context even before the user touches the picker
+  // biome-ignore lint/correctness/useExhaustiveDependencies: initial refresh seeds the project once on mount
   useEffect(() => {
     refresh().then((rows) => {
       if (rows.length && !project) setProject(rows[0].project)
@@ -54,14 +120,40 @@ export default function Workspace({ launch }) {
   }
 
   // resume handed over from the Sessions view
+  // biome-ignore lint/correctness/useExhaustiveDependencies: launch handoff should fire once per launch object
   useEffect(() => {
     if (launch && launched.current !== launch) {
       launched.current = launch
-      setProject(launch.project)
-      start({ project: launch.project, resume_session_id: launch.resume })
+      if (launch.runner) setRunner(launch.runner)
+      if (launch.model) setModel(launch.model)
+      if (launch.project) setProject(launch.project)
+      if (launch.resume) {
+        start({
+          project: launch.project,
+          resume_session_id: launch.resume,
+          runner: launch.runner || runner,
+          model: launch.model || model || null,
+        }).catch(() => {})
+        return
+      }
+      if (launch.view === 'workspace' && launch.project) {
+        start({
+          project: launch.project,
+          briefing,
+          runner: launch.runner || runner,
+          model: launch.model || model || null,
+          knowledge_pack_id: useKnowledge && knowledge ? knowledge.id : null,
+        })
+          .then((session) => {
+            if (launch.prompt) {
+              setInjections((m) => ({ ...m, [session.id]: launch.prompt }))
+            }
+          })
+          .catch(() => {})
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [launch])
+  }, [launch, runner, model, briefing])
 
   const stop = async (sid) => {
     try {
@@ -109,6 +201,83 @@ export default function Workspace({ launch }) {
     }
   }
 
+  const saveDefaults = async () => {
+    setErr(null)
+    setNotice(null)
+    try {
+      await api('/workspace/defaults', {
+        body: {
+          runner,
+          model: model || null,
+          knowledge_source_runner: sourceRunner,
+          knowledge_source_model: sourceModel || null,
+          method_advisor: methodAdvisor,
+        },
+      })
+      setNotice('default tool saved')
+    } catch (e) {
+      setErr(e.message)
+    }
+  }
+
+  const prepareKnowledgeFor = async ({
+    project: targetProject,
+    sourceRunner: fromRunner,
+    sourceModel: fromModel,
+    targetRunner,
+    targetModel,
+  }) => {
+    if (!targetProject) return null
+    setErr(null)
+    setNotice(null)
+    try {
+      const pack = await api('/workspace/knowledge', {
+        body: {
+          project: targetProject,
+          source_runner: fromRunner,
+          source_model: fromModel || null,
+          target_runner: targetRunner,
+          target_model: targetModel || null,
+        },
+      })
+      setKnowledge(pack)
+      setUseKnowledge(true)
+      setNotice(`handoff ready for ${pack.target_runner}`)
+      return pack
+    } catch (e) {
+      setErr(e.message)
+      return null
+    }
+  }
+
+  const prepareKnowledge = () =>
+    prepareKnowledgeFor({
+      project,
+      sourceRunner,
+      sourceModel,
+      targetRunner: runner,
+      targetModel: model,
+    })
+
+  const useSuggestedMethod = async () => {
+    if (!methodSuggestion) return
+    setRunner(methodSuggestion.runner)
+    setModel(methodSuggestion.model || '')
+    setSourceRunner(methodSuggestion.source_runner || 'claude')
+    setSourceModel(methodSuggestion.source_model || '')
+    if (methodSuggestion.use_handoff) {
+      await prepareKnowledgeFor({
+        project,
+        sourceRunner: methodSuggestion.source_runner || 'claude',
+        sourceModel: methodSuggestion.source_model || '',
+        targetRunner: methodSuggestion.runner,
+        targetModel: methodSuggestion.model || '',
+      })
+    } else {
+      setNotice(`method set to ${methodSuggestion.runner_label}`)
+    }
+  }
+
   const openFileTab = async (entry) => {
     const id = `file:${project}:${entry.path}`
     if (fileTabs.some((t) => t.id === id)) {
@@ -137,8 +306,9 @@ export default function Workspace({ launch }) {
     if (!project) return
     setActionBusy(true)
     try {
-      const r = await start({ project, briefing: false })
-      setInjections((m) => ({ ...m, [r.id]: action.live }))
+      const r = await start({ project, briefing: false, runner, model: model || null })
+      const prompt = useKnowledge && knowledge ? `${knowledge.body}\n\nTASK:\n${action.live}` : action.live
+      setInjections((m) => ({ ...m, [r.id]: prompt }))
     } finally {
       setActionBusy(false)
     }
@@ -147,40 +317,136 @@ export default function Workspace({ launch }) {
   const queueOvernight = async (action) => {
     setErr(null)
     try {
-      await api('/queue', { body: { project, title: action.label, prompt: action.overnight } })
+      await api('/queue', {
+        body: {
+          project,
+          title: action.label,
+          prompt: action.overnight,
+          runner,
+          model: model || null,
+          knowledge_pack_id: useKnowledge && knowledge ? knowledge.id : null,
+        },
+      })
     } catch (e) {
       setErr(e.message)
       throw e
     }
   }
 
-  const activeSession = sessions.find((s) => s.id === active)
-  const activeFile = fileTabs.find((t) => t.id === active)
+  const queueDetached = async (e) => {
+    e.preventDefault()
+    if (!project) return
+    setTaskBusy(true)
+    setErr(null)
+    setNotice(null)
+    try {
+      await api('/queue', {
+        body: {
+          project,
+          title: detached.title,
+          prompt: detached.prompt,
+          weight: detached.weight || null,
+          runner,
+          model: model || null,
+          knowledge_pack_id: useKnowledge && knowledge ? knowledge.id : null,
+        },
+      })
+      setDetached({ title: '', prompt: '', weight: '' })
+      setNotice('run-later task ready')
+    } catch (ex) {
+      setErr(ex.message)
+    } finally {
+      setTaskBusy(false)
+    }
+  }
+
+  const takeoverActiveSession = async () => {
+    if (!activeSession) return
+    setTakeoverBusy(true)
+    setErr(null)
+    setNotice(null)
+    try {
+      const r = await api(`/workspace/${activeSession.id}/takeover`, {
+        body: {
+          runner: takeoverRunner,
+          model: takeover.model || null,
+          close_source: takeover.closeSource,
+        },
+      })
+      setProject(r.project)
+      await refresh()
+      setActive(r.id)
+      setNotice(`session taken over by ${r.runner}${r.model ? `/${r.model}` : ''}`)
+    } catch (ex) {
+      setErr(ex.message)
+    } finally {
+      setTakeoverBusy(false)
+    }
+  }
 
   return (
     <>
       <div className="viewhead">
-        <h1>Workspace</h1>
-        <p>
-          Real Claude Code sessions inside the platform — same auth, same skills, same memory. "With briefing" starts
-          the session already knowing the project state.
-        </p>
+        <h1>Build live</h1>
+        <p>Choose the project and helper. Switch tools without rebuilding context.</p>
       </div>
 
-      <div className="panel">
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <div className="panel work-deck">
+        <div className="work-deck-head">
+          <div>
+            <h2>Start building</h2>
+            <p className="sechint">Work live, run in the background, or hand off from another model.</p>
+          </div>
+          <span className="chip hot">
+            {runners.length ? runners.filter((r) => r.live !== false).length : 1} tool
+            {(runners.length ? runners.filter((r) => r.live !== false).length : 1) === 1 ? '' : 's'} ready
+          </span>
+        </div>
+        <div className="formrow work-start-row">
           <div style={{ minWidth: 240 }}>
             <label className="fl" htmlFor="ws-project">
               Project
             </label>
             <select id="ws-project" value={project} onChange={(e) => setProject(e.target.value)}>
-              <option value="">— choose repo —</option>
+              <option value="">— choose project —</option>
               {(fleet || []).map((f) => (
                 <option key={f.path} value={f.name}>
                   {f.name}
                 </option>
               ))}
             </select>
+          </div>
+          <div style={{ minWidth: 210 }}>
+            <label className="fl" htmlFor="ws-runner">
+              Helper
+            </label>
+            <select id="ws-runner" value={runner} onChange={(e) => setRunner(e.target.value)}>
+              {(runners.length ? runners : [{ id: 'claude', ide_label: 'Claude IDE', label: 'Claude Code' }]).map(
+                (r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.ide_label || r.label}
+                    {r.live === false ? ' (not found)' : ''}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
+          <div style={{ minWidth: 220 }}>
+            <label className="fl" htmlFor="ws-model">
+              Model, optional
+            </label>
+            <input
+              id="ws-model"
+              list={`ws-models-${runner}`}
+              value={model}
+              placeholder={selectedRunner?.default_model ? `default ${selectedRunner.default_model}` : 'tool default'}
+              onChange={(e) => setModel(e.target.value)}
+            />
+            <datalist id={`ws-models-${runner}`}>
+              {(selectedRunner?.models || []).map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
           </div>
           <label htmlFor="ws-briefing" style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 7 }}>
             <input
@@ -190,15 +456,40 @@ export default function Workspace({ launch }) {
               checked={briefing}
               onChange={(e) => setBriefing(e.target.checked)}
             />
-            <span className="dim">with briefing</span>
+            <span className="dim">brief first</span>
           </label>
-          <button className="act" disabled={!project} onClick={() => start({ project, briefing })}>
-            launch session
+          <label className="toggleline" htmlFor="ws-method-advisor">
+            <input
+              id="ws-method-advisor"
+              type="checkbox"
+              checked={methodAdvisor}
+              onChange={(e) => setMethodAdvisor(e.target.checked)}
+            />
+            <span>suggest method</span>
+          </label>
+          <button
+            type="button"
+            className="act"
+            disabled={!project || selectedRunner?.live === false}
+            onClick={() =>
+              start({
+                project,
+                briefing,
+                runner,
+                model: model || null,
+                knowledge_pack_id: useKnowledge && knowledge ? knowledge.id : null,
+              })
+            }
+          >
+            build with me
           </button>
-          <span className="faint">or</span>
+          <button type="button" className="act ghost" onClick={saveDefaults}>
+            remember
+          </button>
+          <span className="work-divider">or</span>
           <div style={{ minWidth: 200 }}>
             <label className="fl" htmlFor="ws-new-repo">
-              New repo
+              New project
             </label>
             <input
               id="ws-new-repo"
@@ -207,10 +498,108 @@ export default function Workspace({ launch }) {
               onChange={(e) => setNewRepo(e.target.value)}
             />
           </div>
-          <button className="act ghost" disabled={!newRepo} onClick={createRepo}>
-            git init
+          <button type="button" className="act ghost" disabled={!newRepo} onClick={createRepo}>
+            create project
           </button>
         </div>
+        <div className="formrow work-handoff-row">
+          <div style={{ minWidth: 210 }}>
+            <label className="fl" htmlFor="ws-source-runner">
+              Handoff from
+            </label>
+            <select id="ws-source-runner" value={sourceRunner} onChange={(e) => setSourceRunner(e.target.value)}>
+              {(runners.length ? runners : [{ id: 'claude', label: 'Claude Code' }]).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ minWidth: 220 }}>
+            <label className="fl" htmlFor="ws-source-model">
+              Source model, optional
+            </label>
+            <input
+              id="ws-source-model"
+              list={`ws-source-models-${sourceRunner}`}
+              value={sourceModel}
+              placeholder={
+                sourceRunnerMeta?.default_model ? `default ${sourceRunnerMeta.default_model}` : 'source default'
+              }
+              onChange={(e) => setSourceModel(e.target.value)}
+            />
+            <datalist id={`ws-source-models-${sourceRunner}`}>
+              {(sourceRunnerMeta?.models || []).map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          </div>
+          <button type="button" className="act ghost" disabled={!project} onClick={prepareKnowledge}>
+            prepare handoff
+          </button>
+          {knowledge && (
+            <label
+              htmlFor="ws-use-knowledge"
+              style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 7 }}
+            >
+              <input
+                id="ws-use-knowledge"
+                type="checkbox"
+                style={{ width: 'auto' }}
+                checked={useKnowledge}
+                onChange={(e) => setUseKnowledge(e.target.checked)}
+              />
+              <span className="dim">include handoff #{knowledge.id}</span>
+            </label>
+          )}
+        </div>
+        {methodAdvisor && project && !methodDismissed && (methodSuggestion || methodBusy) && (
+          <div className="method-card" role="status" aria-live="polite">
+            {methodSuggestion ? (
+              <>
+                <div className="method-card-main">
+                  <span className="method-kicker">Memory + preferences</span>
+                  <b>{methodSuggestion.title}</b>
+                  <p>{methodSuggestion.question}</p>
+                  <div className="method-reasons">
+                    {methodSuggestion.reasons.map((reason) => (
+                      <span key={reason}>{reason}</span>
+                    ))}
+                  </div>
+                  {methodSuggestion.memory_hints.length > 0 && (
+                    <div className="method-memory">
+                      {methodSuggestion.memory_hints.slice(0, 4).map((hint) => (
+                        <span className="chip" key={`${hint.namespace}:${hint.name}`} title={hint.description}>
+                          {hint.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="method-actions">
+                  <button className="act" type="button" disabled={methodBusy} onClick={useSuggestedMethod}>
+                    use method
+                  </button>
+                  <button className="act ghost" type="button" onClick={() => setMethodDismissed(true)}>
+                    different
+                  </button>
+                </div>
+              </>
+            ) : (
+              <span className="faint">checking previous methods…</span>
+            )}
+          </div>
+        )}
+        {selectedRunner?.live === false && (
+          <div className="faint" style={{ marginTop: 8 }}>
+            {selectedRunner.label} is configured, but its CLI is not on this machine yet.
+          </div>
+        )}
+        {notice && (
+          <div className="kickoff" role="status" style={{ marginTop: 8 }}>
+            {notice}
+          </div>
+        )}
         {err && (
           <div className="err" role="alert">
             {err}
@@ -222,8 +611,12 @@ export default function Workspace({ launch }) {
             {paused.map((p) => (
               <span key={p.id} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', marginRight: 10 }}>
                 <span className="chip">{p.project}</span>
+                <span className="faint">
+                  {p.runner || 'claude'}
+                  {p.model ? `/${p.model}` : ''}
+                </span>
                 <span className="faint">{(p.paused_at || '').slice(0, 16)}</span>
-                <button className="act ghost sm" onClick={() => resumePaused(p)}>
+                <button type="button" className="act ghost sm" onClick={() => resumePaused(p)}>
                   resume
                 </button>
               </span>
@@ -231,6 +624,57 @@ export default function Workspace({ launch }) {
           </div>
         )}
       </div>
+
+      {project && (
+        <div className="panel work-detached">
+          <h2>Run in the background</h2>
+          <p className="sechint">Send code-ready work to the selected helper without keeping a live build open.</p>
+          <form onSubmit={queueDetached}>
+            <div className="formrow">
+              <div style={{ minWidth: 240, flex: 1 }}>
+                <label className="fl" htmlFor="ws-task-title">
+                  What
+                </label>
+                <input
+                  id="ws-task-title"
+                  value={detached.title}
+                  onChange={(e) => setDetached({ ...detached, title: e.target.value })}
+                  required
+                  placeholder="e.g. Add model picker to Work"
+                />
+              </div>
+              <div style={{ minWidth: 210 }}>
+                <label className="fl" htmlFor="ws-task-effort">
+                  Depth
+                </label>
+                <select
+                  id="ws-task-effort"
+                  value={detached.weight}
+                  onChange={(e) => setDetached({ ...detached, weight: e.target.value })}
+                >
+                  <option value="">auto</option>
+                  <option value="light">light</option>
+                  <option value="heavy">heavy staged</option>
+                </select>
+              </div>
+              <button className="act" type="submit" disabled={taskBusy || !detached.title || !detached.prompt}>
+                run later
+              </button>
+            </div>
+            <label className="fl" htmlFor="ws-task-prompt">
+              Outcome
+            </label>
+            <textarea
+              id="ws-task-prompt"
+              rows={3}
+              value={detached.prompt}
+              onChange={(e) => setDetached({ ...detached, prompt: e.target.value })}
+              required
+              placeholder="What should be different when this is done?"
+            />
+          </form>
+        </div>
+      )}
 
       {project ? (
         <div className="ide">
@@ -241,7 +685,69 @@ export default function Workspace({ launch }) {
             onToggleCollapse={() => setExplorerCollapsed((v) => !v)}
           />
           <div className="ide-main">
-            <ActionsBar project={project} onLive={startLiveAction} onOvernight={queueOvernight} busy={actionBusy} />
+            <ActionsBar
+              project={project}
+              runtime={selectedRunner?.label || runner}
+              model={model}
+              onLive={startLiveAction}
+              onOvernight={queueOvernight}
+              busy={actionBusy}
+            />
+
+            {activeSession && (
+              <div className="takeoverbar">
+                <span className="takeoverbar-label">
+                  {activeSession.runner || 'claude'}
+                  {activeSession.model ? `/${activeSession.model}` : ''} active
+                </span>
+                <span className="faint">switch to</span>
+                <select
+                  className="takeover-select"
+                  aria-label="Switch to tool"
+                  value={takeoverRunner}
+                  onChange={(e) => setTakeover({ ...takeover, runner: e.target.value })}
+                >
+                  {(runners.length ? runners : [{ id: 'claude', label: 'Claude Code', live: true }]).map((r) => (
+                    <option key={r.id} value={r.id} disabled={r.live === false}>
+                      {r.label}
+                      {r.live === false ? ' (not found)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="takeover-model"
+                  list={`takeover-models-${takeoverRunner}`}
+                  value={takeover.model}
+                  placeholder={
+                    selectedTakeoverRunner?.default_model ? `default ${selectedTakeoverRunner.default_model}` : 'model'
+                  }
+                  aria-label="Takeover model"
+                  onChange={(e) => setTakeover({ ...takeover, model: e.target.value })}
+                />
+                <datalist id={`takeover-models-${takeoverRunner}`}>
+                  {(selectedTakeoverRunner?.models || []).map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
+                <label className="takeover-close" htmlFor="takeover-close-source">
+                  <input
+                    id="takeover-close-source"
+                    type="checkbox"
+                    checked={takeover.closeSource}
+                    onChange={(e) => setTakeover({ ...takeover, closeSource: e.target.checked })}
+                  />
+                  <span>close source</span>
+                </label>
+                <button
+                  type="button"
+                  className="act sm"
+                  disabled={takeoverBusy || selectedTakeoverRunner?.live === false}
+                  onClick={takeoverActiveSession}
+                >
+                  take over
+                </button>
+              </div>
+            )}
 
             {(sessions.length > 0 || fileTabs.length > 0) && (
               <div className="tabstrip">
@@ -257,11 +763,14 @@ export default function Workspace({ launch }) {
                         setActive(s.id)
                         setProject(s.project)
                       }}
+                      title={`${s.project} · ${s.runner || 'claude'}${s.model ? ` · ${s.model}` : ''}`}
                     >
                       {s.project}
+                      {s.runner && s.runner !== 'claude' ? ` · ${s.runner}` : ''}
                       {s.resumed ? ' (resumed)' : ''}
                     </button>
                     <button
+                      type="button"
                       className="x"
                       title="pause — safe to shut down, resume later"
                       aria-label={`Pause session: ${s.project} (survives shutdown)`}
@@ -273,6 +782,7 @@ export default function Workspace({ launch }) {
                       ⏸
                     </button>
                     <button
+                      type="button"
                       className="x"
                       aria-label={`Close session tab: ${s.project}`}
                       onClick={(e) => {
@@ -296,6 +806,7 @@ export default function Workspace({ launch }) {
                       {t.name}
                     </button>
                     <button
+                      type="button"
                       className="x"
                       aria-label={`Close file tab: ${t.name}`}
                       onClick={(e) => {
@@ -327,7 +838,7 @@ export default function Workspace({ launch }) {
         </div>
       ) : (
         <div className="panel">
-          <div className="faint">choose a project above to open its explorer and sessions</div>
+          <div className="faint">Choose a project to show files, live builds, and background controls.</div>
         </div>
       )}
     </>

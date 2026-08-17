@@ -5,8 +5,7 @@ Description=noirdeck vault — encrypted offsite backup with verified restore
 Type=oneshot
 # adjust to your clone location
 WorkingDirectory=%h/noirdeck/backend
-EnvironmentFile=-%h/noirdeck/../.env
 EnvironmentFile=-%h/noirdeck/.env
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=%h/noirdeck/.venv/bin/python -m app.vault
+ExecStart=%h/noirdeck/.venv/bin/python -m noirdeck.vault
 StandardOutput=journal

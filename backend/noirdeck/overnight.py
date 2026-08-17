@@ -18,6 +18,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from . import ai_runtime
 from .config import Settings
 
 # Routing table: explicit pinned IDs, never family aliases (override via
@@ -163,18 +164,8 @@ def _parse_verdict(result_text: str) -> dict:
         }
 
 
-def _session_argv(model: str, max_turns: int, prompt: str, readonly: bool = False) -> list[str]:
-    from .guard import guard_settings_args
-    from .workspace import claude_bin
-
-    argv = [claude_bin(), "-p", prompt, "--output-format", "json", "--model", model, "--max-turns", str(max_turns)]
-    if readonly:
-        # planning stage: the tool set itself is read-only — a plan that edits
-        # isn't a plan. --tools is variadic; keep it LAST so it can't swallow flags.
-        argv += [*guard_settings_args(), "--tools", "Read", "Grep", "Glob"]
-    else:
-        argv += ["--permission-mode", "acceptEdits", *guard_settings_args()]
-    return argv
+def _session_argv(model: str, max_turns: int, prompt: str, readonly: bool = False, runner: str = "claude") -> list[str]:
+    return ai_runtime.queue_argv(runner, model, max_turns, prompt, readonly=readonly)
 
 
 def _execute(argv: list[str], cwd: Path, timeout: int = 3600) -> tuple[bool, str, int | None, int, str]:
@@ -182,12 +173,15 @@ def _execute(argv: list[str], cwd: Path, timeout: int = 3600) -> tuple[bool, str
     own JSON on nonzero exit — error_max_turns and friends still emit a result
     object whose subtype names the cause. Test seam: monkeypatch this."""
     proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=str(cwd))
+    expects_json = "--output-format" in argv and "json" in argv
+    if proc.returncode == 0 and proc.stdout and not expects_json:
+        return True, proc.stdout.strip(), None, 0, ""
     if proc.returncode == 0 and proc.stdout:
         text, tin, tout = parse_cli_json(proc.stdout)
         return True, text, tin, tout or 0, ""
     subtype, tin, tout, text = None, None, 0, ""
     try:
-        obj = parse_cli_result(proc.stdout) if proc.stdout else None
+        obj = parse_cli_result(proc.stdout) if proc.stdout and expects_json else None
     except json.JSONDecodeError:
         obj = None
     if obj:
@@ -233,7 +227,8 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
     conn.commit()
 
     text_all = task["title"] + " " + task["prompt"]
-    model = task["model"] or route_model(text_all)
+    runner = task["runner"] if "runner" in task.keys() and task["runner"] else "claude"
+    model = task["model"] or (route_model(text_all) if runner == "claude" else ai_runtime.default_model(runner))
     agent = task["agent_type"] or route_agent(text_all, settings.claude_dir)
     weight = (task["weight"] if "weight" in task.keys() else None) or route_weight(task["title"], task["prompt"])
     base_prompt = task["prompt"]
@@ -276,7 +271,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                 "(follow it unless it is clearly wrong on the ground):\n" + brief
             )
         do_prompt += _GUARDRAILS
-        ok, text, tokens_in, tout, note = _execute(_session_argv(model, 40, do_prompt), project_dir)
+        ok, text, tokens_in, tout, note = _execute(_session_argv(model, 40, do_prompt, runner=runner), project_dir)
         tokens_out += tout
         if ok:
             verdict = _parse_verdict(text)
@@ -347,10 +342,11 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                     verdict.get("question") or ""
                 ) + f" ⚠ {note} — review, commit or revert before any other commit in this repo."
     conn.execute(
-        "UPDATE queue SET status=?, model=?, agent_type=?, weight=?, verdict=?, question=?, "
+        "UPDATE queue SET status=?, runner=?, model=?, agent_type=?, weight=?, verdict=?, question=?, "
         "tokens_in=?, tokens_out=?, finished_at=? WHERE id=?",
         (
             status,
+            runner,
             model,
             agent,
             weight,
@@ -366,7 +362,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
         conn,
         "overnight",
         f"task_{status}",
-        f"id={task['id']} model={model} weight={weight} agent={agent or '-'} tokens_out={tokens_out}",
+        f"id={task['id']} runner={runner} model={model} weight={weight} agent={agent or '-'} tokens_out={tokens_out}",
     )
     conn.commit()
 

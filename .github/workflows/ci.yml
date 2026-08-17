@@ -42,6 +42,11 @@ jobs:
         run: npm ci --no-fund --no-audit
       - name: Lint
         run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Contrast contract
+        working-directory: .
+        run: node ops/check-contrast.mjs
       - name: Build
         run: npm run build
 

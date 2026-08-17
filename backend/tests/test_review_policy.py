@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from app.review_policy import diff_since, head, review_needed
+from noirdeck.review_policy import diff_since, head, review_needed
 
 
 def test_small_clean_change_skips():

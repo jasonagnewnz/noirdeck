@@ -1,7 +1,7 @@
 import pytest
 
-from app.db import connect, init_db, utcnow
-from app.digest import compose
+from noirdeck.db import connect, init_db, utcnow
+from noirdeck.digest import compose
 
 
 @pytest.fixture

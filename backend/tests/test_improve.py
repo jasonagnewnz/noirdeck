@@ -2,9 +2,9 @@ import subprocess
 
 import pytest
 
-from app import improve
-from app.config import Settings
-from app.db import connect, init_db
+from noirdeck import improve
+from noirdeck.config import Settings
+from noirdeck.db import connect, init_db
 
 SRC = """def add(a, b):
     return a + b
@@ -126,7 +126,7 @@ def test_run_improver_skips_unpulled_repo_model(env, monkeypatch):
     conn.commit()
     monkeypatch.setenv("NOIRDECK_IMPROVER_ARMED", "true")
     monkeypatch.setattr(improve, "available_models", lambda: ["qwen2.5-coder:7b"])
-    from app.arming import arm
+    from noirdeck.arming import arm
 
     arm(conn, "improver", hours=1, max_tasks=5)
     out = improve.run_improver(s)
@@ -264,7 +264,7 @@ def test_improve_asset_one_proposes_via_spine_and_dedups(env, monkeypatch):
     out2 = improve.improve_asset_one(s, conn, target)
     assert out2["skipped"] and "already pending" in out2["reason"]
     # approval (with overwrite — target exists) writes through the spine
-    from app.proposals import approve
+    from noirdeck.proposals import approve
 
     approve(conn, s.claude_dir, prop["id"], overwrite=True)
     assert "Run the rollout." in (s.claude_dir / "skills/deploy-wazuh/SKILL.md").read_text()
@@ -287,7 +287,7 @@ def test_run_improver_only_touches_armed_targets(env, monkeypatch):
         "'2099-01-01T00:00:00+00:00', '2026-01-01')"
     )  # armed
     conn.commit()
-    from app.arming import arm
+    from noirdeck.arming import arm
 
     arm(conn, "improver", hours=1, max_tasks=5)
     out = improve.run_improver(s)

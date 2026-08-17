@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from .paths import data_home, default_db_path
 
 
 class ConfigError(RuntimeError):
@@ -17,7 +17,7 @@ def _path(env: str, default: str) -> Path:
     return Path(os.environ.get(env, default)).expanduser()
 
 
-_MODEL_DEFAULTS = {"think": "claude-fable-5", "build": "claude-sonnet-5", "review": "claude-opus-4-8"}
+_MODEL_DEFAULTS = {"think": "claude-fable-5", "build": "claude-sonnet-5", "review": "claude-opus-5"}
 
 
 def model(role: str) -> str:
@@ -50,10 +50,12 @@ class Settings:
         if not claude_dir.is_dir():
             raise ConfigError(f"NOIRDECK_CLAUDE_DIR does not exist: {claude_dir}")
         projects_dir = _path("NOIRDECK_PROJECTS_DIR", "~/projects")
-        db_raw = os.environ.get("NOIRDECK_DB_PATH", "data/noirdeck.db")
-        db_path = Path(db_raw)
+        db_raw = os.environ.get("NOIRDECK_DB_PATH")
+        # A relative override resolves against the data home for the current
+        # mode, so an installed copy never writes into site-packages.
+        db_path = default_db_path() if not db_raw else Path(db_raw).expanduser()
         if not db_path.is_absolute():
-            db_path = REPO_ROOT / db_path
+            db_path = data_home() / db_path
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return cls(
             claude_dir=claude_dir,

@@ -1,21 +1,21 @@
 import { useEffect } from 'react'
 import { ViewHead } from '../ui.jsx'
 
-// The manual. Deep-linkable: #help:queue jumps straight to the Queue chapter —
+// The manual. Deep-linkable: #help:queue jumps straight to the Run later chapter —
 // every view's "how this works →" header link lands here on its own section.
 const SECTIONS = [
   ['about', 'What noirdeck is'],
   ['interface', 'Reading the interface'],
-  ['overview', 'Overview'],
-  ['workspace', 'Workspace'],
+  ['overview', 'Home'],
+  ['workspace', 'Build live'],
   ['builds', 'Builds'],
-  ['design', 'Design Studio'],
-  ['sessions', 'Sessions'],
-  ['skills', 'Skills + Agents'],
-  ['memories', 'Memories'],
-  ['proposals', 'Proposals'],
-  ['queue', 'Overnight Queue'],
-  ['quality', 'Quality Gates'],
+  ['design', 'Design'],
+  ['sessions', 'History'],
+  ['skills', 'Helpers'],
+  ['memories', 'Knowledge'],
+  ['proposals', 'Review'],
+  ['queue', 'Tasks'],
+  ['quality', 'Checks'],
   ['safety', 'The safety model'],
   ['automation', 'Background automation'],
   ['keys', 'Keyboard & palette'],
@@ -65,17 +65,17 @@ export default function Help() {
 
       <Sec id="about" title="What noirdeck is">
         <p className="help">
-          noirdeck is a local companion console for a Claude Code estate. It watches your projects, sessions, skills and
-          memories, runs carefully-caged automation on your behalf, and turns everything it learns into{' '}
-          <b>proposals you approve</b> — it never rewrites your estate on its own.
+          noirdeck.dev is a local build studio for people who want great software without managing a pile of AI tools by
+          hand. It watches your projects, remembers useful ways of working, runs carefully-caged automation on your
+          behalf, and turns risky changes into <b>decisions you approve</b> — it never rewrites your work on its own.
         </p>
         <ul className="helplist">
           <li>
             <b>Local only</b> — the server binds 127.0.0.1; nothing is exposed to the network.
           </li>
           <li>
-            <b>Propose-only</b> — the single write path into <b>~/.claude</b> is you approving a proposal in the
-            Proposals view. Applied proposals keep a pre-apply snapshot and can be reverted.
+            <b>Approve-first</b> — the single write path into your AI workspace knowledge is you approving a change in
+            Review. Applied changes keep a pre-apply snapshot and can be reverted.
           </li>
           <li>
             <b>Fail-closed</b> — every autonomous capability sits behind an env master flag AND an expiring arming
@@ -106,11 +106,20 @@ export default function Help() {
         <h3>Everything else</h3>
         <ul className="helplist">
           <li>
+            <b>Build studio</b> — Home starts with a project picker and one outcome box. Type what you want built and
+            noirdeck routes it to live work, design, background tasks or a read-only answer.
+          </li>
+          <li>
+            <b>Add essentials</b> — click a common product need, answer targeted questions, then send the generated
+            brief to live work or background tasks. Turn on memories + preferences to reuse a method Noirdeck has seen
+            work for that project.
+          </li>
+          <li>
             <span className="chip">chips</span> label and categorise; <span className="chip hot">accent chips</span>{' '}
             mark the active or armed one.
           </li>
           <li>
-            Sidebar <b>badges</b> count items waiting on you (pending proposals, blocked queue tasks, open loops).
+            Sidebar <b>badges</b> count items waiting on you: reviews, blocked tasks and open loops.
           </li>
           <li>
             The status-bar <b>dot</b> is live server connectivity: green = event stream connected, red = the server is
@@ -123,26 +132,50 @@ export default function Help() {
         </ul>
       </Sec>
 
-      <Sec id="overview" title="Overview">
+      <Sec id="overview" title="Home">
         <p className="help">
-          Your morning start page. A deterministic <b>digest</b> (computed from real data, not model output) leads with
-          what happened since you last looked: finished overnight tasks, proposals waiting, automation spend, backup
-          age. Below it: estate stats and open loops — sessions that ended with unfinished work.
+          Your start page. The <b>Build studio</b> leads: pick a project, type the outcome, and jump straight into the
+          right path. <b>Add essentials</b> turns common product needs into guarded, project-ready briefs: payments,
+          auth, domains, hosting, database, email, uploads, analytics, admin and release. Its optional memories +
+          preferences toggle can suggest "reuse this method" before sending the job. Below that, a deterministic
+          <b>digest</b> (computed from real data, not model output) shows what happened since you last looked: finished
+          background tasks, reviews waiting, automation spend and backup age.
         </p>
       </Sec>
 
-      <Sec id="workspace" title="Workspace">
+      <Sec id="workspace" title="Build live">
         <p className="help">
-          Real Claude Code sessions in the browser — an embedded terminal per project, a read-only file explorer, and
-          quick actions. Sessions can be <b>paused</b> across a service restart and resumed with context intact from the
-          Sessions view.
+          Live AI sessions in the browser: choose <b>where</b> the work happens, <b>who</b> should do it, then work in
+          an embedded terminal with a read-only file explorer beside it. Work supports Claude, Codex, Ollama local
+          models and configured custom tools.
         </p>
         <ul className="helplist">
           <li>
-            Terminals are real PTYs running the local <b>claude</b> CLI with a fixed command line; working directories
-            are allowlisted to your projects folder.
+            Terminals are real PTYs running server-owned runner commands such as <b>claude</b>, <b>codex</b>, or{' '}
+            <b>ollama</b>; working directories are allowlisted to your projects folder.
           </li>
+          <li>
+            <b>Remembered choice</b>: save your usual tool once, then override it per live session or run-later task
+            when a repo needs a different model.
+          </li>
+          <li>
+            <b>Transfer packs</b> summarize repo context, recent source sessions and durable memory so another runtime
+            can start with the same orientation.
+          </li>
+          <li>
+            <b>Suggest method</b> checks saved preferences, recent queued work, paused sessions, handoff packs and
+            memory notes for the selected repo, then offers to reuse that method or let you choose different.
+          </li>
+          <li>
+            <b>Switch to</b>: while a terminal tab is active, pick another model/tool and start a new session in the
+            same repo with a handoff brief from the current terminal context. Enable <b>close source</b> to replace the
+            old session instead of keeping both.
+          </li>
+          <li>Run-later tasks can be created from Work without opening a terminal tab.</li>
           <li>The file viewer is read-only — editing happens through the session itself.</li>
+          <li>
+            Codex may ask whether you trust a repo. That prompt comes from Codex; choose yes only for repos you trust.
+          </li>
           <li>
             A focused terminal keeps its own keys (including Ctrl+B); the app only steals shortcuts when you are outside
             it.
@@ -176,20 +209,35 @@ export default function Help() {
         </ul>
       </Sec>
 
-      <Sec id="design" title="Design Studio">
+      <Sec id="design" title="Design">
         <p className="help">
-          Restyle a project's frontend safely. Propose a round and three visual directions are mocked in parallel —
-          optionally across different UI libraries — as sandboxed previews in a staging area.{' '}
+          Restyle a project's frontend safely. Choose a target repo, capture a design from another project or write a
+          short UI brief, then three visual directions are mocked in parallel inside one of six ready-to-go UI kits.{' '}
           <b>Mocks never touch the repo</b>; only clicking apply writes the chosen direction to the real frontend, and
           that too stops at code-ready.
         </p>
+        <p className="help">
+          The kits are plain-language starting points: Landing Page, Dashboard, Booking Flow, Shopfront, Admin Portal
+          and Portfolio.
+        </p>
       </Sec>
 
-      <Sec id="sessions" title="Sessions">
+      <Sec id="settings" title="Settings">
+        <p className="help">
+          The sidebar carries the handful of things you touch in a normal session. Everything else lives in{' '}
+          <b>Settings</b> — reachable from the gear at the bottom of the sidebar, or by pressing <kbd>0</kbd>.
+        </p>
+        <p className="help">
+          Nothing was taken away. <b>Design</b>, <b>Helpers</b>, <b>Knowledge</b> and <b>Checks</b> are the same views
+          they always were, still with their own links, just no longer competing for a slot you rarely click. Settings
+          also holds the theme, what background automation is armed, and which assistants this machine can run.
+        </p>
+      </Sec>
+
+      <Sec id="sessions" title="History">
         <p className="help">
           Every recorded Claude Code session across the estate, plus full-text search over your entire prompt history —
-          the "have I asked this before?" button. <b>resume</b> reopens a past session in the Workspace with its context
-          intact.
+          the "have I asked this before?" button. <b>resume</b> reopens a past session in Work with its context intact.
         </p>
         <p className="help">
           An <span className="pill GAP">open loop</span> marks a session that looks unfinished — worth resuming or
@@ -225,7 +273,7 @@ export default function Help() {
         </ul>
       </Sec>
 
-      <Sec id="proposals" title="Proposals">
+      <Sec id="proposals" title="Review">
         <p className="help">
           The single gate between noirdeck and your estate. Everything any subsystem wants to write into{' '}
           <b>~/.claude</b> — mined skills, memory merges, improver output — lands here as a diff and waits. Approve
@@ -246,25 +294,30 @@ export default function Help() {
         </ul>
       </Sec>
 
-      <Sec id="queue" title="Overnight Queue">
+      <Sec id="queue" title="Tasks">
         <p className="help">
-          Queue work in the evening; headless Claude Code sessions run it overnight, one task at a time, and you review
-          verdicts in the morning. Write the prompt like a good ticket — the more specific the brief, the fewer
-          assumptions get logged.
+          Send work off without opening a live terminal. Pick where it should happen, who should do it, and how deep it
+          should go. Write the outcome like a good ticket — the more specific the brief, the fewer assumptions get
+          logged.
         </p>
         <ul className="helplist">
           <li>
             <b>Arming is a contract, not a switch</b>: an expiry plus task and token budgets. Runs need the env master
-            flag AND a live contract; the runner re-checks before every task. Contracts expire — re-arm before tonight
-            if you want tonight's run.
+            flag AND a live contract; the runner re-checks before every task. Contracts are folded under safety controls
+            because most users only need them when unattended work is blocked.
+          </li>
+          <li>
+            <b>Who/model</b>: use the remembered Work choice or override per task. Claude tasks still auto-route a model
+            when you leave the model blank; other tools use their configured default unless you type a model.
           </li>
           <li>
             <b>Effort</b>: light = one session; heavy = staged plan → do → check, where the plan pass is
             read-only-caged. Auto routes from the task text.
           </li>
           <li>
-            It <b>cannot push or deploy</b> — a pre-execution guard denies push/publish/deploy commands at the harness
-            level, underneath the model.
+            Claude-backed run-later tasks include the pipeline guard that denies push/publish/deploy commands before
+            execution. Non-Claude runners are still launched by server-owned argv, but their edit permissions follow
+            that CLI's own sandbox and auth model.
           </li>
           <li>
             Anything the run can't decide <b>parks as a question</b> on the task and the night moves on; answering
@@ -273,7 +326,7 @@ export default function Help() {
         </ul>
       </Sec>
 
-      <Sec id="quality" title="Quality Gates">
+      <Sec id="quality" title="Checks">
         <p className="help">
           Commercial-readiness for every repo in the fleet: each project is scored
           <span className="pill BLOCKER"> BLOCKER</span> / <span className="pill GAP">GAP</span> /
@@ -336,7 +389,7 @@ export default function Help() {
         <p className="help">Four recurring jobs run on user-level systemd timers while their gates are open:</p>
         <ul className="helplist">
           <li>
-            <b>Overnight queue</b> — runs the queued tasks late at night (needs a live arming contract).
+            <b>Run later</b> — runs queued tasks without a live terminal (needs a live arming contract).
           </li>
           <li>
             <b>Miner</b> — scans new session history for skill/memory candidates; drafts land in Proposals.
@@ -362,7 +415,8 @@ export default function Help() {
             <kbd>Esc</kbd> closes overlays.
           </li>
           <li>
-            <kbd>Ctrl+K</kbd> opens the command palette — skills, shortcuts and tips, copy-on-Enter.
+            <kbd>Ctrl+K</kbd> opens the command palette — type an outcome to launch it, or search skills, shortcuts and
+            tips.
           </li>
           <li>
             <kbd>?</kbd> opens quick keys, including the full Claude Code reference (session keys, slash commands, CLI
@@ -385,8 +439,20 @@ export default function Help() {
             cold start can take minutes while the model loads.
           </li>
           <li>
+            <b>Only Claude appears in Workspace</b> — the browser is probably talking to an old backend, or the runner
+            binary is missing. Restart the current noirdeck backend and check <b>/api/workspace/runtimes</b>.
+          </li>
+          <li>
+            <b>Codex opens and waits</b> — Codex may ask whether you trust that repo. Choose yes only for repos you
+            trust; after that the session continues normally.
+          </li>
+          <li>
+            <b>Runner marked "not found"</b> — install the CLI or set its binary env var, for example{' '}
+            <b>NOIRDECK_CODEX_BIN</b>, <b>NOIRDECK_OLLAMA_BIN</b> or <b>NOIRDECK_GROK_BIN</b>.
+          </li>
+          <li>
             <b>"run blocked / disarmed"</b> — an env master flag is off or the arming contract expired. Re-arm in the
-            Queue view (overnight, mining) or arm the specific target (improver).
+            Run later view (overnight, mining) or arm the specific target (improver).
           </li>
           <li>
             <b>Overnight tasks didn't run</b> — check the arming contract wasn't expired or its budget spent, and that

@@ -1,12 +1,13 @@
-"""Workspace: real Claude Code sessions inside the platform, over a PTY.
+"""Workspace: real AI CLI sessions inside the platform, over a PTY.
 
 Security shape (see docs/SECURITY.md): the browser NEVER supplies a command. The
-server only spawns the fixed `claude` argv, in a cwd that must resolve under the
-projects dir. Client input is keystrokes + resize events, nothing else. Localhost-only
-like the rest of the app — this endpoint is shell-equivalent access by design.
+server only spawns fixed argv for a server-owned runner id, in a cwd that must
+resolve under the projects dir. Client input is keystrokes + resize events,
+nothing else. Localhost-only like the rest of the app — this endpoint is
+shell-equivalent access by design.
 
-Auth: sessions inherit the machine's existing Claude CLI auth (~/.claude). There is
-no separate platform login; if the CLI is ever logged out, /login runs in the pane.
+Auth: sessions inherit the machine's existing CLI auth. There is no separate
+platform login; if a CLI is logged out, its login flow runs in the pane.
 """
 
 from __future__ import annotations
@@ -23,9 +24,18 @@ import uuid
 from collections import deque
 from pathlib import Path
 
+from . import ai_runtime
+
 MAX_SESSIONS = 6
 SCROLLBACK_BYTES = 200_000
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+ANSI_RE = re.compile(
+    r"\x1b\][^\x1b\x07]*(?:\x07|\x1b\\)"  # OSC
+    r"|\x1b\[[0-?]*[ -/]*[@-~]"  # CSI
+    r"|\x1b[()][A-Za-z0-9]"  # charset switch
+    r"|\x1b[=>]"  # keypad/application mode
+)
+CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
 class WorkspaceError(RuntimeError):
@@ -34,15 +44,10 @@ class WorkspaceError(RuntimeError):
 
 def claude_bin() -> str:
     """Resolve the claude CLI even under systemd, whose PATH lacks ~/.local/bin."""
-    import shutil
-
-    found = shutil.which("claude")
-    if found:
-        return found
-    fallback = Path.home() / ".local" / "bin" / "claude"
-    if fallback.is_file():
-        return str(fallback)
-    raise WorkspaceError("claude CLI not found on PATH or in ~/.local/bin")
+    try:
+        return ai_runtime.claude_bin()
+    except ai_runtime.RuntimeErrorConfig as exc:
+        raise WorkspaceError(str(exc)) from exc
 
 
 def validate_cwd(projects_dir: Path, project: str) -> Path:
@@ -55,11 +60,13 @@ def validate_cwd(projects_dir: Path, project: str) -> Path:
 
 
 class TermSession:
-    def __init__(self, project: str, cwd: Path, argv: list[str]):
+    def __init__(self, project: str, cwd: Path, argv: list[str], runner: str = "claude", model: str | None = None):
         self.id = uuid.uuid4().hex[:12]
         self.project = project
         self.cwd = cwd
         self.argv = argv
+        self.runner = runner
+        self.model = model
         self.pid: int | None = None
         self.fd: int | None = None
         self.scrollback: deque[bytes] = deque()
@@ -136,6 +143,15 @@ class TermSession:
                 pass
             self.fd = None
 
+    def transcript_tail(self, max_chars: int = 8000) -> str:
+        raw = b"".join(self.scrollback)[-max_chars * 4 :]
+        text = raw.decode("utf-8", "replace")
+        text = ANSI_RE.sub("", text)
+        text = CONTROL_RE.sub("", text)
+        lines = [ln.rstrip() for ln in text.splitlines()]
+        compact = "\n".join(ln for ln in lines if ln.strip())
+        return compact[-max_chars:]
+
 
 class WorkspaceManager:
     def __init__(self, projects_dir: Path):
@@ -153,27 +169,33 @@ class WorkspaceManager:
         initial_prompt: str | None = None,
         resume_session_id: str | None = None,
         continue_last: bool = False,
+        runner_id: str | None = None,
+        model: str | None = None,
         argv_override: list[str] | None = None,
     ) -> TermSession:
         self.reap()
         if len(self.sessions) >= MAX_SESSIONS:
             raise WorkspaceError(f"session cap reached ({MAX_SESSIONS}) — close one first")
         cwd = validate_cwd(self.projects_dir, project)
+        try:
+            runner = ai_runtime.runner_spec(runner_id).id
+            chosen_model = ai_runtime.validate_model_id(model)
+        except ai_runtime.RuntimeErrorConfig as exc:
+            raise WorkspaceError(str(exc)) from exc
         if argv_override:  # tests only — API callers can never reach this
             argv = argv_override
         else:
-            argv = [claude_bin()]
-            if resume_session_id:
-                if not re.fullmatch(r"[0-9a-f-]{8,40}", resume_session_id):
-                    raise WorkspaceError("bad session id")
-                argv += ["--resume", resume_session_id]
-            elif continue_last:
-                # fallback when a paused session's transcript id is unknown —
-                # resumes the cwd's most recent conversation
-                argv += ["--continue"]
-            elif initial_prompt:
-                argv += [initial_prompt[:4000]]
-        term = TermSession(project, cwd, argv)
+            try:
+                argv = ai_runtime.live_argv(
+                    runner,
+                    chosen_model,
+                    initial_prompt=initial_prompt,
+                    resume_session_id=resume_session_id,
+                    continue_last=continue_last,
+                )
+            except ai_runtime.RuntimeErrorConfig as exc:
+                raise WorkspaceError(str(exc)) from exc
+        term = TermSession(project, cwd, argv, runner=runner, model=chosen_model)
         term.start()
         self.sessions[term.id] = term
         return term
@@ -195,11 +217,30 @@ class WorkspaceManager:
             {
                 "id": t.id,
                 "project": t.project,
+                "runner": t.runner,
+                "model": t.model,
                 "alive": t.alive(),
                 "resumed": "--resume" in t.argv,
             }
             for t in self.sessions.values()
         ]
+
+
+def takeover_prompt(source: TermSession, target_runner: str, target_model: str | None, max_chars: int = 8000) -> str:
+    tail = source.transcript_tail(max_chars=max_chars)
+    return (
+        "SESSION TAKEOVER BRIEF\n"
+        f"Project: {source.project}\n"
+        f"Source runtime: {source.runner}{f' / {source.model}' if source.model else ''}\n"
+        f"Target runtime: {target_runner}{f' / {target_model}' if target_model else ''}\n\n"
+        "You are taking over an active working session in this same repo. Continue from the current repository state, "
+        "avoid repeating completed work, and verify anything you rely on before editing. If the handoff transcript is "
+        "ambiguous, ask the operator rather than guessing.\n\n"
+        "RECENT TERMINAL CONTEXT FROM THE SOURCE SESSION:\n"
+        "```text\n"
+        f"{tail or '(no terminal output captured yet)'}\n"
+        "```\n"
+    )
 
 
 def latest_transcript_session_id(claude_dir: Path, cwd: Path) -> str | None:

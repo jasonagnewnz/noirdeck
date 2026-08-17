@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from app.readers.files import FilesError, list_dir, read_file
+from noirdeck.readers.files import FilesError, list_dir, read_file
 
 
 @pytest.fixture

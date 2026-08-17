@@ -81,6 +81,47 @@ def search_history(records: list[dict], q: str, limit: int = 200) -> list[dict]:
     return hits[:limit]
 
 
+# A prompt typed 56 times is one habit, not 56 results. Collapsing by the same
+# normalize() the miner uses means the grouping you see matches the grouping
+# that becomes a skill proposal.
+GROUP_MEMBER_CAP = 50
+
+
+def group_hits(hits: list[dict]) -> list[dict]:
+    """Collapse near-identical prompts into one row each, newest group first."""
+    buckets: dict[str, list[dict]] = {}
+    for r in hits:
+        buckets.setdefault(normalize(r["display"])[:120] or r["display"][:120], []).append(r)
+    groups = []
+    for key, rs in buckets.items():
+        rs.sort(key=lambda r: -r["ts"])
+        groups.append(
+            {
+                "key": key,
+                "display": rs[0]["display"],
+                "count": len(rs),
+                "projects": sorted({(r["project"] or "?").split("/")[-1] for r in rs}),
+                "last_ts": rs[0]["ts"],
+                "first_ts": rs[-1]["ts"],
+                "items": rs[:GROUP_MEMBER_CAP],
+                "truncated": len(rs) > GROUP_MEMBER_CAP,
+            }
+        )
+    groups.sort(key=lambda g: -g["last_ts"])
+    return groups
+
+
+def search_grouped(records: list[dict], q: str, limit: int = 400) -> dict:
+    hits = search_history(records, q, limit=limit)
+    groups = group_hits(hits)
+    return {
+        "total": len(hits),
+        "groups": groups,
+        # how much noise the collapse actually removed, so the UI can say so
+        "collapsed": len(hits) - len(groups),
+    }
+
+
 def repeated_prompts(records: list[dict], min_count: int = 3) -> list[dict]:
     """Non-slash prompts typed near-identically N+ times — skill-gap candidates."""
     buckets: dict[str, list[dict]] = {}

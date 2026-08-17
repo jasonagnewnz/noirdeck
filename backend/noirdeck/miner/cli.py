@@ -1,4 +1,4 @@
-"""CLI entry for the nightly timer: `python -m app.miner.cli [heuristic|nightly]`."""
+"""CLI entry for the nightly timer: `python -m noirdeck.miner.cli [heuristic|nightly]`."""
 
 from __future__ import annotations
 

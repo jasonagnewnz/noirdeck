@@ -1,10 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "noirdeck"
-version = "0.23.0"
+version = "0.26.0"
 description = "Local-first companion console for a Claude Code estate"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
+keywords = ["claude", "cli", "local-first", "developer-tools"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+  "fastapi>=0.141.1",
+  "uvicorn[standard]>=0.52.3",
+  "watchfiles>=1.0.4",
+  "PyYAML>=6.0.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.1.1", "httpx>=0.28.1", "ruff>=0.15.1"]
+
+[project.scripts]
+noirdeck = "noirdeck.cli:main"
+
+# The built SPA is copied to backend/noirdeck/web by `make bundle` before a
+# release build. It is generated (so gitignored), and `artifacts` is what makes
+# hatchling ship a gitignored path anyway.
+[tool.hatch.build]
+artifacts = ["backend/noirdeck/web/**"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/noirdeck"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "backend",
+  "frontend/src",
+  "frontend/package.json",
+  "frontend/package-lock.json",
+  "frontend/vite.config.js",
+  "docs",
+  "ops",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+  "Makefile",
+]
 
 [tool.ruff]
 line-length = 120
@@ -15,7 +64,7 @@ src = ["backend"]
 select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app"]
+known-first-party = ["noirdeck"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]

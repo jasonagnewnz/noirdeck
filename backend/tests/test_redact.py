@@ -1,4 +1,4 @@
-from app.miner.redact import redact
+from noirdeck.miner.redact import redact
 
 
 def test_redacts_key_shapes():

@@ -7,6 +7,9 @@ walks UP to an enclosing repo otherwise and reports the wrong project.
 from __future__ import annotations
 
 import subprocess
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -49,21 +52,71 @@ def repo_dirs(projects_dir: Path) -> list[Path]:
 
 _cache: dict = {"ts": 0.0, "data": None}
 _TTL = 60  # seconds
+_LOCK = threading.Lock()
+
+
+def basic_fleet(projects_dir: Path) -> list[dict]:
+    """Fast repo list for first paint. No git commands, just direct child repos."""
+    return [
+        {
+            "name": repo.name,
+            "path": str(repo),
+            "branch": "?",
+            "dirty_files": 0,
+            "has_upstream": True,
+            "unpushed_commits": None,
+            "last_commit_ts": None,
+            "stale": True,
+        }
+        for repo in repo_dirs(projects_dir)
+    ]
+
+
+def _compute_fleet(projects_dir: Path) -> list[dict]:
+    dirs = repo_dirs(projects_dir)
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        return list(ex.map(repo_state, dirs))
 
 
 def fleet(projects_dir: Path) -> list[dict]:
     """~4 git subprocesses per repo × 50+ repos: parallelised + TTL-cached, or the
     overview endpoint hangs for tens of seconds (bit the first live run)."""
-    import time
-    from concurrent.futures import ThreadPoolExecutor
-
-    if _cache["data"] is not None and time.monotonic() - _cache["ts"] < _TTL:
-        return _cache["data"]
-    dirs = repo_dirs(projects_dir)
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        out = list(ex.map(repo_state, dirs))
-    _cache.update(ts=time.monotonic(), data=out)
+    with _LOCK:
+        if _cache["data"] is not None and time.monotonic() - _cache["ts"] < _TTL:
+            return _cache["data"]
+    out = _compute_fleet(projects_dir)
+    with _LOCK:
+        _cache.update(ts=time.monotonic(), data=out, refreshing=False)
     return out
+
+
+def refresh_fleet_async(projects_dir: Path) -> None:
+    """Refresh the expensive git snapshot without making the UI wait for it."""
+    with _LOCK:
+        if _cache.get("refreshing"):
+            return
+        _cache["refreshing"] = True
+
+    def run():
+        try:
+            out = _compute_fleet(projects_dir)
+            with _LOCK:
+                _cache.update(ts=time.monotonic(), data=out)
+        finally:
+            with _LOCK:
+                _cache["refreshing"] = False
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def cached_fleet(projects_dir: Path, refresh: bool = False) -> list[dict]:
+    """Return the best fleet snapshot immediately; optionally refresh in back."""
+    with _LOCK:
+        data = _cache["data"]
+        stale = data is None or time.monotonic() - _cache["ts"] >= _TTL
+    if refresh and stale:
+        refresh_fleet_async(projects_dir)
+    return data if data is not None else basic_fleet(projects_dir)
 
 
 def fleet_attention(states: list[dict]) -> list[dict]:

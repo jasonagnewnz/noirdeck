@@ -1,7 +1,7 @@
 import pytest
 
-from app.db import connect, init_db, utcnow
-from app.proposals import ProposalError, approve, dismiss, list_proposals
+from noirdeck.db import connect, init_db, utcnow
+from noirdeck.proposals import ProposalError, approve, dismiss, list_proposals
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def test_double_decision_blocked(conn, claude_dir):
 
 # --- universal undo -----------------------------------------------------------
 
-from app.proposals import revert  # noqa: E402
+from noirdeck.proposals import revert  # noqa: E402
 
 
 def test_revert_restores_overwritten_content(conn, claude_dir):

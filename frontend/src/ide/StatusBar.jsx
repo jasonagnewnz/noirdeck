@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react'
+import {
+  compactDateTime,
+  FRONTEND_BUILT_AT,
+  FRONTEND_COMMIT,
+  FRONTEND_LOADED_AT,
+  FRONTEND_VERSION,
+  isoDateTime,
+} from '../buildInfo.js'
 import { getJSON } from './ideApi.js'
 import { THEMES } from './themes.js'
 
-// Bottom status bar — live SSE state, pending-proposals count, queue counts,
-// active workspace session count (self-polled), the ⌘K launcher, version (live
-// from the backend's own health check rather than a hardcoded string, so this
-// bar can never drift out of sync with what's actually deployed).
+// Bottom status bar — live state, decision counts, active build count
+// (self-polled), the ⌘K launcher, and build identity for both frontend/backend
+// so stale bundles are obvious.
 export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, theme, onSetTheme }) {
   const [sessionCount, setSessionCount] = useState(null)
-  const [version, setVersion] = useState(null)
+  const [health, setHealth] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -28,13 +35,17 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
 
   useEffect(() => {
     let alive = true
-    getJSON('/health')
-      .then((d) => alive && setVersion(d.version))
-      .catch(() => {
-        /* leave blank */
-      })
+    const load = () =>
+      getJSON('/health')
+        .then((d) => alive && setHealth(d))
+        .catch(() => {
+          /* leave last-known health */
+        })
+    load()
+    const t = setInterval(load, 60000)
     return () => {
       alive = false
+      clearInterval(t)
     }
   }, [])
 
@@ -62,28 +73,46 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
       : vaultAgeH === null
         ? ['warn', 'vault: no verified backup yet']
         : vaultAgeH <= 48
-          ? ['ok', `vault ✓ ${vaultAgeH < 1 ? '<1h' : Math.round(vaultAgeH) + 'h'}`]
+          ? ['ok', `vault ✓ ${vaultAgeH < 1 ? '<1h' : `${Math.round(vaultAgeH)}h`}`]
           : ['warn', `vault ! ${Math.round(vaultAgeH / 24)}d since verified backup`]
 
   const proposalsPending = overview?.proposals_pending || 0
   const queueCounts = overview?.queue || {}
   const queueActive = (queueCounts.queued || 0) + (queueCounts.blocked || 0) + (queueCounts.running || 0)
+  const frontendStamp = compactDateTime(FRONTEND_BUILT_AT)
+  const apiStamp = compactDateTime(health?.server_started_at)
+  const versionLabel = [
+    `ui v${FRONTEND_VERSION} ${frontendStamp}`,
+    health?.version ? `api v${health.version} ${apiStamp}` : 'api offline',
+  ].join(' · ')
+  const versionTitle = [
+    `Frontend version: ${FRONTEND_VERSION}`,
+    `Frontend built: ${isoDateTime(FRONTEND_BUILT_AT)}`,
+    `Frontend loaded: ${isoDateTime(FRONTEND_LOADED_AT)}`,
+    FRONTEND_COMMIT ? `Frontend commit: ${FRONTEND_COMMIT}` : null,
+    health?.version ? `Backend version: ${health.version}` : 'Backend version: offline',
+    `Backend started: ${isoDateTime(health?.server_started_at)}`,
+    `Backend now: ${isoDateTime(health?.server_now)}`,
+    health?.frontend_dir ? `Backend frontend dir: ${health.frontend_dir}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   return (
     <div className="statusbar">
-      <span className="sb-item" role="status" aria-live="polite">
+      <span className="sb-item" role="status" aria-live="polite" title="local event stream">
         <span className={live ? 'dot live' : 'dot'} aria-hidden="true" />
-        {live ? 'watching ~/.claude' : 'stream offline'}
+        {live ? 'live' : 'offline'}
       </span>
       <span className="sb-sep" aria-hidden="true" />
-      <span className="sb-item" title="pending proposals">
-        proposals <b className={proposalsPending > 0 ? 'sb-accent' : ''}>{proposalsPending}</b>
+      <span className="sb-item" title="changes waiting for your decision">
+        review <b className={proposalsPending > 0 ? 'sb-accent' : ''}>{proposalsPending}</b>
       </span>
-      <span className="sb-item" title="overnight queue (queued + blocked + running)">
-        queue <b className={queueActive > 0 ? 'sb-accent' : ''}>{queueActive}</b>
+      <span className="sb-item" title="background tasks: queued + blocked + running">
+        tasks <b className={queueActive > 0 ? 'sb-accent' : ''}>{queueActive}</b>
       </span>
-      <span className="sb-item" title="active workspace sessions">
-        sessions <b>{sessionCount === null ? '—' : sessionCount}</b>
+      <span className="sb-item" title="active live build sessions">
+        active <b>{sessionCount === null ? '—' : sessionCount}</b>
       </span>
       {vaultState && vaultState[0] !== 'off' && (
         <span className="sb-item" role="status" aria-live="polite" title="offsite backup — last verified restore">
@@ -98,10 +127,17 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
           </option>
         ))}
       </select>
-      <button className="sb-kbd" onClick={onOpenKeys} title="Quick keys (?)" aria-label="Open quick keys help">
+      <button
+        type="button"
+        className="sb-kbd"
+        onClick={onOpenKeys}
+        title="Quick keys (?)"
+        aria-label="Open quick keys help"
+      >
         ?
       </button>
       <button
+        type="button"
         className="sb-kbd"
         onClick={onOpenPalette}
         title="Command palette (Ctrl/Cmd+K)"
@@ -109,7 +145,9 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
       >
         ⌘K
       </button>
-      <span className="sb-version">noirdeck{version ? ` v${version}` : ''}</span>
+      <span className="sb-version" title={versionTitle}>
+        noirdeck.dev · {versionLabel}
+      </span>
     </div>
   )
 }

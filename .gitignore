@@ -22,3 +22,9 @@ frontend/dist/
 # misc
 *.log
 .DS_Store
+
+# built SPA, bundled into the wheel at release time
+backend/noirdeck/web/
+
+# wheel build output and units generated for this clone
+/dist/

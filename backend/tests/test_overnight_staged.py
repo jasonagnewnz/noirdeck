@@ -5,10 +5,10 @@ import subprocess
 
 import pytest
 
-from app import overnight
-from app.config import Settings
-from app.db import connect, init_db, utcnow
-from app.overnight import route_weight
+from noirdeck import overnight
+from noirdeck.config import Settings
+from noirdeck.db import connect, init_db, utcnow
+from noirdeck.overnight import route_weight
 
 # --- weight routing -----------------------------------------------------------
 
@@ -51,7 +51,7 @@ def env(tmp_path, claude_dir, monkeypatch):
         overnight_armed=True,
         mine_max_batches=1,
     )
-    monkeypatch.setattr("app.workspace.claude_bin", lambda: "claude")
+    monkeypatch.setattr("noirdeck.ai_runtime.require_runner_bin", lambda spec: spec.bin_name)
     yield conn, settings, proj
     conn.close()
 

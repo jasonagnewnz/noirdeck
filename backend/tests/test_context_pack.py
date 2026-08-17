@@ -2,8 +2,8 @@ import subprocess
 
 import pytest
 
-from app.config import Settings
-from app.context_pack import PACK_CAP_CHARS, context_pack
+from noirdeck.config import Settings
+from noirdeck.context_pack import PACK_CAP_CHARS, context_pack
 
 
 @pytest.fixture

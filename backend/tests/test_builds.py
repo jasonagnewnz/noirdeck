@@ -3,9 +3,9 @@ import time
 
 import pytest
 
-from app.builds import PHASES, BuildRunner
-from app.config import Settings
-from app.db import connect, init_db
+from noirdeck.builds import PHASES, BuildRunner
+from noirdeck.config import Settings
+from noirdeck.db import connect, init_db
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ def test_resume_continues_from_last_done_phase(settings):
 
 
 def test_parse_cli_json_handles_both_shapes():
-    from app.overnight import parse_cli_json
+    from noirdeck.overnight import parse_cli_json
 
     legacy = json.dumps({"result": "VERDICT: ok", "usage": {"input_tokens": 5, "output_tokens": 9}})
     assert parse_cli_json(legacy) == ("VERDICT: ok", 5, 9)

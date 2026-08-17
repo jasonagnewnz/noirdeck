@@ -4,34 +4,46 @@ import { Terminal } from '@xterm/xterm'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '@xterm/xterm/css/xterm.css'
 
-// Matches the noirdeck :root tokens (styles.css). Real ANSI red/green
-// stay functional colors (git diffs, test output) rather than being folded
-// into the brand palette — only the accent-purpose slots (cursor/yellow,
-// blue/cyan) go fully monochrome-crimson, per brand direction. Cursor/yellow
-// use the AA-raised accent (--amber = #F0525E) for brand consistency, though
-// note in the a11y report: xterm renders to <canvas>, so WCAG 1.4.3 text
-// contrast doesn't strictly bind ANSI colors the way it does real DOM text.
-const TERM_THEME = {
-  background: '#0a0807',
-  foreground: '#e6e3d8',
-  cursor: '#F0525E',
-  selectionBackground: 'rgba(240,82,94,0.25)',
-  black: '#1c1815',
-  brightBlack: '#8a827a',
-  red: '#CF1D1E',
-  brightRed: '#CF1D1E',
-  green: '#7fbf6e',
-  brightGreen: '#7fbf6e',
-  yellow: '#F0525E',
-  brightYellow: '#F0525E',
-  blue: '#CF1D1E',
-  brightBlue: '#CF1D1E',
-  magenta: '#c792ea',
-  brightMagenta: '#c792ea',
-  cyan: '#CF1D1E',
-  brightCyan: '#CF1D1E',
-  white: '#e6e3d8',
-  brightWhite: '#ffffff',
+function cssVar(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
+}
+
+// The terminal tracks the active noirdeck theme. ANSI red/green stay functional
+// colors for diffs and test output; cursor, yellow, blue and cyan use the app's
+// single signal color so the PTY feels native inside every skin.
+function readTermTheme() {
+  const bg = cssVar('--bg-deep', '#090b0e')
+  const panel = cssVar('--panel-2', '#171c22')
+  const ink = cssVar('--ink', '#edf1f5')
+  const inkFaint = cssVar('--ink-faint', '#8d98a3')
+  const accent = cssVar('--amber', '#63d7b0')
+  const accentSoft = cssVar('--amber-soft', 'rgba(99, 215, 176, 0.2)')
+  const red = cssVar('--red', '#d84a58')
+  const redText = cssVar('--red-text', '#ff8d98')
+  const green = cssVar('--green', '#72d184')
+
+  return {
+    background: bg,
+    foreground: ink,
+    cursor: accent,
+    selectionBackground: accentSoft,
+    black: panel,
+    brightBlack: inkFaint,
+    red,
+    brightRed: redText,
+    green,
+    brightGreen: green,
+    yellow: accent,
+    brightYellow: accent,
+    blue: accent,
+    brightBlue: accent,
+    magenta: redText,
+    brightMagenta: redText,
+    cyan: accent,
+    brightCyan: accent,
+    white: ink,
+    brightWhite: '#ffffff',
+  }
 }
 
 // Read `count` lines of buffer text starting at absolute line `start`.
@@ -48,7 +60,7 @@ function readBufferText(term, start, count) {
     const line = buf.getLine(start + i)
     lines.push(line ? line.translateToString(true) : '')
   }
-  return lines.join('\n').replace(/\n+$/, '') + '\n'
+  return `${lines.join('\n').replace(/\n+$/, '')}\n`
 }
 
 // A live PTY-over-WebSocket terminal. Behavior unchanged from the original
@@ -62,11 +74,12 @@ export default function TermPane({ sid, injectPrompt }) {
   const termRef = useRef(null)
   const [copied, setCopied] = useState(null) // 'screen' | 'session' | null
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reconnecting a PTY is keyed by sid; injectPrompt is a one-shot paste when the socket opens.
   useEffect(() => {
     const term = new Terminal({
       fontFamily: 'ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace',
       fontSize: 13,
-      theme: TERM_THEME,
+      theme: readTermTheme(),
       cursorBlink: true,
       scrollback: 10000,
       // Snap to the bottom when the user types, but leave the view put while
@@ -74,6 +87,13 @@ export default function TermPane({ sid, injectPrompt }) {
       scrollOnUserInput: true,
     })
     termRef.current = term
+    const themeObserver = new MutationObserver(() => {
+      term.options.theme = readTermTheme()
+    })
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style', 'data-theme', 'data-theme-mode'],
+    })
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(holder.current)
@@ -120,7 +140,7 @@ export default function TermPane({ sid, injectPrompt }) {
       ws.send(JSON.stringify({ resize: [term.cols, term.rows] }))
       if (injectPrompt) {
         injectTimer = setTimeout(() => {
-          if (ws.readyState === 1) ws.send(JSON.stringify({ in: injectPrompt + '\n' }))
+          if (ws.readyState === 1) ws.send(JSON.stringify({ in: `${injectPrompt}\n` }))
         }, 3000)
       }
     }
@@ -145,6 +165,7 @@ export default function TermPane({ sid, injectPrompt }) {
       if (resizeTimer) clearTimeout(resizeTimer)
       if (injectTimer) clearTimeout(injectTimer)
       ro.disconnect()
+      themeObserver.disconnect()
       sub.dispose()
       ws.close()
       if (webgl) webgl.dispose()

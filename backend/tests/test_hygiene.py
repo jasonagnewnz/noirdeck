@@ -2,8 +2,8 @@ import sqlite3
 
 import pytest
 
-from app.db import init_db
-from app.hygiene import propose_merge, report, scan_namespace
+from noirdeck.db import init_db
+from noirdeck.hygiene import propose_merge, report, scan_namespace
 
 
 @pytest.fixture

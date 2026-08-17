@@ -1,7 +1,7 @@
 import subprocess
 
-from app.overnight import route_agent, route_model
-from app.qa import evaluate_project
+from noirdeck.overnight import route_agent, route_model
+from noirdeck.qa import evaluate_project
 
 
 def _git_repo(tmp_path):
@@ -44,7 +44,7 @@ def test_qa_passes_hygienic_repo(tmp_path):
 
 
 def test_model_routing_pins_explicit_ids():
-    assert route_model("review the auth middleware for security") == "claude-opus-4-8"
+    assert route_model("review the auth middleware for security") == "claude-opus-5"
     assert route_model("why does the sync fail — root cause the design") == "claude-fable-5"
     assert route_model("add a button to the settings page") == "claude-sonnet-5"
 

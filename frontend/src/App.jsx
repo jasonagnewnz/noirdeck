@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { useData, useEvents } from './api.js'
 import ActivityBar from './ide/ActivityBar.jsx'
 import KeysOverlay from './ide/KeysOverlay.jsx'
@@ -14,6 +14,7 @@ import Proposals from './views/Proposals.jsx'
 import Quality from './views/Quality.jsx'
 import Queue from './views/Queue.jsx'
 import Sessions from './views/Sessions.jsx'
+import Settings from './views/Settings.jsx'
 import Skills from './views/Skills.jsx'
 
 // Workspace pulls in @xterm/xterm (a full terminal emulator) — the heaviest
@@ -21,19 +22,30 @@ import Skills from './views/Skills.jsx'
 // initial chunk for every session that never opens a terminal.
 const Workspace = lazy(() => import('./views/Workspace.jsx'))
 
-const VIEWS = [
-  ['overview', 'Overview', Overview],
-  ['workspace', 'Workspace', Workspace],
-  ['builds', 'Builds', Builds],
-  ['design', 'Design Studio', Design],
-  ['sessions', 'Sessions', Sessions],
-  ['skills', 'Skills + Agents', Skills],
-  ['memories', 'Memories', Memories],
-  ['proposals', 'Proposals', Proposals],
-  ['queue', 'Overnight Queue', Queue],
-  ['quality', 'Quality Gates', Quality],
-  ['help', 'Help', Help],
+// The rail carries the daily loop. Everything else is still a first-class view
+// with its own #hash — it just isn't competing for attention in the sidebar.
+// PRIMARY order is also the 1-9 digit-key order, so moving an entry between
+// these two lists silently renumbers the shortcuts; update KeysOverlay's copy
+// if you reorder.
+const PRIMARY_VIEWS = [
+  ['overview', 'Home', Overview],
+  ['workspace', 'Build Live', Workspace],
+  ['builds', 'Guided Builds', Builds],
+  ['queue', 'Tasks', Queue],
+  ['proposals', 'Review', Proposals],
+  ['sessions', 'History', Sessions],
+  ['help', 'Guide', Help],
 ]
+
+// Reached from Settings, the palette, or a direct #hash — not from the rail.
+const ADVANCED_VIEWS = [
+  ['design', 'Design', Design],
+  ['skills', 'Helpers', Skills],
+  ['memories', 'Knowledge', Memories],
+  ['quality', 'Checks', Quality],
+]
+
+const VIEWS = [...PRIMARY_VIEWS, ...ADVANCED_VIEWS, ['settings', 'Settings', Settings]]
 
 const SIDEBAR_KEY = 'nd.sidebar'
 
@@ -48,10 +60,10 @@ const viewFromHash = () => {
 
 export default function App() {
   const [view, setViewState] = useState(viewFromHash)
-  const setView = (k) => {
+  const setView = useCallback((k) => {
     setViewState(k)
     if (window.location.hash !== `#${k}`) window.location.hash = k
-  }
+  }, [])
   const [launch, setLaunch] = useState(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [keysOpen, setKeysOpen] = useState(false)
@@ -77,6 +89,16 @@ export default function App() {
     setLaunch(payload)
     setView('workspace')
   }
+  const runIntent = useCallback(
+    (intent) => {
+      const next = { ...intent, id: intent.id || `${Date.now()}-${Math.random().toString(16).slice(2)}` }
+      setLaunch(next)
+      setView(next.view || 'overview')
+      setPaletteOpen(false)
+      setKeysOpen(false)
+    },
+    [setView]
+  )
   const { live, bump } = useEvents()
   const { data: ov } = useData('/overview', bump)
   const Current = VIEWS.find(([k]) => k === view)[2]
@@ -86,7 +108,7 @@ export default function App() {
     overview: ov?.open_loops?.length || 0,
   }
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     setSidebarExpanded((prev) => {
       const next = !prev
       try {
@@ -96,7 +118,7 @@ export default function App() {
       }
       return next
     })
-  }
+  }, [])
 
   useEffect(() => {
     // browser back/forward — hashchange is the source of truth for the view
@@ -152,10 +174,18 @@ export default function App() {
         return
       }
       if (/^[0-9]$/.test(e.key)) {
-        const idx = e.key === '0' ? 9 : Number(e.key) - 1
-        if (idx < VIEWS.length) {
+        // digits address the rail only — 0 opens Settings, which has no slot
+        if (e.key === '0') {
           e.preventDefault()
-          setView(VIEWS[idx][0])
+          setView('settings')
+          setPaletteOpen(false)
+          setKeysOpen(false)
+          return
+        }
+        const idx = Number(e.key) - 1
+        if (idx < PRIMARY_VIEWS.length) {
+          e.preventDefault()
+          setView(PRIMARY_VIEWS[idx][0])
           setPaletteOpen(false)
           setKeysOpen(false)
         }
@@ -163,13 +193,13 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [setView, toggleSidebar])
 
   return (
     <div className="shell">
       <div className="shell-body">
         <ActivityBar
-          views={VIEWS.map(([k, label]) => [k, label])}
+          views={PRIMARY_VIEWS.map(([k, label]) => [k, label])}
           active={view}
           badges={badges}
           onSelect={setView}
@@ -178,7 +208,15 @@ export default function App() {
         />
         <main className="main" id="main" tabIndex={-1}>
           <Suspense fallback={<div className="loading">loading…</div>}>
-            <Current bump={bump} overview={ov} launch={launch} openWorkspace={openWorkspace} />
+            <Current
+              bump={bump}
+              overview={ov}
+              launch={launch}
+              openWorkspace={openWorkspace}
+              onIntent={runIntent}
+              theme={theme}
+              onSetTheme={setTheme}
+            />
           </Suspense>
         </main>
       </div>
@@ -202,10 +240,10 @@ export default function App() {
           })
         }
       />
-      <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} onIntent={runIntent} />
       <KeysOverlay
         open={keysOpen}
-        views={VIEWS.map(([k, label]) => [k, label])}
+        views={PRIMARY_VIEWS.map(([k, label]) => [k, label])}
         onClose={() => setKeysOpen(false)}
         onSelect={setView}
       />

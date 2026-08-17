@@ -4,10 +4,10 @@ import time
 
 import pytest
 
-from app.config import Settings
-from app.db import connect, init_db
-from app.design import DesignStudio
-from app.workspace import WorkspaceError
+from noirdeck.config import Settings
+from noirdeck.db import connect, init_db
+from noirdeck.design import DesignStudio
+from noirdeck.workspace import WorkspaceError
 
 # Writes the mock file DesignStudio points at via $DESIGN_OUT, then a done verdict.
 SUCCESS_STUB = [
@@ -63,22 +63,30 @@ def test_propose_produces_ready_round_with_distinct_variants(settings):
     assert len(variants) == 3
     assert all(v["status"] == "done" for v in variants)
     assert len({v["direction"] for v in variants}) == 3
+    assert {v["library"] for v in variants} <= {
+        "landing",
+        "dashboard",
+        "booking",
+        "shopfront",
+        "portal",
+        "portfolio",
+    }
 
     stage = settings.db_path.parent / "design" / str(round_id)
     for i in range(1, 4):
         assert (stage / f"v{i}.html").is_file()
 
 
-def test_propose_fluent_library_pins_every_variant(settings):
+def test_propose_dashboard_kit_pins_every_variant(settings):
     studio = DesignStudio(settings, claude_argv_base=SUCCESS_STUB)
-    round_id = studio.propose("demo", "a dashboard", library="fluent", n=3)
+    round_id = studio.propose("demo", "a dashboard", library="dashboard", n=3)
     row = _wait_round(settings.db_path, round_id, {"ready"})
     variants = json.loads(row["variants"])
     assert len(variants) == 3
-    assert all(v["library"] == "fluent" for v in variants)
+    assert all(v["library"] == "dashboard" for v in variants)
 
 
-def test_propose_unknown_library_raises_value_error(settings):
+def test_propose_unknown_kit_raises_value_error(settings):
     studio = DesignStudio(settings, claude_argv_base=SUCCESS_STUB)
     with pytest.raises(ValueError):
         studio.propose("demo", "a dashboard", library="nope", n=3)
@@ -88,6 +96,41 @@ def test_propose_unknown_project_raises_workspace_error(settings):
     studio = DesignStudio(settings, claude_argv_base=SUCCESS_STUB)
     with pytest.raises(WorkspaceError):
         studio.propose("ghost-project", "a dashboard", library="mix", n=3)
+
+
+def test_capture_design_summarizes_project_ui(settings):
+    repo = settings.projects_dir / "demo"
+    (repo / "package.json").write_text(
+        json.dumps({"dependencies": {"react": "latest", "tailwindcss": "latest", "framer-motion": "latest"}})
+    )
+    (repo / "src").mkdir()
+    (repo / "src" / "App.jsx").write_text(
+        """
+        export default function App() {
+          return <main className="dashboard grid gap-6 bg-slate-950 text-white rounded-2xl shadow-xl">
+            <nav>Status dashboard</nav>
+            <section className="metric chart table filter status kpi">Revenue chart table</section>
+          </main>
+        }
+        """
+    )
+    (repo / "src" / "style.css").write_text(
+        """
+        :root { --accent: #14b8a6; --panel: #111827; }
+        body { font-family: "IBM Plex Sans", sans-serif; color: var(--accent); }
+        .card { border-radius: 12px; background: rgba(20,184,166,.16); }
+        """
+    )
+
+    capture = DesignStudio(settings, claude_argv_base=SUCCESS_STUB).capture_design("demo")
+
+    assert capture["suggested_kit"] == "dashboard"
+    assert "React" in capture["evidence"]["stack"]
+    assert "Tailwind" in capture["evidence"]["stack"]
+    assert "#14b8a6" in capture["evidence"]["colors"]
+    assert "IBM Plex Sans" in capture["evidence"]["fonts"]
+    assert "dashboard" in capture["brief"]
+    assert "src/style.css" in capture["brief"]
 
 
 def test_propose_failed_mocks_still_reach_ready(settings):

@@ -1,7 +1,7 @@
 import pytest
 
-from app.config import Settings
-from app.preview import PreviewError, info, preview_root, resolve_file
+from noirdeck.config import Settings
+from noirdeck.preview import PreviewError, info, preview_root, resolve_file
 
 
 @pytest.fixture
@@ -59,6 +59,6 @@ def test_traversal_and_project_escapes_refused(settings):
 
 
 def test_size_cap(settings, monkeypatch):
-    monkeypatch.setattr("app.preview._MAX_BYTES", 3)
+    monkeypatch.setattr("noirdeck.preview._MAX_BYTES", 3)
     with pytest.raises(PreviewError, match="too large"):
         resolve_file(settings, "webapp", "index.html")

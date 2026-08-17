@@ -1,4 +1,4 @@
-// noirdeck built-in themes — the 8 skins from the design-direction deck.
+// noirdeck built-in themes — the pro default plus the skins from the design-direction deck.
 //
 // Every theme is a full set of the :root tokens from styles.css; App.jsx writes
 // them onto document.documentElement.style so every view resnaps instantly.
@@ -15,9 +15,83 @@
 const MONO = 'ui-monospace, "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, monospace'
 
 export const THEME_STORAGE_KEY = 'nd.theme'
-export const DEFAULT_THEME_KEY = 'noir'
+export const DEFAULT_THEME_KEY = 'mono-dark'
 
 export const THEMES = [
+  {
+    key: 'mono-dark',
+    name: 'Mono Dark',
+    mode: 'dark',
+    blurb: 'Black and white, one crimson signal. The starting UI.',
+    tokens: {
+      // Structure is pure greyscale so the single accent carries all the
+      // meaning: if something is crimson, it wants you.
+      '--bg': '#0b0b0b',
+      '--bg-deep': '#060606',
+      '--panel': '#111111',
+      '--panel-2': '#171717',
+      '--line': '#272727',
+      '--line-soft': '#1d1d1d',
+      '--ink': '#f4f4f4',
+      '--ink-dim': '#a8a8a8',
+      '--ink-faint': '#8c8c8c',
+      '--amber': '#F0525E',
+      '--amber-soft': 'rgba(240, 82, 94, 0.14)',
+      '--teal': '#8B1A1A',
+      '--red': '#CF1D1E',
+      '--red-text': '#F25C67',
+      '--green': '#8fbf8a',
+      '--mono': MONO,
+    },
+  },
+  {
+    key: 'mono-light',
+    name: 'Mono Light',
+    mode: 'light',
+    blurb: 'White paper, black type, crimson signal. Daylight and demos.',
+    tokens: {
+      '--bg': '#ffffff',
+      '--bg-deep': '#f2f2f2',
+      '--panel': '#fafafa',
+      '--panel-2': '#f4f4f4',
+      '--line': '#dddddd',
+      '--line-soft': '#ebebeb',
+      '--ink': '#111111',
+      '--ink-dim': '#4d4d4d',
+      '--ink-faint': '#616161',
+      '--amber': '#8B1A1A',
+      '--amber-soft': 'rgba(139, 26, 26, 0.10)',
+      '--teal': '#8B1A1A',
+      '--red': '#CF1D1E',
+      '--red-text': '#A0121C',
+      '--green': '#2f7d32',
+      '--mono': MONO,
+    },
+  },
+  {
+    key: 'pro',
+    name: 'Pro',
+    mode: 'dark',
+    blurb: 'Calm graphite, clear mint signal. The traction default.',
+    tokens: {
+      '--bg': '#0d0f12',
+      '--bg-deep': '#090b0e',
+      '--panel': '#12161b',
+      '--panel-2': '#171c22',
+      '--line': '#2a3139',
+      '--line-soft': '#20262d',
+      '--ink': '#edf1f5',
+      '--ink-dim': '#aab3bd',
+      '--ink-faint': '#8d98a3',
+      '--amber': '#63d7b0',
+      '--amber-soft': 'rgba(99, 215, 176, 0.13)',
+      '--teal': '#2e7d6b',
+      '--red': '#d84a58',
+      '--red-text': '#ff8d98',
+      '--green': '#72d184',
+      '--mono': MONO,
+    },
+  },
   {
     key: 'noir',
     name: 'Noir',

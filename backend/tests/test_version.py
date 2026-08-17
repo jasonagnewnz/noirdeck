@@ -1,10 +1,10 @@
-"""pyproject.toml [project].version and app.version.VERSION are two spellings of
+"""pyproject.toml [project].version and noirdeck.version.VERSION are two spellings of
 one fact — this pin keeps them from drifting apart."""
 
 import re
 from pathlib import Path
 
-from app.version import VERSION
+from noirdeck.version import VERSION
 
 
 def test_pyproject_version_matches_app_version():

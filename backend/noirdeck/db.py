@@ -172,6 +172,36 @@ MIGRATIONS: list[str] = [
     # 24: queue task weight — light (one session) vs heavy (staged think→do→check);
     # NULL = auto-routed at run time, operator can override at queue time
     "ALTER TABLE queue ADD COLUMN weight TEXT",
+    # 25: in-process scheduler due times, for installs with no systemd timers.
+    # Persisted so a restart neither re-runs nor silently drops a due job.
+    """CREATE TABLE IF NOT EXISTS scheduler_state (
+        name TEXT PRIMARY KEY,
+        due_at TEXT NOT NULL
+    )""",
+    # 26-29: workspace AI runtime selection. Queue keeps a runner id beside
+    # the model, paused sessions resume with the same live runtime, and small
+    # key/value prefs let the Workspace page remember the operator's defaults.
+    """CREATE TABLE workspace_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""",
+    "ALTER TABLE queue ADD COLUMN runner TEXT",
+    "ALTER TABLE paused_sessions ADD COLUMN runner TEXT",
+    "ALTER TABLE paused_sessions ADD COLUMN model TEXT",
+    # 30: model-to-model knowledge transfer packs. These are generated from
+    # existing repo context, sessions and memory; they can be injected into a
+    # live runner or prepended to a detached task without rewriting a repo.
+    """CREATE TABLE workspace_knowledge (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project TEXT NOT NULL,
+        source_runner TEXT NOT NULL,
+        source_model TEXT,
+        target_runner TEXT NOT NULL,
+        target_model TEXT,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )""",
 ]
 
 

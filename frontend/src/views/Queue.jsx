@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, useData } from '../api.js'
 import { usePager } from '../pager.jsx'
 import { ViewHead } from '../ui.jsx'
@@ -52,14 +52,14 @@ function ArmPanel({ bump }) {
               {c.max_tasks ? `/${c.max_tasks}` : ''} · tokens {(c.used_tokens || 0).toLocaleString()}
               {c.max_tokens ? `/${c.max_tokens.toLocaleString()}` : ''}
             </span>
-            <button className="act ghost" onClick={() => doRevoke(sub)}>
+            <button type="button" className="act ghost" onClick={() => doRevoke(sub)}>
               disarm
             </button>
           </>
         ) : (
           <>
             <span className="faint">{c.armed_until && !c.revoked_at ? 'contract expired/spent' : 'disarmed'}</span>
-            <button className="act ghost" onClick={() => doArm(sub)}>
+            <button type="button" className="act ghost" onClick={() => doArm(sub)}>
               arm
             </button>
           </>
@@ -68,10 +68,11 @@ function ArmPanel({ bump }) {
     )
   }
   return (
-    <div className="panel">
-      <h2>
-        Arming — <b>contract, not a switch</b>
-      </h2>
+    <details className="panel admin-fold">
+      <summary>
+        <span>Safety and spending controls</span>
+        <b>contracts gate unattended work</b>
+      </summary>
       <p className="sechint">
         Nothing runs unattended without a live contract: an expiry plus task and token budgets, double-gated with the
         env master flags. Contracts expire — re-arm here before tonight's run.
@@ -121,25 +122,50 @@ function ArmPanel({ bump }) {
           {err}
         </div>
       )}
-    </div>
+    </details>
   )
 }
 
-export default function Queue({ bump }) {
+export default function Queue({ bump, launch }) {
   const [refresh, setRefresh] = useState(0)
   const { data: tasks } = useData('/queue', bump + refresh)
   const [taskPage, taskPager] = usePager(tasks || [], 10)
   const { data: fleet } = useData('/fleet', bump)
-  const [form, setForm] = useState({ project: '', title: '', prompt: '', weight: '' })
+  const { data: runtime } = useData('/workspace/runtimes', bump + refresh)
+  const [form, setForm] = useState({ project: '', title: '', prompt: '', weight: '', runner: 'claude', model: '' })
   const [answers, setAnswers] = useState({})
   const [err, setErr] = useState(null)
+  const defaultsLoaded = useRef(false)
+  const launched = useRef(null)
+  const runners = runtime?.runners || []
+  const selectedRunner = runners.find((r) => r.id === form.runner)
+
+  useEffect(() => {
+    if (runtime?.defaults && !defaultsLoaded.current) {
+      defaultsLoaded.current = true
+      setForm((f) => ({ ...f, runner: runtime.defaults.runner || 'claude', model: runtime.defaults.model || '' }))
+    }
+  }, [runtime])
+
+  useEffect(() => {
+    if (launch?.view !== 'queue' || launched.current === launch.id) return
+    launched.current = launch.id
+    setForm((f) => ({
+      ...f,
+      project: launch.project || f.project,
+      title: launch.title || launch.prompt || f.title,
+      prompt: launch.prompt || f.prompt,
+      runner: launch.runner || f.runner,
+      model: launch.model || f.model,
+    }))
+  }, [launch])
 
   const submit = async (e) => {
     e.preventDefault()
     setErr(null)
     try {
-      await api('/queue', { body: { ...form, weight: form.weight || null } })
-      setForm({ project: form.project, title: '', prompt: '', weight: '' })
+      await api('/queue', { body: { ...form, weight: form.weight || null, model: form.model || null } })
+      setForm({ ...form, project: form.project, title: '', prompt: '', weight: '' })
       setRefresh((r) => r + 1)
     } catch (ex) {
       setErr(ex.message)
@@ -158,38 +184,73 @@ export default function Queue({ bump }) {
   return (
     <>
       <ViewHead
-        title="Overnight queue"
+        title="Run later"
         helpId="queue"
-        hint="Queue work in the evening, review verdicts in the morning. Tasks run autonomously via headless Claude — one at a time, token-capped, unable to push or deploy — and anything it can't decide parks here as a question."
+        hint="Send work off without opening a live session. Pick where, who, and how deep; anything uncertain comes back as a question."
       />
 
-      <ArmPanel bump={bump} />
-
       <div className="panel">
-        <h2>Queue a task</h2>
+        <h2>Run a task later</h2>
         <p className="sechint">
-          Write the prompt like a good ticket — the routing picks agent, model and effort from the text, and a specific
-          brief means fewer parked questions in the morning.
+          Write the outcome like a good ticket. Choose a specific model only when the job needs one.
         </p>
         <form onSubmit={submit}>
-          <label className="fl" htmlFor="queue-project">
-            Project
-          </label>
-          <select
-            id="queue-project"
-            value={form.project}
-            onChange={(e) => setForm({ ...form, project: e.target.value })}
-            required
-          >
-            <option value="">— choose repo —</option>
-            {(fleet || []).map((f) => (
-              <option key={f.path} value={f.name}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+          <div className="formrow">
+            <div style={{ minWidth: 240 }}>
+              <label className="fl" htmlFor="queue-project">
+                Project
+              </label>
+              <select
+                id="queue-project"
+                value={form.project}
+                onChange={(e) => setForm({ ...form, project: e.target.value })}
+                required
+              >
+                <option value="">— choose project —</option>
+                {(fleet || []).map((f) => (
+                  <option key={f.path} value={f.name}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ minWidth: 210 }}>
+              <label className="fl" htmlFor="queue-runner">
+                Who
+              </label>
+              <select
+                id="queue-runner"
+                value={form.runner}
+                onChange={(e) => setForm({ ...form, runner: e.target.value })}
+              >
+                {(runners.length ? runners : [{ id: 'claude', label: 'Claude Code' }]).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                    {r.queue_available === false ? ' (not found)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ minWidth: 220 }}>
+              <label className="fl" htmlFor="queue-model">
+                Model, optional
+              </label>
+              <input
+                id="queue-model"
+                list={`queue-models-${form.runner}`}
+                value={form.model}
+                placeholder={selectedRunner?.default_model ? `auto/default ${selectedRunner.default_model}` : 'auto'}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+              />
+              <datalist id={`queue-models-${form.runner}`}>
+                {(selectedRunner?.models || []).map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            </div>
+          </div>
           <label className="fl" htmlFor="queue-title">
-            Title
+            What
           </label>
           <input
             id="queue-title"
@@ -199,7 +260,7 @@ export default function Queue({ bump }) {
             placeholder="e.g. Add retry/backoff to the Datto sync"
           />
           <label className="fl" htmlFor="queue-prompt">
-            Task prompt
+            Outcome
           </label>
           <textarea
             id="queue-prompt"
@@ -207,10 +268,10 @@ export default function Queue({ bump }) {
             value={form.prompt}
             onChange={(e) => setForm({ ...form, prompt: e.target.value })}
             required
-            placeholder="What should the overnight session do? Be as specific as a good ticket."
+            placeholder="What should be different when this is done?"
           />
           <label className="fl" htmlFor="queue-weight">
-            Effort
+            Depth
           </label>
           <select
             id="queue-weight"
@@ -224,7 +285,7 @@ export default function Queue({ bump }) {
           </select>
           <div style={{ marginTop: 10 }}>
             <button className="act" type="submit">
-              queue for tonight
+              run later
             </button>
           </div>
         </form>
@@ -235,9 +296,11 @@ export default function Queue({ bump }) {
         )}
       </div>
 
+      <ArmPanel bump={bump} />
+
       {(tasks || []).length > 0 && (
         <div className="listhead">
-          Tasks · <b>{(tasks || []).length}</b>
+          Later · <b>{(tasks || []).length}</b>
         </div>
       )}
       {taskPager && <div className="panel">{taskPager}</div>}
@@ -247,7 +310,8 @@ export default function Queue({ bump }) {
             #{t.id} — <b>{t.title}</b> <span className={`pill ${t.status}`}>{t.status}</span>
           </h2>
           <div className="faint" style={{ marginBottom: 6 }}>
-            {t.project.split('/').pop()} · model {t.model || 'auto'} · agent {t.agent_type || 'auto'}
+            {t.project.split('/').pop()} · who {t.runner || 'claude'} · model {t.model || 'auto'} · path{' '}
+            {t.agent_type || 'auto'}
             {t.weight ? ` · ${t.weight}${t.weight === 'heavy' ? ' (staged)' : ''}` : ''}
             {t.tokens_out ? ` · ${t.tokens_out.toLocaleString()} tok out` : ''}
           </div>
@@ -266,10 +330,14 @@ export default function Queue({ bump }) {
                   aria-label={`Answer for task #${t.id}: ${t.title}`}
                   onChange={(e) => setAnswers({ ...answers, [t.id]: e.target.value })}
                 />
-                <button className="act" onClick={() => act(`/queue/${t.id}/answer`, { answer: answers[t.id] || '' })}>
+                <button
+                  type="button"
+                  className="act"
+                  onClick={() => act(`/queue/${t.id}/answer`, { answer: answers[t.id] || '' })}
+                >
                   answer
                 </button>
-                <button className="act ghost" onClick={() => act(`/queue/${t.id}/cancel`)}>
+                <button type="button" className="act ghost" onClick={() => act(`/queue/${t.id}/cancel`)}>
                   cancel
                 </button>
               </div>
@@ -277,7 +345,7 @@ export default function Queue({ bump }) {
           )}
           {t.status === 'queued' && (
             <div style={{ marginTop: 8 }}>
-              <button className="act ghost" onClick={() => act(`/queue/${t.id}/cancel`)}>
+              <button type="button" className="act ghost" onClick={() => act(`/queue/${t.id}/cancel`)}>
                 cancel
               </button>
             </div>
@@ -286,7 +354,7 @@ export default function Queue({ bump }) {
       ))}
       {(tasks || []).length === 0 && (
         <div className="panel">
-          <div className="faint">queue is empty</div>
+          <div className="faint">nothing waiting to run later</div>
         </div>
       )}
     </>

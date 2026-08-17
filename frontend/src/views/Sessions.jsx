@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ago, api, useData } from '../api.js'
 import { usePager } from '../pager.jsx'
 import { ViewHead } from '../ui.jsx'
@@ -7,19 +7,27 @@ export default function Sessions({ bump, openWorkspace }) {
   const { data: sessions, loading } = useData('/sessions?limit=400', bump)
   const [q, setQ] = useState('')
   const [hits, setHits] = useState(null)
+  const [open, setOpen] = useState(() => new Set())
   const [sessPage, sessPager] = usePager(sessions || [])
-  const [hitPage, hitPager] = usePager(hits || [])
+  const [hitPage, hitPager] = usePager(hits?.groups || [])
   const search = async (e) => {
     e.preventDefault()
     if (q.length < 3) return setHits(null)
+    setOpen(new Set()) // every new search starts collapsed
     setHits(await api(`/history/search?q=${encodeURIComponent(q)}`))
   }
+  const toggle = (key) =>
+    setOpen((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
   return (
     <>
       <ViewHead
-        title="Sessions & history"
+        title="History"
         helpId="sessions"
-        hint='Every past task across the estate, and "have I asked this before?" search over all recorded prompts.'
+        hint='Every past task, plus "have I asked this before?" search over recorded prompts.'
       />
 
       <div className="panel">
@@ -40,32 +48,76 @@ export default function Sessions({ bump, openWorkspace }) {
           </button>
         </form>
         {hits && (
-          <table style={{ marginTop: 10 }}>
-            <caption className="visually-hidden">Prompt history search results</caption>
-            <thead>
-              <tr>
-                <th scope="col">Prompt</th>
-                <th scope="col">Project</th>
-                <th scope="col" className="num">
-                  When
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {hitPage.map((r, i) => (
-                <tr key={i}>
-                  <td className="clip">{r.display}</td>
-                  <td className="dim">{(r.project || '').split('/').pop()}</td>
-                  <td className="dim num">{ago(r.ts / 1000)}</td>
-                </tr>
-              ))}
-              {hits.length === 0 && (
+          <>
+            <p className="listhead">
+              {hits.total} {hits.total === 1 ? 'prompt' : 'prompts'} in {hits.groups.length}{' '}
+              {hits.groups.length === 1 ? 'group' : 'groups'}
+              {hits.collapsed > 0 && <span className="dim"> — {hits.collapsed} repeats folded in</span>}
+            </p>
+            <table style={{ marginTop: 10 }}>
+              <caption className="visually-hidden">
+                Prompt history search results, near-identical prompts grouped
+              </caption>
+              <thead>
                 <tr>
-                  <td className="faint">no matches</td>
+                  <th scope="col">Prompt</th>
+                  <th scope="col">Project</th>
+                  <th scope="col" className="num">
+                    Last asked
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {hitPage.map((g) => {
+                  const expanded = open.has(g.key)
+                  return (
+                    <Fragment key={g.key}>
+                      <tr>
+                        <td className="clip">
+                          {g.count > 1 ? (
+                            <button
+                              type="button"
+                              className="act ghost rowtoggle"
+                              aria-expanded={expanded}
+                              onClick={() => toggle(g.key)}
+                            >
+                              <span aria-hidden="true">{expanded ? '−' : '+'}</span>
+                              <span className="clip">{g.display}</span>
+                              <span className="pill">{`×${g.count}`}</span>
+                            </button>
+                          ) : (
+                            g.display
+                          )}
+                        </td>
+                        <td className="dim">{g.projects.join(', ')}</td>
+                        <td className="dim num">{ago(g.last_ts / 1000)}</td>
+                      </tr>
+                      {expanded &&
+                        g.items.map((r) => (
+                          <tr key={`${g.key}:${r.ts}`} className="subrow">
+                            <td className="clip indent">{r.display}</td>
+                            <td className="dim">{(r.project || '').split('/').pop()}</td>
+                            <td className="dim num">{ago(r.ts / 1000)}</td>
+                          </tr>
+                        ))}
+                      {expanded && g.truncated && (
+                        <tr className="subrow">
+                          <td className="faint indent" colSpan={3}>
+                            showing the {g.items.length} most recent of {g.count}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
+                {hits.groups.length === 0 && (
+                  <tr>
+                    <td className="faint">no matches</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
         )}
         {hits && hitPager}
       </div>
@@ -105,6 +157,7 @@ export default function Sessions({ bump, openWorkspace }) {
                 <td>
                   {s.display !== s.namespace && !s.namespace.includes('--claude-worktrees') && (
                     <button
+                      type="button"
                       className="act ghost"
                       onClick={() => openWorkspace({ project: s.display, resume: s.session_id })}
                     >

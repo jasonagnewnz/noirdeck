@@ -4,8 +4,8 @@ import time
 
 import pytest
 
-from app import ask
-from app.config import Settings
+from noirdeck import ask
+from noirdeck.config import Settings
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ def test_readonly_cage_in_argv(settings, monkeypatch):
         return subprocess.CompletedProcess(argv, 0, stdout=_cli_json("ok"), stderr="")
 
     monkeypatch.setattr(ask.subprocess, "run", fake_run)
-    monkeypatch.setattr("app.workspace.claude_bin", lambda: "claude")
+    monkeypatch.setattr("noirdeck.workspace.claude_bin", lambda: "claude")
     ask._invoke(settings, "prompt")
     argv = seen["argv"]
     i = argv.index("--tools")

@@ -100,6 +100,13 @@ export const HelpIcon = (p) => (
   </svg>
 )
 
+export const SettingsIcon = (p) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2.6v2.2M12 19.2v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" />
+  </svg>
+)
+
 export const ICONS = {
   overview: OverviewIcon,
   workspace: WorkspaceIcon,
@@ -112,6 +119,7 @@ export const ICONS = {
   queue: QueueIcon,
   quality: QualityIcon,
   help: HelpIcon,
+  settings: SettingsIcon,
 }
 
 export const ChevronIcon = (p) => (

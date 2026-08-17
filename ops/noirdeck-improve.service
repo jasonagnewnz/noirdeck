@@ -6,4 +6,4 @@ Type=oneshot
 WorkingDirectory=%h/noirdeck/backend
 EnvironmentFile=-%h/noirdeck/.env
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=%h/noirdeck/.venv/bin/python -m app.improve
+ExecStart=%h/noirdeck/.venv/bin/python -m noirdeck.improve

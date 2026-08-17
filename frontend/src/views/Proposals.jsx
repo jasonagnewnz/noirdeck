@@ -43,24 +43,24 @@ export default function Proposals({ bump }) {
   return (
     <>
       <ViewHead
-        title="Proposals"
+        title="Review"
         helpId="proposals"
-        hint="The single gate between noirdeck and your estate — everything any subsystem wants to write into ~/.claude waits here as a diff until you approve it, and stays reversible after."
+        hint="The approval gate for changes Noirdeck wants to make to your AI workspace knowledge. Review, apply, or revert from one place."
       />
 
       <div className="panel">
         <h2>
-          Mining — <b>find proposal material</b>
+          Mining — <b>find useful knowledge</b>
         </h2>
         <p className="sechint">
           Scans your session history for repeated prompts and patterns worth turning into skills or memories. Heuristic
           mining is instant and local; the LLM pass runs only while armed.
         </p>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="act" disabled={!!busy} onClick={() => act('/mine')}>
+          <button type="button" className="act" disabled={!!busy} onClick={() => act('/mine')}>
             run heuristic mining now
           </button>
-          <button className="act ghost" disabled={!!busy} onClick={() => act('/mine/llm')}>
+          <button type="button" className="act ghost" disabled={!!busy} onClick={() => act('/mine/llm')}>
             run LLM pass (armed only)
           </button>
         </div>
@@ -102,10 +102,15 @@ export default function Proposals({ bump }) {
             <div className="mono-block">{p.body}</div>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button className="act" disabled={!!busy} onClick={() => act(`/proposals/${p.id}/approve`)}>
+            <button type="button" className="act" disabled={!!busy} onClick={() => act(`/proposals/${p.id}/approve`)}>
               approve{p.target_path ? ' & write' : ''}
             </button>
-            <button className="act ghost" disabled={!!busy} onClick={() => act(`/proposals/${p.id}/dismiss`)}>
+            <button
+              type="button"
+              className="act ghost"
+              disabled={!!busy}
+              onClick={() => act(`/proposals/${p.id}/dismiss`)}
+            >
               dismiss
             </button>
           </div>
@@ -136,7 +141,12 @@ export default function Proposals({ bump }) {
                   </td>
                   <td className="dim clip">~/.claude/{p.target_path}</td>
                   <td className="num">
-                    <button className="act ghost" disabled={!!busy} onClick={() => act(`/proposals/${p.id}/revert`)}>
+                    <button
+                      type="button"
+                      className="act ghost"
+                      disabled={!!busy}
+                      onClick={() => act(`/proposals/${p.id}/revert`)}
+                    >
                       revert this
                     </button>
                   </td>

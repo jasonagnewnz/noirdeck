@@ -8,7 +8,7 @@ WorkingDirectory=%h/noirdeck
 EnvironmentFile=-%h/noirdeck/.env
 # claude lives in ~/.local/bin, which login shells add but systemd does not
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=%h/noirdeck/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 4747
+ExecStart=%h/noirdeck/.venv/bin/python -m uvicorn noirdeck.main:app --app-dir backend --host 127.0.0.1 --port 4747
 Restart=on-failure
 RestartSec=5
 

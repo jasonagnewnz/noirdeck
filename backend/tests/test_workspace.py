@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from app.workspace import WorkspaceError, WorkspaceManager, init_repo, validate_cwd
+from noirdeck.workspace import TermSession, WorkspaceError, WorkspaceManager, init_repo, takeover_prompt, validate_cwd
 
 
 @pytest.fixture
@@ -98,7 +98,7 @@ def test_latest_transcript_session_id(tmp_path):
     import os
     import time
 
-    from app.workspace import latest_transcript_session_id
+    from noirdeck.workspace import latest_transcript_session_id
 
     claude = tmp_path / "claude"
     cwd = tmp_path / "projects" / "demo"
@@ -121,21 +121,111 @@ def test_latest_transcript_session_id(tmp_path):
 
 
 def test_continue_last_builds_continue_argv(projects, monkeypatch):
-    import app.workspace as ws
+    import noirdeck.workspace as ws
 
     captured = {}
 
     class FakeTerm:
-        def __init__(self, project, cwd, argv):
+        def __init__(self, project, cwd, argv, runner="claude", model=None):
             captured["argv"] = argv
             self.project, self.cwd, self.argv = project, cwd, argv
+            self.runner, self.model = runner, model
             self.id = "fake"
 
         def start(self):
             pass
 
     monkeypatch.setattr(ws, "TermSession", FakeTerm)
-    monkeypatch.setattr(ws, "claude_bin", lambda: "claude")
+    monkeypatch.setattr("noirdeck.ai_runtime.require_runner_bin", lambda spec: spec.bin_name)
     mgr = WorkspaceManager(projects)
     mgr.start("demo", continue_last=True)
     assert captured["argv"] == ["claude", "--continue"]
+
+
+def test_codex_live_session_uses_fixed_runner_argv(projects, monkeypatch):
+    import noirdeck.workspace as ws
+
+    captured = {}
+
+    class FakeTerm:
+        def __init__(self, project, cwd, argv, runner="claude", model=None):
+            captured["argv"] = argv
+            captured["runner"] = runner
+            captured["model"] = model
+            self.project, self.cwd, self.argv = project, cwd, argv
+            self.runner, self.model = runner, model
+            self.id = "fake"
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(ws, "TermSession", FakeTerm)
+    monkeypatch.setattr("noirdeck.ai_runtime.require_runner_bin", lambda spec: spec.bin_name)
+    mgr = WorkspaceManager(projects)
+    mgr.start("demo", runner_id="codex", model="gpt-5-codex", initial_prompt="orient")
+    assert captured == {
+        "argv": ["codex", "--model", "gpt-5-codex", "--no-alt-screen", "orient"],
+        "runner": "codex",
+        "model": "gpt-5-codex",
+    }
+
+
+def test_claude_picker_offers_the_current_model_line():
+    """A retired id 404s at spawn time and reads as a dead session, not an error,
+    so the picker must carry the line as it ships today."""
+    from noirdeck import ai_runtime
+
+    choices = ai_runtime.model_choices("claude")
+    assert choices[:4] == ["claude-fable-5", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"]
+    # every pipeline role must be offerable, or a queued build pins a model the
+    # operator cannot select by hand
+    for role in ("think", "build", "review"):
+        assert ai_runtime.role_model(role) in choices
+
+
+def test_model_id_rejects_shell_fragments(projects, monkeypatch):
+    monkeypatch.setattr("noirdeck.ai_runtime.require_runner_bin", lambda spec: spec.bin_name)
+    mgr = WorkspaceManager(projects)
+    with pytest.raises(WorkspaceError, match="model id"):
+        mgr.start("demo", model="sonnet; rm -rf /", argv_override=None)
+
+
+def test_ollama_live_session_uses_local_model_runner(projects, monkeypatch):
+    import noirdeck.workspace as ws
+
+    captured = {}
+
+    class FakeTerm:
+        def __init__(self, project, cwd, argv, runner="claude", model=None):
+            captured["argv"] = argv
+            captured["runner"] = runner
+            captured["model"] = model
+            self.project, self.cwd, self.argv = project, cwd, argv
+            self.runner, self.model = runner, model
+            self.id = "fake"
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(ws, "TermSession", FakeTerm)
+    monkeypatch.setattr("noirdeck.ai_runtime.require_runner_bin", lambda spec: spec.bin_name)
+    mgr = WorkspaceManager(projects)
+    mgr.start("demo", runner_id="ollama", model="qwen2.5-coder:7b", initial_prompt="orient")
+    assert captured == {
+        "argv": ["ollama", "run", "qwen2.5-coder:7b", "orient"],
+        "runner": "ollama",
+        "model": "qwen2.5-coder:7b",
+    }
+
+
+def test_takeover_prompt_uses_clean_terminal_tail(projects):
+    cwd = validate_cwd(projects, "demo")
+    term = TermSession("demo", cwd, ["codex"], runner="codex", model="gpt-5-codex")
+    term.scrollback.append(b"\x1b[?25l\x1b[1;1HWorking...\r\nDone with step one\r\n\x1b[31mNeed tests\x1b[0m\r\n")
+    prompt = takeover_prompt(term, "claude", "claude-sonnet-5")
+    assert "SESSION TAKEOVER BRIEF" in prompt
+    assert "Source runtime: codex / gpt-5-codex" in prompt
+    assert "Target runtime: claude / claude-sonnet-5" in prompt
+    assert "Done with step one" in prompt
+    assert "Need tests" in prompt
+    assert "\x1b" not in prompt

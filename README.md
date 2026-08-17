@@ -1,25 +1,34 @@
-# noirdeck
+# noirdeck.dev
 
-**The dark console for your Claude Code estate.** A local companion platform —
-live dashboard, IDE-feel workspace, autonomous pipelines with enforced guardrails,
-and a plain-English front door for people who don't read code, all at
-`http://127.0.0.1:4747`, all on your own machine, nothing leaving the box.
+**A local build studio for making great software with AI.** noirdeck.dev gives
+non-experts a plain-English front door and gives power users the pro controls
+underneath: project-aware briefs, polished live work, multi-runtime coding
+sessions, autonomous pipelines with enforced guardrails, all at
+`http://127.0.0.1:4747` on your own machine.
 
-> Crimson on warm black, scanlines, one signal colour. Noir by design.
+> Calm Pro by default; Noir still one theme switch away.
 
 ![overview](docs/screenshots/overview.png)
 
 ## What it does
 
-**Sees the whole estate, live**
+**Starts with what you want to build**
 - Reads `~/.claude` — skills, agents, memory namespaces, session history — and
   `~/projects` (the git fleet), refreshed by a filesystem event stream (SSE).
-- **The morning digest**: the Overview opens with "while you were away" in plain
-  English — what finished overnight, what's stuck with a question for you, what's
-  waiting on your approval, when your last *verified* backup ran, and what the
-  automation spent. Every line assembled deterministically from state, never by
-  a model.
-- **Ask your estate**: type a question ("which projects have unpushed work?") and
+- **Build studio**: Home starts with "build the thing you mean." Pick a project
+  and type the outcome; noirdeck routes you to live work, design, background
+  tasks or Ask without making you hunt through views.
+- **Add essentials**: click one of the top ten product needs solo builders ask
+  for most — payments, auth, domains, hosting, database, email, uploads,
+  analytics, admin, release — answer a few practical questions, then send a
+  clean guarded brief to live work or background tasks. Turn on memories +
+  preferences when you want Noirdeck to suggest the model/tool method you have
+  used here before.
+- **The morning digest**: "while you were away" in plain English — what finished
+  overnight, what's stuck with a question for you, what's waiting on your
+  approval, when your last *verified* backup ran, and what the automation spent.
+  Every line assembled deterministically from state, never by a model.
+- **Ask Noirdeck**: type a question ("which projects need attention?") and
   a read-only session answers it from your actual files — its tool set is
   Read/Grep/Glob only, so it *cannot* change anything while answering.
 - Estate overview: stat tiles, open loops (sessions that ended unfinished), fleet
@@ -29,11 +38,16 @@ and a plain-English front door for people who don't read code, all at
 **Works like an IDE**
 - VS Code-style shell: activity bar (pops out to a labelled sidebar, `Ctrl+B`),
   status bar with live telemetry (stream state, pending approvals, backup age),
-  command palette (`Ctrl+K`), quick keys (`1`–`0` views, `?` cheat sheet with the
-  full Claude Code reference, verified against the installed CLI).
-- Workspace: real `claude` sessions in the browser (PTY + xterm), project file
-  explorer, read-only file tabs with syntax highlighting — and sessions can be
-  **paused across restarts and resumed later**, exact conversation and all.
+  intent-aware command palette (`Ctrl+K`), quick keys (`1`–`0` views, `?` cheat
+  sheet with the full Claude Code reference, verified against the installed CLI).
+- Work: real CLI sessions in the browser (PTY + xterm) for Claude, Codex,
+  Ollama local models, or configured custom tools. Pick where, who, and an
+  optional model; remember your usual choice; create run-later tasks; and
+  **switch** a live session to another model or CLI using an automatic handoff
+  brief.
+- Project file explorer and read-only file tabs with syntax highlighting.
+  Sessions can be **paused across restarts and resumed later**; Claude sessions
+  resume the exact conversation when a transcript id is available.
 - Views deep-link (`#builds`, `#queue`…): refresh, bookmarks and the back button
   keep your place.
 
@@ -51,11 +65,13 @@ and a plain-English front door for people who don't read code, all at
   (plan → build → test → review → finish) with per-phase model routing, QA gates
   run *between* phases outside the LLM, crash-nets, and resume from the last
   completed phase. Stops at code-ready. Never ships.
-- **Overnight queue**: ticket-shaped tasks run one at a time via headless Claude;
-  anything uncertain parks as a question and the night moves on.
-- **Design Studio**: propose a brief → three parallel design directions
-  (8-direction × 6-library deck: Fluent 2, Material 3, IBM Carbon, Ant, shadcn,
-  or bespoke) rendered as sandboxed live mocks → human Apply gate.
+- **Run later**: ticket-shaped tasks run one at a time through the selected
+  model/tool without opening a live terminal; anything uncertain parks as a
+  question.
+- **Design**: capture a design from an existing project or write a brief →
+  three parallel visual directions inside one of six ready-to-go UI kits:
+  Landing Page, Dashboard, Booking Flow, Shopfront, Admin Portal, or Portfolio.
+  Sandboxed live mocks → human Apply gate.
 
 **Improves itself quietly, and protects its own memory**
 - **Improve**: a *local* model (via Ollama — zero cloud calls, zero cost) quietly
@@ -117,9 +133,11 @@ Four layers, all fail-closed:
    token-budgeted, revocable, re-checked before every task. An armed system
    disarms itself.
 4. **Browser boundary** — binds `127.0.0.1` only, with Host + Origin allowlists
-   against DNS rebinding and cross-origin WebSocket hijack (the workspace WS is
-   shell-equivalent; never tunnel it without auth). All transcript text passes
-   secret-shape redaction before any LLM sees it. Zero external assets in the UI.
+   against DNS rebinding and cross-origin WebSocket hijack (the Work WS is
+   shell-equivalent; never tunnel it without auth). Mining batches are redacted
+   before model use. Live Work sessions use the provider behavior of the
+   selected CLI: Ollama stays local; Claude/Codex may send prompts and handoff
+   context through their own authenticated CLIs. Zero external assets in the UI.
 
 Every state-changing action lands in an audit log (UTC, actor, action, detail),
 including what the autonomous subsystems did while you slept.
@@ -127,40 +145,85 @@ including what the autonomous subsystems did while you slept.
 ## Prerequisites
 
 - **[Claude Code](https://claude.com/claude-code)** installed and authenticated —
-  noirdeck reads `~/.claude` and shells out to `claude` for the workspace and every
-  pipeline. Startup fails closed if `~/.claude` doesn't exist.
-- **Python 3.10+** and **Node 18+**.
+  noirdeck reads `~/.claude`, uses it as the estate source of truth, and shells
+  out to `claude` for Claude sessions and Claude-backed pipelines. Startup fails
+  closed if `~/.claude` doesn't exist.
+- **Python 3.12+**. Node 22+ only if you build the UI from source.
 - Pipeline model IDs default to the author's routing (`claude-fable-5` for planning,
   `claude-sonnet-5` for building, `claude-opus-4-8` for review). If your install
   doesn't resolve those ids, override with `NOIRDECK_MODEL_THINK` /
   `NOIRDECK_MODEL_BUILD` / `NOIRDECK_MODEL_REVIEW`.
+- Optional: **Codex CLI** for Codex Work sessions and run-later tasks.
 - Optional: **[Ollama](https://ollama.com)** with a local code model for the
-  Improve engine (everything else works without it).
+  Improve engine and Work's `Ollama local` tool.
 
-## Run it
+## Work quick guide
+
+1. Choose **where**: a repo.
+2. Choose **who**: Claude, Codex, Ollama local, or a configured custom CLI. If a
+   tool is marked "not found", install it or set its `NOIRDECK_*_BIN`
+   environment variable.
+3. Optionally choose a model, or leave the field blank for that tool's default.
+   Ollama suggestions come from the tags already pulled locally.
+4. Turn on **suggest method** when you want noirdeck.dev to check saved
+   preferences, recent runs, handoff packs and memory notes. It can say "you
+   used this method before — reuse it?" while still letting you choose different.
+5. Use **start live** for an interactive terminal, or **run later** to create work
+   without opening a terminal tab.
+6. To switch tools mid-work, select the active session and use **switch to**.
+   Noirdeck opens a new session in the same repo with a recent terminal handoff
+   brief. Enable **close source** when you want the new runner to fully replace
+   the old one.
+7. Codex may ask whether you trust the repo. That prompt is from Codex itself;
+   choose "Yes" only for repos you trust.
+
+Useful runtime env vars:
+
+- `NOIRDECK_CODEX_BIN`, `NOIRDECK_DEFAULT_CODEX_MODEL`, `NOIRDECK_CODEX_MODELS`
+- `NOIRDECK_OLLAMA_BIN`, `NOIRDECK_DEFAULT_OLLAMA_MODEL`, `NOIRDECK_OLLAMA_MODELS`
+- `NOIRDECK_GROK_BIN`, `NOIRDECK_DEFAULT_GROK_MODEL`, `NOIRDECK_GROK_MODELS`
+
+## Install it
 
 ```bash
-# backend
+pipx install noirdeck   # or: uv tool install noirdeck
+noirdeck                # starts the console and opens your browser
+```
+
+That is the whole install: the web UI ships inside the package, the recurring
+jobs run in-process (no systemd required, works the same on macOS), and state
+lives in your data directory rather than a checkout.
+
+```bash
+noirdeck doctor         # what's set up, what's missing, and why it matters
+noirdeck serve --port 4800 --no-open
+noirdeck run improve    # run one scheduled job now, in the foreground
+```
+
+### From source
+
+```bash
 python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
-# frontend
 cd frontend && npm install && npm run build && cd ..
-# serve (dev)
-.venv/bin/uvicorn app.main:app --app-dir backend --port 4747
-# or install the systemd user service (survives logout via linger)
+.venv/bin/uvicorn noirdeck.main:app --app-dir backend --port 4747
+# optional: systemd user units (a source checkout uses timers, not the
+# in-process scheduler — running both would fire every job twice)
 mkdir -p ~/.config/systemd/user && cp ops/noirdeck*.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now noirdeck.service
 ```
 
 First run is deliberately quiet: everything autonomous ships **disarmed**. You
 get the dashboard, workspace, digest and builds immediately; overnight runs,
-mining and the improver each need you to arm a contract in the Queue view first.
+mining and the improver each need you to arm a contract in the Run later view first.
 
 Config (env): `NOIRDECK_CLAUDE_DIR` (default `~/.claude`), `NOIRDECK_PROJECTS_DIR`
 (`~/projects`), `NOIRDECK_DB_PATH`, `NOIRDECK_PRIMARY_NAMESPACE` (defaults to your
 home-directory namespace), and the master arming flags `NOIRDECK_MINING_ARMED` /
 `NOIRDECK_OVERNIGHT_ARMED` / `NOIRDECK_IMPROVER_ARMED` (default **off**).
 
-State: single SQLite file (`data/noirdeck.db`, WAL, additive-only migrations).
+State: single SQLite file (WAL, additive-only migrations) — `data/noirdeck.db` in a
+source checkout, `~/.local/share/noirdeck/noirdeck.db` when installed.
+Set `NOIRDECK_SCHEDULER=off|on` to override where the recurring jobs run.
 
 ## Development
 
@@ -169,8 +232,8 @@ State: single SQLite file (`data/noirdeck.db`, WAL, additive-only migrations).
 cd frontend && npm run build                   # SPA build
 ```
 
-Stack: FastAPI + SQLite, React 18 + Vite, xterm.js, headless `claude -p` runners
-with pinned model IDs per task class. UI meets WCAG 2.1 AA: full keyboard
+Stack: FastAPI + SQLite, React 18 + Vite, xterm.js, server-owned CLI runners
+with pinned/default model IDs per task class. UI meets WCAG 2.1 AA: full keyboard
 operability, focus management and dialog traps, screen-reader landmarks and
 labels, AA contrast throughout, `prefers-reduced-motion` respected.
 

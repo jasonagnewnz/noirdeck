@@ -13,28 +13,30 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import arming, ask, digest, guided, hygiene, improve, preview, vault
+from . import ai_runtime, arming, ask, digest, guided, hygiene, improve, preview, scheduler, vault
 from .builds import BuildRunner
-from .config import REPO_ROOT, Settings, primary_namespace
+from .config import Settings, primary_namespace
 from .db import audit, connect, init_db, utcnow
 from .design import DesignStudio
 from .miner.heuristics import run_heuristics
 from .miner.runner import run_llm_mining
 from .overnight import requeue_stale_running, route_agent, route_model
+from .paths import web_dir
 from .proposals import ProposalError, approve, dismiss, list_proposals, revert
 from .qa import evaluate_fleet, evaluate_project
 from .readers import history as hist
 from .readers.commits import fleet_feed, fleet_flags, follow_on_flags, recent_commits
 from .readers.files import FilesError, list_dir, read_file
-from .readers.fleet import fleet, fleet_attention
-from .readers.memories import group_memories, list_memories, memory_stats
+from .readers.fleet import cached_fleet, fleet, fleet_attention
+from .readers.memories import cached_memories, group_memories, list_memories, memory_stats
 from .readers.sessions import namespace_display, recent_sessions
 from .readers.skills import list_agents, list_skills
 from .version import VERSION
-from .workspace import WorkspaceError, WorkspaceManager, init_repo, latest_transcript_session_id
+from .workspace import WorkspaceError, WorkspaceManager, init_repo, latest_transcript_session_id, takeover_prompt
 
 settings = Settings.load()
 init_db(settings.db_path)
+SERVER_STARTED_AT = datetime.now(timezone.utc)
 app = FastAPI(title="noirdeck", version=VERSION)
 
 # ── browser-boundary hardening ────────────────────────────────────────────────
@@ -91,6 +93,18 @@ import threading  # noqa: E402
 
 threading.Thread(target=_prewarm, daemon=True).start()
 
+# Recurring jobs. Off in a checkout (systemd timers own them there), on when
+# installed — see scheduler.enabled(). Every job is still fail-closed behind
+# its own arming contract, so an enabled scheduler grants no new authority.
+_scheduler = scheduler.Scheduler(settings)
+if scheduler.enabled():
+    _scheduler.start()
+
+
+@app.get("/api/scheduler")
+def scheduler_status():
+    return _scheduler.status()
+
 
 def db():
     return connect(settings.db_path)
@@ -101,6 +115,9 @@ def health():
     return {
         "status": "ok",
         "version": VERSION,
+        "server_started_at": SERVER_STARTED_AT.isoformat(),
+        "server_now": datetime.now(timezone.utc).isoformat(),
+        "frontend_dir": str(web_dir()),
         "claude_dir": str(settings.claude_dir),
         "mining_armed": settings.mining_armed,
         "overnight_armed": settings.overnight_armed,
@@ -112,7 +129,7 @@ def overview():
     records = hist.load_history(settings.claude_dir)
     stats = hist.history_stats(records)
     sessions = recent_sessions(settings.claude_dir, limit=12)
-    states = fleet(settings.projects_dir)
+    states = cached_fleet(settings.projects_dir, refresh=True)
     conn = db()
     try:
         pending = conn.execute("SELECT COUNT(*) c FROM proposals WHERE status='proposed'").fetchone()["c"]
@@ -121,7 +138,7 @@ def overview():
         }
     finally:
         conn.close()
-    mems = list_memories(settings.claude_dir)
+    mems = cached_memories(settings.claude_dir, refresh=True)
     return {
         "skills": len(list_skills(settings.claude_dir)),
         "agents": len(list_agents(settings.claude_dir)),
@@ -331,9 +348,13 @@ def improve_decide(change_id: int, body: ImproveDecision):
 def vault_status():
     conn = db()
     try:
-        return vault.status(conn)
+        out = vault.status(conn)
     finally:
         conn.close()
+    # the disclosure travels with the status so the UI can never show one
+    # without the other
+    out["manifest"] = vault.manifest(settings)
+    return out
 
 
 @app.post("/api/vault/run")
@@ -425,12 +446,12 @@ def history_stats():
 def history_search(q: str):
     if len(q) < 3:
         raise HTTPException(400, "query too short")
-    return hist.search_history(hist.load_history(settings.claude_dir), q)
+    return hist.search_grouped(hist.load_history(settings.claude_dir), q)
 
 
 @app.get("/api/fleet")
 def fleet_route():
-    return fleet(settings.projects_dir)
+    return cached_fleet(settings.projects_dir, refresh=True)
 
 
 _commit_cache: dict = {"ts": 0.0, "data": None}
@@ -587,7 +608,10 @@ class TaskBody(BaseModel):
     project: str
     title: str
     prompt: str
+    runner: str | None = None
+    model: str | None = None
     weight: str | None = None  # None = auto-routed; 'light' | 'heavy' to override
+    knowledge_pack_id: int | None = None
 
 
 class AnswerBody(BaseModel):
@@ -610,25 +634,46 @@ def queue_add(body: TaskBody):
         raise HTTPException(400, f"unknown project {body.project}")
     if body.weight not in (None, "light", "heavy"):
         raise HTTPException(400, "weight must be light or heavy (omit for auto)")
-    text = body.title + " " + body.prompt
     conn = db()
     try:
+        prefs = ai_runtime.workspace_preferences(conn)
+        runner = body.runner or prefs["runner"] or "claude"
+        try:
+            runner = ai_runtime.runner_spec(runner).id
+            chosen_model = ai_runtime.validate_model_id(body.model if body.model is not None else prefs["model"])
+        except ai_runtime.RuntimeErrorConfig as e:
+            raise HTTPException(400, str(e))
+        prompt = body.prompt
+        if body.knowledge_pack_id is not None:
+            pack = conn.execute("SELECT body FROM workspace_knowledge WHERE id=?", (body.knowledge_pack_id,)).fetchone()
+            if not pack:
+                raise HTTPException(404, "no such knowledge pack")
+            prompt = f"{pack['body']}\n\nTASK:\n{body.prompt}"
+        text = body.title + " " + prompt
+        model = chosen_model or (route_model(text) if runner == "claude" else ai_runtime.default_model(runner))
+        agent = route_agent(text, settings.claude_dir) if runner == "claude" else None
         cur = conn.execute(
-            "INSERT INTO queue (project,title,prompt,agent_type,model,weight,status,created_at) "
-            "VALUES (?,?,?,?,?,?,'queued',?)",
+            "INSERT INTO queue (project,title,prompt,agent_type,model,runner,weight,status,created_at) "
+            "VALUES (?,?,?,?,?,?,?,'queued',?)",
             (
                 str(repo),
                 body.title,
-                body.prompt,
-                route_agent(text, settings.claude_dir),
-                route_model(text),
+                prompt,
+                agent,
+                model,
+                runner,
                 body.weight,
                 utcnow(),
             ),
         )
-        audit(conn, "operator", "task_queued", f"id={cur.lastrowid} title={body.title[:80]}")
+        audit(
+            conn,
+            "operator",
+            "task_queued",
+            f"id={cur.lastrowid} runner={runner} model={model} title={body.title[:80]}",
+        )
         conn.commit()
-        return {"id": cur.lastrowid}
+        return {"id": cur.lastrowid, "runner": runner, "model": model}
     finally:
         conn.close()
 
@@ -671,10 +716,140 @@ class WorkspaceStart(BaseModel):
     project: str
     briefing: bool = False
     resume_session_id: str | None = None
+    runner: str | None = None
+    model: str | None = None
+    knowledge_pack_id: int | None = None
 
 
 class RepoBody(BaseModel):
     name: str
+
+
+class WorkspaceDefaultsBody(BaseModel):
+    runner: str = "claude"
+    model: str | None = None
+    knowledge_source_runner: str = "claude"
+    knowledge_source_model: str | None = None
+    method_advisor: bool = False
+
+
+class WorkspaceKnowledgeBody(BaseModel):
+    project: str
+    source_runner: str = "claude"
+    source_model: str | None = None
+    target_runner: str = "claude"
+    target_model: str | None = None
+
+
+class WorkspaceMethodBody(BaseModel):
+    project: str
+    prompt: str = ""
+
+
+class WorkspaceTakeoverBody(BaseModel):
+    runner: str = "claude"
+    model: str | None = None
+    close_source: bool = False
+
+
+@app.get("/api/workspace/runtimes")
+def workspace_runtimes():
+    conn = db()
+    try:
+        bundles = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT id,project,source_runner,source_model,target_runner,target_model,created_at "
+                "FROM workspace_knowledge ORDER BY id DESC LIMIT 10"
+            ).fetchall()
+        ]
+        return {
+            "runners": ai_runtime.runner_catalog(),
+            "defaults": ai_runtime.workspace_preferences(conn),
+            "knowledge_bundles": bundles,
+        }
+    finally:
+        conn.close()
+
+
+@app.post("/api/workspace/defaults")
+def workspace_defaults(body: WorkspaceDefaultsBody):
+    conn = db()
+    try:
+        try:
+            prefs = ai_runtime.save_workspace_preferences(
+                conn,
+                body.runner,
+                body.model,
+                body.knowledge_source_runner,
+                body.knowledge_source_model,
+                body.method_advisor,
+            )
+        except ai_runtime.RuntimeErrorConfig as e:
+            raise HTTPException(400, str(e))
+        audit(
+            conn,
+            "operator",
+            "workspace_defaults_saved",
+            f"runner={prefs['runner']} model={prefs['model'] or 'default'} source={prefs['knowledge_source_runner']}",
+        )
+        return prefs
+    finally:
+        conn.close()
+
+
+@app.post("/api/workspace/method")
+def workspace_method(body: WorkspaceMethodBody):
+    repo = settings.projects_dir / body.project
+    if not (repo.is_dir() and (repo / ".git").exists()):
+        raise HTTPException(404, f"no project repo {body.project}")
+    conn = db()
+    try:
+        return ai_runtime.workspace_method_suggestion(settings, conn, body.project, body.prompt)
+    finally:
+        conn.close()
+
+
+@app.post("/api/workspace/knowledge")
+def workspace_knowledge(body: WorkspaceKnowledgeBody):
+    repo = settings.projects_dir / body.project
+    if not (repo.is_dir() and (repo / ".git").exists()):
+        raise HTTPException(404, f"no project repo {body.project}")
+    try:
+        source = ai_runtime.runner_spec(body.source_runner).id
+        target = ai_runtime.runner_spec(body.target_runner).id
+        source_model = ai_runtime.validate_model_id(body.source_model)
+        target_model = ai_runtime.validate_model_id(body.target_model)
+        pack = ai_runtime.build_transfer_pack(settings, body.project, source, source_model, target, target_model)
+    except ai_runtime.RuntimeErrorConfig as e:
+        raise HTTPException(400, str(e))
+    conn = db()
+    try:
+        created = utcnow()
+        cur = conn.execute(
+            "INSERT INTO workspace_knowledge "
+            "(project,source_runner,source_model,target_runner,target_model,body,created_at) VALUES (?,?,?,?,?,?,?)",
+            (body.project, source, source_model, target, target_model, pack, created),
+        )
+        conn.commit()
+        audit(
+            conn,
+            "operator",
+            "workspace_knowledge_created",
+            f"id={cur.lastrowid} project={body.project} {source}->{target}",
+        )
+        return {
+            "id": cur.lastrowid,
+            "project": body.project,
+            "source_runner": source,
+            "source_model": source_model,
+            "target_runner": target,
+            "target_model": target_model,
+            "body": pack,
+            "created_at": created,
+        }
+    finally:
+        conn.close()
 
 
 @app.get("/api/workspace")
@@ -687,6 +862,15 @@ async def workspace_list():
 @app.post("/api/workspace")
 async def workspace_start(body: WorkspaceStart):
     initial = None
+    runner = body.runner
+    model = body.model
+    conn = db()
+    try:
+        prefs = ai_runtime.workspace_preferences(conn)
+    finally:
+        conn.close()
+    runner = runner or prefs["runner"]
+    model = model if model is not None else prefs["model"]
     if body.briefing and not body.resume_session_id:
         repo = settings.projects_dir / body.project
         ns = str(repo).replace("/", "-")
@@ -694,8 +878,23 @@ async def workspace_start(body: WorkspaceStart):
 
         sess = recent_sessions(settings.claude_dir, limit=5, namespace=ns)
         initial = build_kickoff(body.project, repo, repo_state(repo), sess)
+    if body.knowledge_pack_id is not None:
+        conn = db()
+        try:
+            pack = conn.execute("SELECT body FROM workspace_knowledge WHERE id=?", (body.knowledge_pack_id,)).fetchone()
+            if not pack:
+                raise HTTPException(404, "no such knowledge pack")
+            initial = f"{pack['body']}\n\n{initial or 'Open the repo and wait for the operator task.'}"
+        finally:
+            conn.close()
     try:
-        term = workspace.start(body.project, initial_prompt=initial, resume_session_id=body.resume_session_id)
+        term = workspace.start(
+            body.project,
+            initial_prompt=initial,
+            resume_session_id=body.resume_session_id,
+            runner_id=runner,
+            model=model,
+        )
     except WorkspaceError as e:
         raise HTTPException(409, str(e))
     conn = db()
@@ -704,11 +903,12 @@ async def workspace_start(body: WorkspaceStart):
             conn,
             "operator",
             "workspace_started",
-            f"id={term.id} project={body.project} resume={body.resume_session_id or '-'}",
+            f"id={term.id} project={body.project} runner={term.runner} model={term.model or '-'} "
+            f"resume={body.resume_session_id or '-'}",
         )
     finally:
         conn.close()
-    return {"id": term.id, "project": term.project}
+    return {"id": term.id, "project": term.project, "runner": term.runner, "model": term.model}
 
 
 @app.delete("/api/workspace/{sid}")
@@ -718,6 +918,50 @@ async def workspace_stop(sid: str):
     except WorkspaceError as e:
         raise HTTPException(404, str(e))
     return {"id": sid, "stopped": True}
+
+
+@app.post("/api/workspace/{sid}/takeover")
+async def workspace_takeover(sid: str, body: WorkspaceTakeoverBody):
+    try:
+        source = workspace.get(sid)
+    except WorkspaceError as e:
+        raise HTTPException(404, str(e))
+    try:
+        runner = ai_runtime.runner_spec(body.runner).id
+        model = ai_runtime.validate_model_id(body.model)
+    except ai_runtime.RuntimeErrorConfig as e:
+        raise HTTPException(400, str(e))
+
+    project = source.project
+    initial = takeover_prompt(source, runner, model)
+    if body.close_source:
+        try:
+            workspace.stop(sid)
+        except WorkspaceError:
+            pass
+    try:
+        term = workspace.start(project, initial_prompt=initial, runner_id=runner, model=model)
+    except WorkspaceError as e:
+        raise HTTPException(409, str(e))
+    conn = db()
+    try:
+        audit(
+            conn,
+            "operator",
+            "workspace_takeover",
+            f"from={sid} to={term.id} project={project} runner={runner} model={model or '-'} "
+            f"closed={int(body.close_source)}",
+        )
+    finally:
+        conn.close()
+    return {
+        "id": term.id,
+        "project": project,
+        "runner": term.runner,
+        "model": term.model,
+        "source_id": sid,
+        "closed_source": body.close_source,
+    }
 
 
 class PauseBody(BaseModel):
@@ -740,30 +984,38 @@ async def workspace_paused_list():
 
 @app.post("/api/workspace/{sid}/pause")
 async def workspace_pause(sid: str, body: PauseBody):
-    """Park a live session for a full shutdown: capture its claude transcript
-    id NOW (later 'most recent in cwd' may be a headless run's), then stop the
-    PTY — claude persists the conversation continuously, so this is safe."""
+    """Park a live session for shutdown. Claude sessions capture their transcript
+    id NOW (later 'most recent in cwd' may be a headless run's); every runtime
+    stores runner/model so resume comes back through the same tool."""
     try:
         term = workspace.get(sid)
     except WorkspaceError as e:
         raise HTTPException(404, str(e))
-    claude_session = latest_transcript_session_id(settings.claude_dir, term.cwd)
+    claude_session = latest_transcript_session_id(settings.claude_dir, term.cwd) if term.runner == "claude" else None
     project = term.project
+    runner = term.runner
+    model = term.model
     workspace.stop(sid)
     conn = db()
     try:
         cur = conn.execute(
-            "INSERT INTO paused_sessions (project, claude_session_id, label, paused_at) VALUES (?,?,?,?)",
-            (project, claude_session, (body.label or "").strip()[:120] or None, utcnow()),
+            "INSERT INTO paused_sessions (project, claude_session_id, label, paused_at, runner, model) VALUES (?,?,?,?,?,?)",
+            (project, claude_session, (body.label or "").strip()[:120] or None, utcnow(), runner, model),
         )
         conn.commit()
         audit(
             conn,
             "operator",
             "workspace_paused",
-            f"id={sid} project={project} claude_session={claude_session or 'unknown'}",
+            f"id={sid} project={project} runner={runner} model={model or '-'} claude_session={claude_session or 'unknown'}",
         )
-        return {"paused_id": cur.lastrowid, "project": project, "claude_session_id": claude_session}
+        return {
+            "paused_id": cur.lastrowid,
+            "project": project,
+            "runner": runner,
+            "model": model,
+            "claude_session_id": claude_session,
+        }
     finally:
         conn.close()
 
@@ -776,18 +1028,26 @@ async def workspace_resume_paused(pid: int):
         row = conn.execute("SELECT * FROM paused_sessions WHERE id=? AND resumed_at IS NULL", (pid,)).fetchone()
         if not row:
             raise HTTPException(404, "no such paused session (or already resumed)")
+        runner = row["runner"] or "claude"
         try:
             term = workspace.start(
                 row["project"],
-                resume_session_id=row["claude_session_id"],
-                continue_last=row["claude_session_id"] is None,
+                resume_session_id=row["claude_session_id"] if runner == "claude" else None,
+                continue_last=runner == "claude" and row["claude_session_id"] is None,
+                runner_id=runner,
+                model=row["model"],
             )
         except WorkspaceError as e:
             raise HTTPException(409, str(e))
         conn.execute("UPDATE paused_sessions SET resumed_at=? WHERE id=?", (utcnow(), pid))
         conn.commit()
-        audit(conn, "operator", "workspace_resumed", f"paused={pid} project={row['project']} new={term.id}")
-        return {"id": term.id, "project": row["project"]}
+        audit(
+            conn,
+            "operator",
+            "workspace_resumed",
+            f"paused={pid} project={row['project']} runner={term.runner} model={term.model or '-'} new={term.id}",
+        )
+        return {"id": term.id, "project": row["project"], "runner": term.runner, "model": term.model}
     finally:
         conn.close()
 
@@ -1035,7 +1295,7 @@ def file_read(project: str, path: str):
         raise HTTPException(400, str(e))
 
 
-# --- Design Studio: propose → mock quickly → apply deliberately ---
+# --- Apply a UI: capture or brief → mock quickly → apply deliberately ---
 
 studio = DesignStudio(settings)
 studio.requeue_stale()
@@ -1044,7 +1304,11 @@ studio.requeue_stale()
 class DesignStart(BaseModel):
     project: str
     brief: str
-    library: str = "mix"
+    library: str = "landing"
+
+
+class DesignCaptureBody(BaseModel):
+    project: str
 
 
 class ApplyBody(BaseModel):
@@ -1075,6 +1339,14 @@ def design_start(body: DesignStart):
     except (ValueError, WorkspaceError) as e:
         raise HTTPException(409, str(e))
     return {"id": rid}
+
+
+@app.post("/api/design/capture")
+def design_capture(body: DesignCaptureBody):
+    try:
+        return studio.capture_design(body.project)
+    except (ValueError, WorkspaceError) as e:
+        raise HTTPException(409, str(e))
 
 
 @app.post("/api/design/{rid}/apply")
@@ -1168,13 +1440,15 @@ async def events():
 
 
 # --- SPA ---
-DIST = REPO_ROOT / "frontend" / "dist"
-if DIST.is_dir():
+# Bundled inside the wheel when installed, frontend/dist in a checkout.
+DIST = web_dir()
+if DIST is not None:
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
     @app.get("/{path:path}")
     def spa(path: str):
         target = DIST / path
-        if path and target.is_file():
+        # Never serve outside the build: a crafted path must not escape it.
+        if path and target.is_file() and DIST in target.resolve().parents:
             return FileResponse(target)
         return FileResponse(DIST / "index.html")

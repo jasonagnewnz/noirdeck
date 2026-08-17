@@ -1,6 +1,6 @@
 import subprocess
 
-from app.readers.commits import follow_on_flags, recent_commits
+from noirdeck.readers.commits import follow_on_flags, recent_commits
 
 
 def _repo(tmp_path):
