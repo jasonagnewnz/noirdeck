@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, useData } from '../api.js'
 import ActionsBar from '../ide/ActionsBar.jsx'
+import ConsultPanel from '../ide/ConsultPanel.jsx'
 import FileExplorer from '../ide/FileExplorer.jsx'
 import FileViewer from '../ide/FileViewer.jsx'
 import { getJSON } from '../ide/ideApi.js'
 import TermPane from '../ide/TermPane.jsx'
+import { ConfirmButton } from '../ui.jsx'
+
+const FOCUS_KEY = 'nd.workspace.focus'
 
 export default function Workspace({ launch }) {
   const { data: fleet } = useData('/fleet', 0)
@@ -35,6 +39,30 @@ export default function Workspace({ launch }) {
   const [takeoverBusy, setTakeoverBusy] = useState(false)
   const [methodBusy, setMethodBusy] = useState(false)
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
+  // Focus mode hides the two setup panels so the terminal takes the whole page.
+  // The panels are hidden in CSS, never unmounted — unmounting would throw away
+  // whatever the user has already typed into the start and background forms.
+  // Collapsed by DEFAULT. The setup panels are a wall of controls you need once
+  // to start a session and never again; the terminal is what you came for.
+  // Only an explicit '0' expands them — an absent preference means collapsed.
+  const [focusMode, setFocusMode] = useState(() => {
+    try {
+      return localStorage.getItem(FOCUS_KEY) !== '0'
+    } catch (_e) {
+      return true
+    }
+  })
+  const toggleFocus = useCallback(() => {
+    setFocusMode((v) => {
+      const next = !v
+      try {
+        localStorage.setItem(FOCUS_KEY, next ? '1' : '0')
+      } catch (_e) {
+        /* private mode — the preference just does not persist */
+      }
+      return next
+    })
+  }, [])
   const launched = useRef(null)
   const defaultsLoaded = useRef(false)
 
@@ -185,6 +213,19 @@ export default function Workspace({ launch }) {
       setProject(p.project)
       await refresh()
       setActive(r.id)
+    } catch (e) {
+      setErr(e.message)
+    }
+  }
+
+  // Discarding loses the ability to resume that transcript. The confirmation is
+  // inline on the button (ConfirmButton) and the consequence is printed in the
+  // panel caption, where it can be read before the click rather than inside it.
+  const discardPaused = async (p) => {
+    setErr(null)
+    try {
+      await api(`/workspace/paused/${p.id}`, { method: 'DELETE' })
+      await refresh()
     } catch (e) {
       setErr(e.message)
     }
@@ -385,13 +426,16 @@ export default function Workspace({ launch }) {
   }
 
   return (
-    <>
-      <div className="viewhead">
-        <h1>Build live</h1>
+    // Collapse only once a project is chosen. The picker lives inside the
+    // collapsible deck, so collapsing with nothing selected would hide the only
+    // control that can un-hide it.
+    <div className={`workspace-view${focusMode && project ? ' is-focus' : ''}`}>
+      <div className="viewhead work-collapsible">
+        <h1>Build Live</h1>
         <p>Choose the project and helper. Switch tools without rebuilding context.</p>
       </div>
 
-      <div className="panel work-deck">
+      <div className="panel work-deck work-collapsible">
         <div className="work-deck-head">
           <div>
             <h2>Start building</h2>
@@ -402,8 +446,14 @@ export default function Workspace({ launch }) {
             {(runners.length ? runners.filter((r) => r.live !== false).length : 1) === 1 ? '' : 's'} ready
           </span>
         </div>
-        <div className="formrow work-start-row">
-          <div style={{ minWidth: 240 }}>
+        {/* ⛔ This block used to be ONE row carrying eight controls at equal visual
+            weight: project, helper, model, two checkboxes, "build with me",
+            "remember", a new-project field and its button. The effect was that
+            "pick a repo and start working" had no obvious single answer — the
+            primary action looked like just another option. Primary path is now one
+            field and one button; everything else is a closed disclosure. */}
+        <div className="work-primary">
+          <div className="work-primary-field">
             <label className="fl" htmlFor="ws-project">
               Project
             </label>
@@ -416,60 +466,11 @@ export default function Workspace({ launch }) {
               ))}
             </select>
           </div>
-          <div style={{ minWidth: 210 }}>
-            <label className="fl" htmlFor="ws-runner">
-              Helper
-            </label>
-            <select id="ws-runner" value={runner} onChange={(e) => setRunner(e.target.value)}>
-              {(runners.length ? runners : [{ id: 'claude', ide_label: 'Claude IDE', label: 'Claude Code' }]).map(
-                (r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.ide_label || r.label}
-                    {r.live === false ? ' (not found)' : ''}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
-          <div style={{ minWidth: 220 }}>
-            <label className="fl" htmlFor="ws-model">
-              Model, optional
-            </label>
-            <input
-              id="ws-model"
-              list={`ws-models-${runner}`}
-              value={model}
-              placeholder={selectedRunner?.default_model ? `default ${selectedRunner.default_model}` : 'tool default'}
-              onChange={(e) => setModel(e.target.value)}
-            />
-            <datalist id={`ws-models-${runner}`}>
-              {(selectedRunner?.models || []).map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
-          </div>
-          <label htmlFor="ws-briefing" style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 7 }}>
-            <input
-              id="ws-briefing"
-              type="checkbox"
-              style={{ width: 'auto' }}
-              checked={briefing}
-              onChange={(e) => setBriefing(e.target.checked)}
-            />
-            <span className="dim">brief first</span>
-          </label>
-          <label className="toggleline" htmlFor="ws-method-advisor">
-            <input
-              id="ws-method-advisor"
-              type="checkbox"
-              checked={methodAdvisor}
-              onChange={(e) => setMethodAdvisor(e.target.checked)}
-            />
-            <span>suggest method</span>
-          </label>
+          {/* The label names the repo once chosen, so the button says what it will
+              actually do rather than leaving you to infer it. */}
           <button
             type="button"
-            className="act"
+            className="act work-go"
             disabled={!project || selectedRunner?.live === false}
             onClick={() =>
               start({
@@ -481,27 +482,99 @@ export default function Workspace({ launch }) {
               })
             }
           >
-            build with me
-          </button>
-          <button type="button" className="act ghost" onClick={saveDefaults}>
-            remember
-          </button>
-          <span className="work-divider">or</span>
-          <div style={{ minWidth: 200 }}>
-            <label className="fl" htmlFor="ws-new-repo">
-              New project
-            </label>
-            <input
-              id="ws-new-repo"
-              value={newRepo}
-              placeholder="name-of-new-project"
-              onChange={(e) => setNewRepo(e.target.value)}
-            />
-          </div>
-          <button type="button" className="act ghost" disabled={!newRepo} onClick={createRepo}>
-            create project
+            {project ? `Start working on ${project}` : 'Choose a project above'}
           </button>
         </div>
+
+        <details className="work-advanced">
+          <summary>
+            Options
+            <span className="dim">
+              {' — '}
+              {selectedRunner?.ide_label || selectedRunner?.label || 'Claude'}
+              {model ? `, ${model}` : ''}
+              {briefing ? ', brief first' : ''}
+            </span>
+          </summary>
+          <div className="formrow">
+            <div style={{ minWidth: 210 }}>
+              <label className="fl" htmlFor="ws-runner">
+                Helper
+              </label>
+              <select id="ws-runner" value={runner} onChange={(e) => setRunner(e.target.value)}>
+                {(runners.length ? runners : [{ id: 'claude', ide_label: 'Claude IDE', label: 'Claude Code' }]).map(
+                  (r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.ide_label || r.label}
+                      {r.live === false ? ' (not found)' : ''}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+            <div style={{ minWidth: 220 }}>
+              <label className="fl" htmlFor="ws-model">
+                Model, optional
+              </label>
+              <input
+                id="ws-model"
+                list={`ws-models-${runner}`}
+                value={model}
+                placeholder={selectedRunner?.default_model ? `default ${selectedRunner.default_model}` : 'tool default'}
+                onChange={(e) => setModel(e.target.value)}
+              />
+              <datalist id={`ws-models-${runner}`}>
+                {(selectedRunner?.models || []).map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            </div>
+            <label htmlFor="ws-briefing" style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 7 }}>
+              <input
+                id="ws-briefing"
+                type="checkbox"
+                style={{ width: 'auto' }}
+                checked={briefing}
+                onChange={(e) => setBriefing(e.target.checked)}
+              />
+              <span className="dim">brief first</span>
+            </label>
+            <label className="toggleline" htmlFor="ws-method-advisor">
+              <input
+                id="ws-method-advisor"
+                type="checkbox"
+                checked={methodAdvisor}
+                onChange={(e) => setMethodAdvisor(e.target.checked)}
+              />
+              <span>suggest method</span>
+            </label>
+            <button type="button" className="act ghost" onClick={saveDefaults}>
+              remember these
+            </button>
+          </div>
+        </details>
+
+        <details className="work-advanced">
+          <summary>
+            Start a brand-new project<span className="dim"> — creates the folder and git-inits it</span>
+          </summary>
+          <div className="formrow">
+            <div style={{ minWidth: 200 }}>
+              <label className="fl" htmlFor="ws-new-repo">
+                New project name
+              </label>
+              <input
+                id="ws-new-repo"
+                value={newRepo}
+                placeholder="name-of-new-project"
+                onChange={(e) => setNewRepo(e.target.value)}
+              />
+            </div>
+            <button type="button" className="act" disabled={!newRepo} onClick={createRepo}>
+              create project
+            </button>
+          </div>
+        </details>
         <div className="formrow work-handoff-row">
           <div style={{ minWidth: 210 }}>
             <label className="fl" htmlFor="ws-source-runner">
@@ -619,6 +692,14 @@ export default function Workspace({ launch }) {
                 <button type="button" className="act ghost sm" onClick={() => resumePaused(p)}>
                   resume
                 </button>
+                <ConfirmButton
+                  className="act ghost sm"
+                  confirmLabel="Discard? cannot be resumed after"
+                  title={`Remove this paused ${p.project} session from the list. Nothing is killed — the process ended when it was paused — but its transcript can no longer be resumed.`}
+                  onConfirm={() => discardPaused(p)}
+                >
+                  discard
+                </ConfirmButton>
               </span>
             ))}
           </div>
@@ -626,7 +707,7 @@ export default function Workspace({ launch }) {
       </div>
 
       {project && (
-        <div className="panel work-detached">
+        <div className="panel work-detached work-collapsible">
           <h2>Run in the background</h2>
           <p className="sechint">Send code-ready work to the selected helper without keeping a live build open.</p>
           <form onSubmit={queueDetached}>
@@ -673,6 +754,25 @@ export default function Workspace({ launch }) {
               placeholder="What should be different when this is done?"
             />
           </form>
+        </div>
+      )}
+
+      {project && (
+        <div className="work-focusbar">
+          {focusMode && <span className="work-focusbar-title">{project}</span>}
+          <button
+            type="button"
+            className="act ghost sm"
+            onClick={toggleFocus}
+            aria-pressed={focusMode}
+            title={
+              focusMode
+                ? 'Show the start and background panels again'
+                : 'Hide the setup panels and give the terminal the whole page'
+            }
+          >
+            {focusMode ? 'show controls' : 'full-page terminal'}
+          </button>
         </div>
       )}
 
@@ -825,6 +925,13 @@ export default function Workspace({ launch }) {
               {activeSession && (
                 <TermPane key={activeSession.id} sid={activeSession.id} injectPrompt={injections[activeSession.id]} />
               )}
+              {activeSession && (
+                <ConsultPanel
+                  key={`consult-${activeSession.id}`}
+                  sessionId={activeSession.id}
+                  runners={(runtime?.runners || []).filter((r) => r.available)}
+                />
+              )}
               {activeFile && <FileViewer key={activeFile.id} tab={activeFile} />}
               {!activeSession && !activeFile && (
                 <div className="tabbody-empty">
@@ -841,6 +948,6 @@ export default function Workspace({ launch }) {
           <div className="faint">Choose a project to show files, live builds, and background controls.</div>
         </div>
       )}
-    </>
+    </div>
   )
 }

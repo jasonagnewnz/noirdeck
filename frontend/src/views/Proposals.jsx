@@ -14,6 +14,7 @@ export default function Proposals({ bump }) {
   const [insPage, insPager] = usePager(insights || [], 25)
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
+  const [drift, setDrift] = useState(null)
 
   const act = async (path, body = {}) => {
     setBusy(path)
@@ -21,19 +22,13 @@ export default function Proposals({ bump }) {
     try {
       await api(path, { body })
     } catch (e) {
-      // two 409s are really confirmations: replacing an existing file on approve,
-      // and reverting a file that was hand-edited after it was applied
-      const confirmable =
-        (/target exists/.test(e.message) &&
-          'This target file already exists — replace it with the proposed version?') ||
-        (/changed since/.test(e.message) &&
-          'This file was edited after the proposal was applied — revert it anyway and lose those edits?')
-      if (confirmable && window.confirm(confirmable)) {
-        try {
-          await api(path, { body: { ...body, overwrite: true } })
-        } catch (e2) {
-          setErr(e2.message)
-        }
+      // ONE 409 is really a question: the file was hand-edited after the proposal
+      // was applied. Rather than a blocking dialog, surface it as a pending choice
+      // the user can read and then act on. A create-only collision is NOT
+      // confirmable — there is no overwrite to offer, by design (see
+      // backend/noirdeck/proposals.py) — so only the drift case offers a follow-up.
+      if (/changed since/.test(e.message)) {
+        setDrift({ path, body, message: e.message })
       } else setErr(e.message)
     }
     setBusy(null)
@@ -70,6 +65,37 @@ export default function Proposals({ bump }) {
           </div>
         )}
       </div>
+
+      {/* The one case where the answer is genuinely the user's, asked where it can
+          be READ rather than in a modal that blocks the page. Nothing has changed
+          when this appears. */}
+      {drift && (
+        <div className="panel alarm">
+          <h2>That file changed after this was applied</h2>
+          <p className="sechint">Reverting discards the edits made since. Nothing has been changed yet.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="act warn"
+              onClick={async () => {
+                const d = drift
+                setDrift(null)
+                try {
+                  await api(d.path, { body: { ...d.body, overwrite: true } })
+                } catch (e2) {
+                  setErr(e2.message)
+                }
+                setRefresh((r) => r + 1)
+              }}
+            >
+              Revert anyway, losing those edits
+            </button>
+            <button type="button" className="act ghost" onClick={() => setDrift(null)}>
+              Leave it alone
+            </button>
+          </div>
+        </div>
+      )}
 
       {(proposals || []).length > 0 && (
         <div className="listhead">

@@ -4,6 +4,7 @@ Installed mode has no repo, so anything resolved relative to the source tree
 (the SPA, the database) has to come from somewhere else. These pin that.
 """
 
+import importlib.util
 from datetime import datetime
 
 import pytest
@@ -158,8 +159,6 @@ def _module_target(exec_start: str) -> str:
 
 def test_every_unit_runs_a_module_that_actually_exists():
     """The guard that was missing. Catches a package rename that CI cannot see."""
-    import importlib.util
-
     starts = _exec_starts()
     assert starts, "no ops/*.service units found"
     for unit, exec_start in starts.items():
@@ -221,3 +220,137 @@ def test_every_scheduled_job_is_runnable_from_the_cli():
     parser = build_parser()
     for job in scheduler.JOBS:
         assert parser.parse_args(["run", job]).job == job
+
+
+def test_the_pipeline_guard_ships_inside_the_package():
+    """⛔⛔ THE 2026-08-19 SHIPPING DEFECT. The guard lived in ops/, pyproject
+    packages only backend/noirdeck, so it was absent from every wheel and
+    guard_settings_args() returned [] for every paying customer — unattended
+    sessions ran with acceptEdits and no hook at all. It passed every test,
+    because every test ran in a checkout where ops/ exists.
+
+    The guard must therefore be importable AS PART OF THE PACKAGE, and the module
+    file must sit under the packaged directory.
+    """
+    from noirdeck.guard import GUARD_SCRIPT, guard_available
+
+    assert guard_available(), f"the guard is missing at {GUARD_SCRIPT} — it will not ship"
+    guard_file = GUARD_SCRIPT.resolve()
+    packaged = (paths.REPO_ROOT / "backend" / "noirdeck").resolve()
+    assert packaged in guard_file.parents or guard_file.parent == packaged, (
+        f"the guard lives at {guard_file}, outside the packaged tree {packaged} — it will not be in the wheel"
+    )
+
+
+def test_wheel_packages_the_directory_the_guard_lives_in():
+    """Pins the packaging config itself, so moving the guard back out, or
+    narrowing `packages`, fails here rather than in a customer's install."""
+    import tomllib
+
+    cfg = tomllib.loads((paths.REPO_ROOT / "pyproject.toml").read_text())
+    packaged = cfg["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"]
+    assert "backend/noirdeck" in packaged
+    assert (paths.REPO_ROOT / "backend" / "noirdeck" / "pipeline_guard.py").is_file()
+
+
+def test_guard_fails_closed_when_it_cannot_be_found(monkeypatch):
+    """A missing guard used to warn to stderr and return [] — in a background
+    process that is an inert control with a fast path. No boundary, no pipeline."""
+    from noirdeck import guard
+
+    monkeypatch.setattr(guard, "guard_available", lambda: False)
+    with pytest.raises(guard.GuardUnavailable):
+        guard.guard_settings_args()
+
+
+# ── the headless path ───────────────────────────────────────────────────────
+# `do` and `status` are the whole reason to have a CLI: a task from a terminal
+# with no browser and no clicks. They must stay wired, and `do` must keep reusing
+# the queue's own task path rather than growing a second implementation.
+
+
+def test_the_headless_commands_are_reachable():
+    parser = build_parser()
+    for argv, expect in [
+        (["do", "add a retry"], {"task": "add a retry", "later": False}),
+        (["do", "x", "--later"], {"later": True}),
+        (["do", "x", "--project", "demo"], {"project": "demo"}),
+        (["do", "x", "--depth", "heavy"], {"depth": "heavy"}),
+        (["status"], {"json": False}),
+        (["status", "--json"], {"json": True}),
+    ]:
+        ns = parser.parse_args(argv)
+        for k, v in expect.items():
+            assert getattr(ns, k) == v, f"{argv}: {k}"
+
+
+def test_do_reuses_the_queue_task_path_rather_than_reimplementing_it():
+    """⛔ A second task implementation would drift from the console's within a week
+    and lose the context pack, the guardrails, the guard and the staged plan/check.
+    Pin that `do` calls run_task."""
+    import inspect
+
+    from noirdeck import cli
+
+    src = inspect.getsource(cli.do)
+    assert "run_task" in src, "do must delegate to overnight.run_task"
+    assert "INSERT INTO queue" in src, "and the task must exist as a queue row, so it is auditable"
+
+
+def test_do_respects_the_licence_gate():
+    import inspect
+
+    from noirdeck import cli
+
+    src = inspect.getsource(cli.do)
+    assert "allows(" in src and "overnight" in src, "the terminal must not be a way around the gate"
+
+
+def test_do_arms_but_never_widens_an_existing_contract():
+    import inspect
+
+    from noirdeck import cli
+
+    src = inspect.getsource(cli.do)
+    assert 'status(conn).get("overnight"' in src and "live" in src, (
+        "must only arm when nothing is live — silently widening an operator's budget is what arming exists to prevent"
+    )
+
+
+def test_project_resolution_prefers_cwd_and_refuses_outside_the_projects_dir(tmp_path, monkeypatch):
+    """Standing in a repo and being made to name it is the friction that makes a CLI
+    feel slower than clicking. But a repo OUTSIDE the projects dir must be refused,
+    not silently worked in."""
+    import subprocess
+
+    from noirdeck import cli
+    from noirdeck.config import Settings
+
+    projects = tmp_path / "projects"
+    inside = projects / "demo"
+    inside.mkdir(parents=True)
+    subprocess.run(["git", "-C", str(inside), "init", "-q"], check=True)
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    subprocess.run(["git", "-C", str(outside), "init", "-q"], check=True)
+
+    settings = Settings(
+        claude_dir=tmp_path / ".claude",
+        projects_dir=projects,
+        db_path=tmp_path / "d.db",
+        port=1,
+        mining_armed=False,
+        overnight_armed=False,
+        mine_max_batches=1,
+    )
+
+    monkeypatch.chdir(inside)
+    name, repo = cli._resolve_project(settings, None)
+    assert name == "demo" and repo == inside.resolve()
+
+    monkeypatch.chdir(outside)
+    name, repo = cli._resolve_project(settings, None)
+    assert name is None, "a repo outside the projects dir must be refused, not assumed"
+
+    name, repo = cli._resolve_project(settings, "nope")
+    assert name is None, "a named project that does not exist must be refused"

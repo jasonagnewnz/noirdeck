@@ -28,7 +28,7 @@ export default function Quality({ bump }) {
   return (
     <>
       <ViewHead
-        title="Quality gates"
+        title="Checks"
         helpId="quality"
         hint="Is each repo actually ready? Every project in the fleet is scored against concrete readiness gates, and a local model quietly proposes small improvements you approve one by one."
       />

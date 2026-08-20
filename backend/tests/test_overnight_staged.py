@@ -73,7 +73,7 @@ def test_heavy_runs_plan_then_do_and_skips_clean_small_check(env, monkeypatch):
     conn, settings, proj = env
     calls = []
 
-    def fake_execute(argv, cwd, timeout=3600):
+    def fake_execute(argv, cwd, timeout=3600, on_start=None):
         calls.append(argv)
         if len(calls) == 1:  # plan
             return True, "GOAL: do the thing\nSTEPS: 1. edit app.py", None, 111, ""
@@ -102,7 +102,7 @@ def test_heavy_check_runs_on_substantial_change_and_can_block(env, monkeypatch):
     conn, settings, proj = env
     calls = []
 
-    def fake_execute(argv, cwd, timeout=3600):
+    def fake_execute(argv, cwd, timeout=3600, on_start=None):
         calls.append(argv)
         if len(calls) == 1:
             return True, "the brief", None, 10, ""
@@ -144,7 +144,7 @@ def test_heavy_plan_failure_falls_back_to_single_session(env, monkeypatch):
     conn, settings, proj = env
     calls = []
 
-    def fake_execute(argv, cwd, timeout=3600):
+    def fake_execute(argv, cwd, timeout=3600, on_start=None):
         calls.append(argv)
         if len(calls) == 1:
             return False, "", None, 0, "rc=1; stderr: boom"
@@ -164,7 +164,7 @@ def test_light_stays_single_session(env, monkeypatch):
     conn, settings, proj = env
     calls = []
 
-    def fake_execute(argv, cwd, timeout=3600):
+    def fake_execute(argv, cwd, timeout=3600, on_start=None):
         calls.append(argv)
         return True, 'VERDICT: {"status":"done","summary":"ok"}', 1, 50, ""
 

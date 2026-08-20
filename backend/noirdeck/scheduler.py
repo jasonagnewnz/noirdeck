@@ -28,6 +28,10 @@ JOBS: dict[str, str] = {
     "vault": "02:34",
     "overnight": "23:30",
     "improve": "hourly",
+    # Daily, and deliberately BEFORE the miner (02:30): the miner reads the same
+    # tree and ships excerpts to an LLM, so a credential sitting in a memory file
+    # should be flagged before that happens, not after.
+    "secrets": "02:00",
 }
 
 TICK_SECONDS = 60
@@ -71,6 +75,12 @@ def _run_job(name: str, settings: Settings) -> dict:
         from .improve import run_improver
 
         return run_improver(settings)
+    if name == "secrets":
+        from .secrets_scan import run_scan
+
+        # transcripts excluded on the schedule: tens of thousands of files, and the
+        # actionable surface is the knowledge tree that loads into sessions
+        return run_scan(settings, include_transcripts=False)
     raise ValueError(f"unknown job {name!r}")
 
 

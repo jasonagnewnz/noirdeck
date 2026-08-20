@@ -16,7 +16,7 @@ export default function Skills({ bump }) {
   return (
     <>
       <ViewHead
-        title="Skills & agents"
+        title="Skills"
         helpId="skills"
         hint="The installed capability surface — what a session can already do without re-prompting. Read-only inventory: new skills arrive through the Proposals view."
       />

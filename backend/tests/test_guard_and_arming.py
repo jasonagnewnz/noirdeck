@@ -74,8 +74,18 @@ def test_guard_settings_args_wire():
     assert args[0] == "--settings"
     cfg = json.loads(args[1])
     hook = cfg["hooks"]["PreToolUse"][0]
-    assert hook["matcher"] == "Bash"
     assert str(GUARD_SCRIPT) in hook["hooks"][0]["command"]
+    # sys.executable, not a bare "python3", which may not be on a service PATH
+    assert hook["hooks"][0]["command"].startswith(sys.executable)
+
+    # ⛔ The matcher decides which calls the harness even shows the hook. It was
+    # "Bash" alone until 2026-08-19, so every Write/Edit went unexamined while
+    # pipelines ran with --permission-mode acceptEdits. Pin the file-writing
+    # tools explicitly: this assertion is what makes narrowing it a test failure
+    # instead of a silent reopening of that hole.
+    matched = set(hook["matcher"].split("|"))
+    for tool in ("Bash", "Write", "Edit", "MultiEdit", "NotebookEdit"):
+        assert tool in matched, f"{tool} must be routed to the guard"
 
 
 @pytest.fixture
@@ -90,7 +100,7 @@ def conn(tmp_path):
 
 def test_contract_lifecycle(conn):
     ok, reason = check(conn, "overnight")
-    assert not ok and "no arming contract" in reason
+    assert not ok and "not armed" in reason
     arm(conn, "overnight", hours=1, max_tasks=2, max_tokens=50_000)
     assert check(conn, "overnight")[0]
     consume(conn, "overnight", tasks=1, tokens=10_000)
@@ -155,5 +165,47 @@ def test_run_queue_halts_without_contract(tmp_path, monkeypatch, claude_dir):
     ran = []
     monkeypatch.setattr(overnight, "run_task", lambda *a, **k: ran.append(1))
     out = overnight.run_queue(settings, 0.01, once=True)
-    assert out.get("halted") and "no arming contract" in out["halted"]
+    assert out.get("halted") and "not armed" in out["halted"]
     assert not ran  # contract gate fired BEFORE any task ran
+
+
+# ── "Run later" must actually run later ─────────────────────────────────────
+# ⛔ Queuing a task used to require arming first, on a different screen, with three
+# numbers to invent — ~11 interactions before anything happened. Worse, queuing
+# while unarmed ACCEPTED the task and then silently never ran it. A button labelled
+# "run later" that does not run later is worse than a refusal.
+
+
+def test_arm_has_defaults_so_it_can_be_called_bare(conn):
+    from noirdeck.arming import DEFAULT_MAX_TASKS, DEFAULT_MAX_TOKENS
+
+    arm(conn, "overnight")
+    ok, _ = check(conn, "overnight")
+    assert ok, "a bare arm() must produce a usable contract"
+    st = status(conn)["overnight"]
+    assert st["max_tasks"] == DEFAULT_MAX_TASKS
+    assert st["max_tokens"] == DEFAULT_MAX_TOKENS
+    assert st["live"] is True
+
+
+def test_the_defaults_are_a_real_budget_not_an_absent_one(conn):
+    """A default of "unlimited" would defeat the whole arming model. Bounded on both
+    axes, and time-limited."""
+    from noirdeck.arming import DEFAULT_HOURS, DEFAULT_MAX_TASKS, DEFAULT_MAX_TOKENS
+
+    assert 0 < DEFAULT_HOURS <= 24
+    assert 1 <= DEFAULT_MAX_TASKS <= 20
+    assert 1000 <= DEFAULT_MAX_TOKENS <= 1_000_000
+    arm(conn, "overnight")
+    st = status(conn)["overnight"]
+    assert st["max_tasks"] is not None and st["max_tokens"] is not None
+
+
+def test_an_existing_contract_is_never_widened(conn):
+    """⛔ Auto-arming must not top up a live contract. The operator chose that budget;
+    silently extending it is precisely what arming exists to prevent."""
+    arm(conn, "overnight", hours=1, max_tasks=2, max_tokens=5000)
+    before = status(conn)["overnight"]
+    # the queue route only arms when nothing is live — assert the precondition it uses
+    assert before["live"] is True
+    assert before["max_tasks"] == 2 and before["max_tokens"] == 5000

@@ -17,6 +17,7 @@ import sqlite3
 import subprocess
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 from . import ai_runtime
 from .config import Settings
@@ -168,11 +169,70 @@ def _session_argv(model: str, max_turns: int, prompt: str, readonly: bool = Fals
     return ai_runtime.queue_argv(runner, model, max_turns, prompt, readonly=readonly)
 
 
-def _execute(argv: list[str], cwd: Path, timeout: int = 3600) -> tuple[bool, str, int | None, int, str]:
+class _Completed(NamedTuple):
+    """Same three fields the rest of _execute reads off a CompletedProcess, so the
+    switch from subprocess.run to Popen changed how the child is launched and
+    nothing about how its result is parsed."""
+
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+def _kill_group(pid: int) -> bool:
+    """Stop a task's whole process group. Returns whether anything was signalled.
+    SIGTERM then SIGKILL: claude flushes on TERM, but a wedged child would
+    otherwise keep the task 'running' forever."""
+    import os
+    import signal as _signal
+
+    try:
+        pgid = os.getpgid(pid)
+    except (ProcessLookupError, PermissionError):
+        return False
+    for sig in (_signal.SIGTERM, _signal.SIGKILL):
+        try:
+            os.killpg(pgid, sig)
+        except (ProcessLookupError, PermissionError):
+            return sig is not _signal.SIGTERM
+        if sig is _signal.SIGTERM:
+            time.sleep(0.4)  # give it a chance to exit cleanly before SIGKILL
+    return True
+
+
+def _execute(
+    argv: list[str],
+    cwd: Path,
+    timeout: int = 3600,
+    on_start=None,
+) -> tuple[bool, str, int | None, int, str]:
     """(ok, result_text, tokens_in, tokens_out, failure_note). Salvages the CLI's
     own JSON on nonzero exit — error_max_turns and friends still emit a result
-    object whose subtype names the cause. Test seam: monkeypatch this."""
-    proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=str(cwd))
+    object whose subtype names the cause. Test seam: monkeypatch this.
+
+    `on_start(pid)` is called once the child exists, so a takeover can stop this
+    run from outside. `start_new_session=True` puts the child in its own process
+    group: a phase runner spawns grandchildren, and signalling only the direct
+    child leaves those alive holding the stdout pipe open (a real hang, already
+    hit in builds.py).
+    """
+    proc = subprocess.Popen(  # noqa: S603 - argv is server-built, never client input
+        argv,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    if on_start is not None:
+        on_start(proc.pid)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_group(proc.pid)
+        proc.communicate()
+        raise
+    proc = _Completed(proc.returncode, out or "", err or "")
     expects_json = "--output-format" in argv and "json" in argv
     if proc.returncode == 0 and proc.stdout and not expects_json:
         return True, proc.stdout.strip(), None, 0, ""
@@ -215,6 +275,35 @@ FIX anything real you find and re-run the relevant tests; ignore style nits.
 """
     + _GUARDRAILS
 )
+
+
+def _register_worker(conn: sqlite3.Connection, settings: Settings, task_id: int, pid: int, project_dir: Path) -> None:
+    """Record what a takeover needs, at the moment the child starts.
+
+    ⛔ The transcript id is captured HERE, not at takeover time. By then the cwd's
+    most-recent transcript may belong to a different session — the exact trap
+    `workspace.latest_transcript_session_id` documents. The transcript file may not
+    exist for a beat after spawn, so this is best-effort and re-attempted by the
+    takeover route if still null.
+    """
+    from .workspace import latest_transcript_session_id
+
+    sid = None
+    for _ in range(6):  # ~3s: the CLI writes its transcript shortly after start
+        sid = latest_transcript_session_id(settings.claude_dir, project_dir)
+        if sid:
+            break
+        time.sleep(0.5)
+    conn.execute(
+        "UPDATE queue SET worker_pid=?, transcript_session_id=? WHERE id=?",
+        (pid, sid, task_id),
+    )
+    conn.commit()
+
+
+def _is_claimed(conn: sqlite3.Connection, task_id: int) -> bool:
+    row = conn.execute("SELECT claimed_at FROM queue WHERE id=?", (task_id,)).fetchone()
+    return bool(row and row["claimed_at"])
 
 
 def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) -> None:
@@ -271,8 +360,20 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                 "(follow it unless it is clearly wrong on the ground):\n" + brief
             )
         do_prompt += _GUARDRAILS
-        ok, text, tokens_in, tout, note = _execute(_session_argv(model, 40, do_prompt, runner=runner), project_dir)
+        ok, text, tokens_in, tout, note = _execute(
+            _session_argv(model, 40, do_prompt, runner=runner),
+            project_dir,
+            on_start=lambda pid: _register_worker(conn, settings, task["id"], pid, project_dir),
+        )
         tokens_out += tout
+        # A human may have taken this task over while the builder ran (see
+        # main.py /api/queue/{id}/takeover): the takeover kills the child, so `ok`
+        # is False and the verdict below would record a failure for work that was
+        # actually adopted. Claimed tasks belong to the operator now — leave the
+        # row alone and stop.
+        if _is_claimed(conn, task["id"]):
+            audit(conn, "queue", "task_left_to_operator", f"task={task['id']} claimed mid-run")
+            return
         if ok:
             verdict = _parse_verdict(text)
         else:

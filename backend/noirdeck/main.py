@@ -13,13 +13,29 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_runtime, arming, ask, digest, guided, hygiene, improve, preview, scheduler, vault
+from . import (
+    ai_runtime,
+    arming,
+    ask,
+    consult,
+    digest,
+    guided,
+    hygiene,
+    improve,
+    licensing,
+    local_models,
+    preview,
+    scheduler,
+    secrets_scan,
+    vault,
+)
 from .builds import BuildRunner
 from .config import Settings, primary_namespace
 from .db import audit, connect, init_db, utcnow
 from .design import DesignStudio
 from .miner.heuristics import run_heuristics
 from .miner.runner import run_llm_mining
+from .overnight import _kill_group as overnight_kill_group
 from .overnight import requeue_stale_running, route_agent, route_model
 from .paths import web_dir
 from .proposals import ProposalError, approve, dismiss, list_proposals, revert
@@ -28,7 +44,7 @@ from .readers import history as hist
 from .readers.commits import fleet_feed, fleet_flags, follow_on_flags, recent_commits
 from .readers.files import FilesError, list_dir, read_file
 from .readers.fleet import cached_fleet, fleet, fleet_attention
-from .readers.memories import cached_memories, group_memories, list_memories, memory_stats
+from .readers.memories import cached_memories, list_memories, memory_stats
 from .readers.sessions import namespace_display, recent_sessions
 from .readers.skills import list_agents, list_skills
 from .version import VERSION
@@ -103,7 +119,37 @@ if scheduler.enabled():
 
 @app.get("/api/scheduler")
 def scheduler_status():
-    return _scheduler.status()
+    """Will unattended work actually run? Both halves of the answer, in one place.
+
+    ⛔ This used to report only whether the scheduler process was alive, while the
+    arming contracts lived on a different screen. Each half is useless alone: a
+    running scheduler with no contract runs nothing, and a live contract with no
+    scheduler runs nothing — and both look identical to "it was a quiet night".
+    Answering half a question in two places is how a user concludes the product is
+    broken when it is merely off.
+    """
+    base = _scheduler.status()
+    conn = db()
+    try:
+        contracts = arming.status(conn)
+    finally:
+        conn.close()
+    live_contracts = {k: v for k, v in contracts.items() if v.get("live")}
+    scheduler_on = bool(base.get("enabled"))
+    return {
+        **base,
+        "contracts": contracts,
+        # The one sentence a user needs. Computed here rather than in the UI so the
+        # API and the screen can never disagree about it.
+        "will_run": scheduler_on and bool(live_contracts),
+        "blocked_by": (
+            None
+            if scheduler_on and live_contracts
+            else "nothing is armed"
+            if scheduler_on
+            else "the scheduler is not running here"
+        ),
+    }
 
 
 def db():
@@ -119,6 +165,8 @@ def health():
         "server_now": datetime.now(timezone.utc).isoformat(),
         "frontend_dir": str(web_dir()),
         "claude_dir": str(settings.claude_dir),
+        # so a MISSING workspace is distinguishable from an EMPTY one
+        "claude_dir_ready": settings.claude_dir_ready,
         "mining_armed": settings.mining_armed,
         "overnight_armed": settings.overnight_armed,
     }
@@ -136,6 +184,7 @@ def overview():
         queue_counts = {
             r["status"]: r["c"] for r in conn.execute("SELECT status, COUNT(*) c FROM queue GROUP BY status").fetchall()
         }
+        secrets_open = conn.execute("SELECT COUNT(*) c FROM secret_findings WHERE status='open'").fetchone()["c"]
     finally:
         conn.close()
     mems = cached_memories(settings.claude_dir, refresh=True)
@@ -149,6 +198,9 @@ def overview():
         "fleet_attention": fleet_attention(states),
         "proposals_pending": pending,
         "queue": queue_counts,
+        # surfaced on every page load: a cleartext credential in the knowledge
+        # tree is the one finding that should never wait for someone to go looking
+        "secrets_open": secrets_open,
     }
 
 
@@ -165,7 +217,8 @@ def agents():
 @app.get("/api/memories")
 def memories():
     mems = list_memories(settings.claude_dir)
-    return {"stats": memory_stats(mems), "memories": mems, "groups": group_memories(mems)}
+    # no "groups": filename-token clustering was removed (see readers/memories.py)
+    return {"stats": memory_stats(mems), "memories": mems}
 
 
 def _improve_assets() -> dict:
@@ -325,6 +378,7 @@ def improve_target_action(tid: int, body: ImproveTargetAction):
 
 @app.post("/api/improve/run")
 def improve_run():
+    require_license("improve")
     threading.Thread(target=improve.run_improver, args=(settings,), daemon=True).start()
     return {"started": True}
 
@@ -508,6 +562,143 @@ def briefing(project: str):
     }
 
 
+# --- credential scanning ---
+# Report-only. The scheduled job never edits or moves anything; quarantine is a
+# human action addressed by explicit finding id (see secrets_scan.py).
+
+
+class SecretScanBody(BaseModel):
+    # Transcripts are tens of thousands of files, so they are opt-in per run
+    # rather than silently skipped — "did not look" must not read as "clean".
+    include_transcripts: bool = False
+
+
+class SecretDecisionBody(BaseModel):
+    note: str = ""
+
+
+@app.get("/api/secrets")
+def secrets_list(status: str = "open"):
+    conn = db()
+    try:
+        findings = secrets_scan.list_findings(conn, status)
+        counts = {
+            r["status"]: r["c"]
+            for r in conn.execute("SELECT status, COUNT(*) c FROM secret_findings GROUP BY status").fetchall()
+        }
+        last = conn.execute(
+            "SELECT ts, detail FROM audit_log WHERE actor='secret_scan' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return {
+            "findings": findings,
+            "counts": counts,
+            "last_scan": dict(last) if last else None,
+        }
+    finally:
+        conn.close()
+
+
+@app.post("/api/secrets/scan")
+def secrets_scan_route(body: SecretScanBody):
+    return secrets_scan.run_scan(settings, include_transcripts=body.include_transcripts)
+
+
+@app.post("/api/secrets/{fid}/acknowledge")
+def secrets_ack_route(fid: int, body: SecretDecisionBody):
+    conn = db()
+    try:
+        return secrets_scan.acknowledge(conn, fid, body.note)
+    except secrets_scan.SecretScanError as e:
+        raise HTTPException(409, str(e))
+    finally:
+        conn.close()
+
+
+class SecretSweepBody(BaseModel):
+    # ⛔ EXPLICIT ids, always. The estate rule is that irreversible actions are selected
+    # by id and never by a filter, a time window or a LIMIT — so there is deliberately
+    # no "sweep everything" shape here, and the plan endpoint is what produces the list.
+    ids: list[int]
+    confirm: bool = False
+
+
+@app.get("/api/secrets/sweep")
+def secrets_sweep_plan(ids: str | None = None):
+    """What a sweep would move, grouped by file, moving nothing."""
+    wanted = [int(x) for x in ids.split(",") if x.strip().isdigit()] if ids else None
+    conn = db()
+    try:
+        return secrets_scan.plan_sweep(conn, settings.claude_dir, wanted)
+    finally:
+        conn.close()
+
+
+@app.post("/api/secrets/sweep")
+def secrets_sweep(body: SecretSweepBody):
+    conn = db()
+    try:
+        return secrets_scan.sweep(conn, settings.claude_dir, body.ids, confirm=body.confirm)
+    finally:
+        conn.close()
+
+
+@app.post("/api/secrets/{fid}/quarantine")
+def secrets_quarantine_route(fid: int):
+    conn = db()
+    try:
+        return secrets_scan.quarantine(conn, settings.claude_dir, fid)
+    except secrets_scan.SecretScanError as e:
+        raise HTTPException(409, str(e))
+    finally:
+        conn.close()
+
+
+# --- local models (Ollama) ---
+# Report-then-act: every mutating call needs confirm=true, because installing a
+# binary and downloading multiple gigabytes are both things a page load must never
+# start on its own.
+
+
+class LocalModelBody(BaseModel):
+    confirm: bool = False
+
+
+class LocalPullBody(BaseModel):
+    tag: str
+    confirm: bool = False
+
+
+@app.get("/api/local-models")
+def local_models_overview():
+    # the recommendation order is keyed off what this person actually works on
+    stats = hist.history_stats(hist.load_history(settings.claude_dir))
+    return local_models.overview(top_slash=stats.get("top_slash"), top_projects=stats.get("top_projects"))
+
+
+@app.post("/api/local-models/install")
+def local_models_install(body: LocalModelBody):
+    try:
+        return local_models.install(confirm=body.confirm)
+    except local_models.LocalModelError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/api/local-models/serve")
+def local_models_serve():
+    try:
+        return local_models.serve()
+    except local_models.LocalModelError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/api/local-models/pull")
+def local_models_pull(body: LocalPullBody):
+    try:
+        return local_models.pull(body.tag, confirm=body.confirm)
+    except local_models.LocalModelError as e:
+        raise HTTPException(409, str(e))
+
+
 # --- proposals ---
 
 
@@ -527,9 +718,11 @@ def proposals_route(status: str | None = None):
 
 @app.post("/api/proposals/{pid}/approve")
 def approve_route(pid: int, body: DecisionBody):
+    # body.overwrite is deliberately NOT forwarded: approval is create-only and
+    # there is no relaxation of that from the API surface (see proposals.py).
     conn = db()
     try:
-        return approve(conn, settings.claude_dir, pid, overwrite=body.overwrite)
+        return approve(conn, settings.claude_dir, pid)
     except ProposalError as e:
         raise HTTPException(409, str(e))
     finally:
@@ -569,6 +762,7 @@ def mine_now():
 
 @app.post("/api/mine/llm")
 def mine_llm():
+    require_license("mining")
     conn = db()
     try:
         return run_llm_mining(conn, settings)
@@ -629,6 +823,17 @@ def queue_list():
 
 @app.post("/api/queue")
 def queue_add(body: TaskBody):
+    """Queue a task for unattended work.
+
+    ⛔ Pressing this used to accept the task and then never run it, because the
+    runner needs an arming contract and creating one was a separate screen with
+    three numbers to invent. "Run later" that does not run later is worse than a
+    refusal. Queuing IS the intent, so it arms with a default budget when nothing
+    is armed. The contract is unchanged in kind — expiring, task- and token-capped,
+    re-checked before every task — and the response says what was armed, so the
+    operator can see and revoke it.
+    """
+    require_license("overnight")
     repo = settings.projects_dir / body.project
     if not (repo.is_dir() and (repo / ".git").exists()):
         raise HTTPException(400, f"unknown project {body.project}")
@@ -672,8 +877,21 @@ def queue_add(body: TaskBody):
             "task_queued",
             f"id={cur.lastrowid} runner={runner} model={model} title={body.title[:80]}",
         )
+        # Arm with defaults if nothing is armed, so the task actually runs. Never
+        # EXTEND or top up a live contract: the operator set that budget, and
+        # silently widening it is exactly the kind of thing arming exists to prevent.
+        armed_now = None
+        if not arming.status(conn).get("overnight", {}).get("live"):
+            contract = arming.arm(conn, "overnight")
+            armed_now = {
+                "hours": arming.DEFAULT_HOURS,
+                "max_tasks": arming.DEFAULT_MAX_TASKS,
+                "max_tokens": arming.DEFAULT_MAX_TOKENS,
+                "armed_until": contract["armed_until"],
+            }
+            audit(conn, "operator", "armed_by_queueing", f"task={cur.lastrowid} defaults applied")
         conn.commit()
-        return {"id": cur.lastrowid, "runner": runner, "model": model}
+        return {"id": cur.lastrowid, "runner": runner, "model": model, "armed": armed_now}
     finally:
         conn.close()
 
@@ -710,6 +928,81 @@ def queue_cancel(tid: int):
 # --- workspace: real Claude sessions over PTY ---
 
 workspace = WorkspaceManager(settings.projects_dir)
+
+
+@app.post("/api/queue/{tid}/takeover")
+def queue_takeover(tid: int):
+    """Take a running autonomous task away from the runner and continue it yourself.
+
+    Stops the unattended child, then opens an INTERACTIVE session resuming the same
+    conversation, in the same repo, so you inherit its context instead of starting
+    cold. The task is marked `claimed`: a human owns it, which is deliberately not
+    done and not failed.
+
+    Why adopt-and-resume rather than attaching to the live process: an autonomous
+    task runs `claude -p`, which has no input loop — there is nothing to type into.
+    Handing it over therefore means ending the headless run and resuming its
+    transcript interactively. The cost is a brief gap and the loss of any turn in
+    flight; the gain is that the work so far, and its conversation, carry over.
+    """
+    conn = db()
+    try:
+        row = conn.execute("SELECT * FROM queue WHERE id=?", (tid,)).fetchone()
+        if not row:
+            raise HTTPException(404, f"no task {tid}")
+        if row["status"] != "running":
+            raise HTTPException(
+                409, f"task {tid} is {row['status']}, not running — only a running task can be taken over"
+            )
+
+        project_dir = Path(row["project"]).expanduser()
+        # queue.project is stored as a path; the workspace addresses repos by name
+        # and re-validates containment itself, so hand it the name.
+        project_name = project_dir.name
+
+        sid = row["transcript_session_id"] or latest_transcript_session_id(settings.claude_dir, project_dir)
+
+        # Claim BEFORE killing: the runner checks claimed_at the moment its child
+        # dies, and if the kill landed first it would record a failure for a task
+        # that was actually adopted.
+        conn.execute("UPDATE queue SET status='claimed', claimed_at=? WHERE id=?", (utcnow(), tid))
+        conn.commit()
+
+        stopped = bool(row["worker_pid"]) and overnight_kill_group(row["worker_pid"])
+
+        try:
+            term = workspace.start(project_name, resume_session_id=sid) if sid else workspace.start(project_name)
+        except WorkspaceError as e:
+            # The task is already claimed and its child stopped, so say plainly that
+            # the handover half-happened rather than implying nothing changed.
+            raise HTTPException(
+                409,
+                f"task {tid} was stopped and marked claimed, but a session could not be opened: {e}",
+            ) from e
+
+        audit(
+            conn,
+            "operator",
+            "task_taken_over",
+            f"task={tid} project={project_name} session={term.id} resumed={sid or 'no transcript found'} "
+            f"child_stopped={stopped}",
+        )
+        conn.commit()
+        return {
+            "task_id": tid,
+            "session_id": term.id,
+            "project": project_name,
+            "resumed_conversation": bool(sid),
+            "child_stopped": stopped,
+            "note": (
+                "Resuming the task's own conversation."
+                if sid
+                else "No transcript was found for this task, so this is a fresh session in the same repo — "
+                "the task's context did not carry over."
+            ),
+        }
+    finally:
+        conn.close()
 
 
 class WorkspaceStart(BaseModel):
@@ -861,6 +1154,7 @@ async def workspace_list():
 # a sync endpoint lands in the threadpool where get_running_loop() raises
 @app.post("/api/workspace")
 async def workspace_start(body: WorkspaceStart):
+    require_license("builds")
     initial = None
     runner = body.runner
     model = body.model
@@ -975,9 +1269,33 @@ async def workspace_paused_list():
         return [
             dict(r)
             for r in conn.execute(
-                "SELECT * FROM paused_sessions WHERE resumed_at IS NULL ORDER BY id DESC LIMIT 20"
+                "SELECT * FROM paused_sessions WHERE resumed_at IS NULL AND discarded_at IS NULL "
+                "ORDER BY id DESC LIMIT 20"
             ).fetchall()
         ]
+    finally:
+        conn.close()
+
+
+@app.delete("/api/workspace/paused/{pid}")
+async def workspace_discard_paused(pid: int):
+    """Drop a paused session without resuming it.
+
+    Discarding removes it from the list but does NOT kill anything — the process
+    died at pause time. What is lost is the ability to resume that transcript,
+    which is why it is an explicit act by id rather than a bulk clear.
+    """
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM paused_sessions WHERE id=? AND resumed_at IS NULL AND discarded_at IS NULL", (pid,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "no such paused session (or already resumed/discarded)")
+        conn.execute("UPDATE paused_sessions SET discarded_at=? WHERE id=?", (utcnow(), pid))
+        conn.commit()
+        audit(conn, "operator", "workspace_paused_discarded", f"id={pid} project={row['project']}")
+        return {"discarded": pid, "project": row["project"]}
     finally:
         conn.close()
 
@@ -1231,6 +1549,7 @@ class AskBody(BaseModel):
 
 @app.post("/api/ask")
 def ask_submit(body: AskBody):
+    require_license("ask")
     try:
         out = ask.submit(settings, body.question)
     except ask.AskError as e:
@@ -1254,6 +1573,156 @@ def ask_get(job_id: str):
         return ask.get(job_id)
     except ask.AskError as e:
         raise HTTPException(404, str(e))
+
+
+# --- consult: a second model looks at the live session and offers advice ---
+# Advisory only. The consultant is spawned read-only and its answer is text;
+# there is deliberately no route that lets it change anything.
+
+
+# --- licensing: who may use the model-backed features ---
+# The console itself is never gated. Someone who installed noirdeck can always
+# look around and reach the screen where a key is entered — gating the front
+# door would mean a licence problem hides its own fix.
+
+
+class LicenseBody(BaseModel):
+    key: str
+
+
+@app.get("/api/license")
+def license_status():
+    return licensing.status()
+
+
+@app.post("/api/license")
+def license_save(body: LicenseBody):
+    try:
+        lic = licensing.save(body.key)
+    except licensing.LicenseError as e:
+        raise HTTPException(400, str(e))
+    conn = db()
+    try:
+        # The key itself is never logged — only that one was accepted, for whom.
+        audit(conn, "operator", "license_saved", f"email={lic.email} plan={lic.plan} exp={lic.expires_at.date()}")
+    finally:
+        conn.close()
+    return licensing.status()
+
+
+def require_license(feature: str) -> None:
+    """Gate for a model-backed route. Raises 402 so the UI can tell a licence
+    problem apart from a permission problem or a bug."""
+    allowed, reason = licensing.allows(feature)
+    if not allowed:
+        raise HTTPException(402, reason)
+
+
+class ConsultBody(BaseModel):
+    session_id: str
+    question: str = ""
+    runner: str | None = None
+    model: str | None = None
+
+
+@app.post("/api/consult")
+def consult_submit(body: ConsultBody):
+    require_license("consult")
+    try:
+        term = workspace.get(body.session_id)
+    except WorkspaceError as e:
+        raise HTTPException(404, str(e))
+    try:
+        out = consult.submit(
+            settings,
+            project=term.project,
+            scrollback=term.transcript_tail(consult.CONTEXT_CHARS),
+            question=body.question,
+            runner=body.runner,
+            model=body.model,
+            session_id=body.session_id,
+        )
+    except (ai_runtime.RuntimeErrorConfig, ValueError) as e:
+        raise HTTPException(400, str(e))
+    conn = db()
+    try:
+        # Log that a consultation happened and how much was scrubbed — never the
+        # context itself, which is exactly the secret-bearing text in question.
+        audit(
+            conn,
+            "operator",
+            "consult_submitted",
+            f"id={out['id']} runner={out['runner']} redactions={out['redactions']}",
+        )
+    finally:
+        conn.close()
+    return out
+
+
+class ConsultWatchBody(BaseModel):
+    session_id: str
+    enabled: bool
+    runner: str | None = None
+    model: str | None = None
+
+
+# Which sessions are being watched, and by whom. Off for every session until
+# asked for: an observer that switched itself on would be a surprise, and a
+# surprise observer of terminal output is the wrong kind of surprise.
+_watching: dict[str, dict] = {}
+
+
+def _watch_hook(term, chunk: bytes) -> None:
+    """Called from the PTY reader for every chunk of output. Must stay cheap:
+    scan only the tail, bail on the common path, and never block."""
+    conf = _watching.get(term.id)
+    if not conf:
+        return
+    signal = consult.detect_signal(chunk[-2048:].decode("utf-8", "replace"))
+    if signal is None or not consult.cooled_down(term.id):
+        return
+    consult.submit(
+        settings,
+        project=term.project,
+        scrollback=term.transcript_tail(consult.CONTEXT_CHARS),
+        runner=conf.get("runner"),
+        model=conf.get("model"),
+        signal=signal,
+        session_id=term.id,
+    )
+
+
+@app.post("/api/consult/watch")
+def consult_watch(body: ConsultWatchBody):
+    try:
+        term = workspace.get(body.session_id)
+    except WorkspaceError as e:
+        raise HTTPException(404, str(e))
+    if body.enabled:
+        _watching[body.session_id] = {"runner": body.runner, "model": body.model}
+        term.watch_hook = _watch_hook
+    else:
+        _watching.pop(body.session_id, None)
+        term.watch_hook = None
+    conn = db()
+    try:
+        audit(conn, "operator", "consult_watch", f"session={body.session_id} enabled={body.enabled}")
+    finally:
+        conn.close()
+    return {"session_id": body.session_id, "watching": body.enabled}
+
+
+@app.get("/api/consult")
+def consult_recent():
+    return consult.recent()
+
+
+@app.get("/api/consult/{job_id}")
+def consult_get(job_id: str):
+    out = consult.get(job_id)
+    if not out:
+        raise HTTPException(404, f"no consultation {job_id}")
+    return out
 
 
 # --- try-it preview: a build's static web output, read-only, for a sandboxed iframe ---

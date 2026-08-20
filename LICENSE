@@ -1,21 +1,337 @@
-MIT License
+NOIRDECK SOFTWARE LICENCE AGREEMENT
+Version 1.1, 19 August 2026
 
-Copyright (c) 2026 noirdeck contributors
+Copyright (c) 2026 Belton IT Nexus Limited (New Zealand company). All rights
+reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+noirdeck is commercial software. It is source-available, NOT open source. It is
+free for personal use. Business and commercial use requires a Commercial Licence.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+EARLY ACCESS: while noirdeck is in Early Access, a Commercial Licence is granted
+at no charge. We will not begin charging without at least 60 days' written notice
+to every licence holder. See clause 3A.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+READ THIS BEFORE INSTALLING. By installing, copying, or using the Software you
+agree to these terms. If you do not agree, do not install or use it.
+
+--------------------------------------------------------------------------------
+1. DEFINITIONS
+--------------------------------------------------------------------------------
+
+1.1  "Licensor", "we", "us" means Belton IT Nexus Limited.
+
+1.2  "Software" means noirdeck, including its object and source form, the bundled
+     web interface, command line programs, documentation, and any updates we make
+     available to you under this Agreement.
+
+1.3  "You" means the individual or legal entity accepting these terms. If you
+     accept on behalf of an organisation, "you" includes that organisation and
+     you warrant that you have authority to bind it.
+
+1.4  "Licence Key" means the credential we issue that enables the Software's
+     licensed features.
+
+1.5  "Personal Use" means use by one natural person, for that person's own
+     purposes, where the use is not Commercial Use. Personal Use includes private
+     study, experimentation, hobby projects, and personal projects that are not
+     carried on for profit or commercial advantage.
+
+1.6  "Commercial Use" means any use of the Software:
+
+     (a) by, for, or on behalf of a legal entity of any kind, including a
+         company, partnership, sole trader business, government body, or
+         not-for-profit entity;
+
+     (b) in the course of paid work, employment, contracting, consulting, or
+         freelancing, whether or not the Software is used on the resulting
+         deliverable directly;
+
+     (c) to produce, maintain, operate, or support any product, service, or
+         system that is sold, licensed, or otherwise commercially exploited; or
+
+     (d) by more than one natural person.
+
+     Use is Commercial Use if any one of (a) to (d) applies. Revenue is not the
+     test: an employee using the Software on their employer's work is Commercial
+     Use even if that particular project earns nothing.
+
+1.7  "Commercial Licence" means a licence granted by us under clause 3 or 3A,
+     covering a stated number of Seats for a stated term. A Commercial Licence
+     may be granted at no charge under clause 3A.
+
+1.8  "Seat" means one named natural person authorised to use the Software under a
+     Commercial Licence. Seats are named, not concurrent. A Seat may be
+     transferred to a replacement person if the original person ceases to require
+     it, but may not be shared or rotated between people to serve more users than
+     Seats purchased.
+
+1.9  "Early Access" means the period, beginning on the date of this version and
+     ending as set out in clause 3A.3, during which we grant Commercial Licences
+     at no charge.
+
+--------------------------------------------------------------------------------
+2. FREE PERSONAL LICENCE
+--------------------------------------------------------------------------------
+
+2.1  Subject to your compliance with this Agreement, we grant you a
+     non-exclusive, non-transferable, non-sublicensable, revocable, royalty-free
+     licence to install and use the Software for Personal Use, on any number of
+     computers that you personally own or control.
+
+2.2  This licence is granted to you as an individual. It does not extend to any
+     employer, client, or organisation, and it may not be used for Commercial
+     Use.
+
+2.3  You may modify the Software for your own Personal Use. You may not
+     distribute those modifications. See clause 4.
+
+2.4  The Free Personal Licence is provided without charge, without any service
+     level, and without any obligation on us to provide support, updates, or
+     continued availability.
+
+--------------------------------------------------------------------------------
+3. COMMERCIAL LICENCE
+--------------------------------------------------------------------------------
+
+3.1  Commercial Use requires a current Commercial Licence. During Early Access
+     that licence is granted at no charge under clause 3A. Contact
+     hello@noirdeck.dev.
+
+3.2  Subject to payment of the applicable fees and your compliance with this
+     Agreement, we grant you a non-exclusive, non-transferable,
+     non-sublicensable licence to install and use the Software for Commercial
+     Use, limited to the number of Seats purchased, for the term purchased.
+
+3.3  Fees are stated at the time of purchase. Unless we agree otherwise in
+     writing, fees are exclusive of GST and other taxes, are payable in advance,
+     and are non-refundable except where the law requires otherwise.
+
+3.4  A Commercial Licence is granted to the entity named on the purchase. It may
+     not be assigned or transferred without our prior written consent, except to
+     a successor of substantially the whole of that entity's business on written
+     notice to us.
+
+3.5  We may verify compliance with Seat counts on reasonable written notice, no
+     more than once in any twelve month period, and by means that do not require
+     access to your systems or data. You agree to answer such a request honestly.
+     If verification shows under-licensing, you will purchase the shortfall for
+     the period concerned.
+
+--------------------------------------------------------------------------------
+4. RESTRICTIONS (BOTH LICENCES)
+--------------------------------------------------------------------------------
+
+You must not, and must not permit any other person to:
+
+
+3A.  EARLY ACCESS — COMMERCIAL USE AT NO CHARGE
+
+3A.1 During Early Access we grant you, on request and on issue of a licence key,
+     a Commercial Licence at no charge on the same terms as clause 3.2, except
+     that no fee is payable. Clause 3.3 does not apply while no fee is payable.
+
+3A.2 A no-charge Commercial Licence is subject to this Agreement in all other
+     respects, including the Seat, assignment, verification and termination
+     provisions.
+
+3A.3 Early Access ends on the date stated in a written notice given by us to the
+     email address associated with your licence key, being not less than 60 days
+     after that notice is sent. Until that date arrives, your use under clause
+     3A.1 remains at no charge.
+
+3A.4 After Early Access ends, continued Commercial Use requires a Commercial
+     Licence under clause 3. Your existing licence key remains valid until its
+     stated term expires; we will not shorten a term already granted.
+
+3A.5 Nothing in this clause obliges us to offer Early Access to any person, to
+     continue it for any period beyond the notice in 3A.3, or to grant or renew a
+     licence key.
+
+
+4.1  distribute, publish, sublicense, sell, rent, lease, lend, or otherwise make
+     the Software or any part of it available to any third party, whether
+     modified or not, and whether or not for charge;
+
+4.2  host or operate the Software as, or as part of, a service, platform, or
+     product made available to third parties;
+
+4.3  remove, obscure, or alter any copyright, licence, trade mark, or other
+     proprietary notice in the Software;
+
+4.4  circumvent, disable, or interfere with any Licence Key check, entitlement
+     check, or other technical measure in the Software, or use the Software
+     without a valid Licence Key where one is required;
+
+4.5  share, publish, resell, or otherwise disclose a Licence Key;
+
+4.6  reverse engineer, decompile, or disassemble the Software, except and only to
+     the extent that this restriction cannot lawfully be excluded, and in that
+     case only after giving us written notice and a reasonable opportunity to
+     supply the necessary information ourselves;
+
+4.7  use the Software to build, train, or improve a product or service that
+     competes with the Software; or
+
+4.8  use the Software in breach of any applicable law, or in any manner that
+     would expose us to liability.
+
+--------------------------------------------------------------------------------
+5. LICENCE KEYS
+--------------------------------------------------------------------------------
+
+5.1  Licence Keys are issued to a named person or entity and identify you. Keys
+     may carry an expiry date and may be reissued or renewed.
+
+5.2  The Software verifies your Licence Key locally on your own computer. Where
+     the Software cannot reach us to renew or check a key, it is designed to keep
+     working for a grace period. That behaviour is a convenience and is not a
+     grant of rights beyond those in this Agreement: continued operation during a
+     grace period does not make unlicensed use licensed.
+
+5.3  We may decline to issue or renew a key, and may revoke a key, where this
+     Agreement has been breached, where fees are unpaid, or where a key has been
+     shared or misused.
+
+--------------------------------------------------------------------------------
+6. OWNERSHIP
+--------------------------------------------------------------------------------
+
+6.1  The Software is licensed to you, not sold. We and our licensors retain all
+     right, title, and interest in and to the Software, including all
+     intellectual property rights in it.
+
+6.2  Access to source code does not transfer ownership and does not grant any
+     rights beyond those expressly stated in this Agreement. All rights not
+     expressly granted are reserved.
+
+6.3  You own the code, files, and other material you create using the Software.
+     We claim no rights in your work.
+
+6.4  If you send us feedback or suggestions, we may use them without obligation
+     or compensation to you.
+
+--------------------------------------------------------------------------------
+7. HOW THE SOFTWARE OPERATES, AND YOUR RESPONSIBILITY
+--------------------------------------------------------------------------------
+
+7.1  The Software runs on your computer and acts under your direction. It can run
+     other programs and artificial intelligence assistants that you configure, and
+     it can propose changes to your files which take effect only when you approve
+     them.
+
+7.2  You are responsible for what you instruct the Software to do, for reviewing
+     any change before you approve it, for the suitability of any output, and for
+     maintaining your own backups. Automated and AI-assisted output can be wrong.
+
+7.3  If you configure the Software to use a third-party artificial intelligence
+     provider or other third-party service, your content is transmitted to that
+     third party and handled under that third party's terms and privacy practices,
+     not ours. We are not responsible for those services.
+
+7.4  We do not receive, collect, or train on the code or content you process with
+     the Software.
+
+--------------------------------------------------------------------------------
+8. TERM AND TERMINATION
+--------------------------------------------------------------------------------
+
+8.1  The Free Personal Licence continues until terminated. A Commercial Licence
+     continues for the term purchased unless terminated earlier.
+
+8.2  You may terminate at any time by ceasing use and removing the Software.
+
+8.3  If you breach this Agreement, your licences terminate. Where the breach is
+     capable of being remedied, your licences will continue if you fully remedy
+     it, and take practical steps to correct past breaches, within 30 days of
+     receiving written notice from us.
+
+8.4  On termination you must stop using the Software and remove all copies.
+     Clauses 4, 6, 9, 10, 11, 12 and 13 survive termination.
+
+--------------------------------------------------------------------------------
+9. NO WARRANTY
+--------------------------------------------------------------------------------
+
+9.1  TO THE FULLEST EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED "AS IS" AND
+     "AS AVAILABLE", WITHOUT WARRANTY OR CONDITION OF ANY KIND, EXPRESS, IMPLIED,
+     OR STATUTORY, INCLUDING ANY WARRANTY OF MERCHANTABILITY, FITNESS FOR A
+     PARTICULAR PURPOSE, TITLE, OR NON-INFRINGEMENT.
+
+9.2  We do not warrant that the Software will be uninterrupted, error free,
+     secure, or that it will meet your requirements.
+
+--------------------------------------------------------------------------------
+10. CONSUMER LAW
+--------------------------------------------------------------------------------
+
+10.1 Nothing in this Agreement excludes, restricts, or modifies any right or
+     remedy you have under the New Zealand Consumer Guarantees Act 1993, the Fair
+     Trading Act 1986, or any other law, to the extent that it cannot lawfully be
+     excluded.
+
+10.2 Where you acquire the Software for the purposes of a business, the parties
+     agree that the Consumer Guarantees Act 1993 does not apply to that supply, to
+     the extent permitted by section 43 of that Act.
+
+10.3 If you are a consumer in a jurisdiction that grants you non-excludable
+     rights, those rights are unaffected by this Agreement.
+
+--------------------------------------------------------------------------------
+11. LIABILITY
+--------------------------------------------------------------------------------
+
+11.1 To the fullest extent permitted by law, we are not liable for any indirect,
+     incidental, special, consequential, or punitive loss, or for any loss of
+     profit, revenue, data, goodwill, or business interruption, however caused,
+     whether in contract, tort (including negligence), or otherwise, even if we
+     were advised of the possibility.
+
+11.2 To the fullest extent permitted by law, our total aggregate liability
+     arising out of or in connection with this Agreement is limited to:
+
+     (a) where the Software is used under the Free Personal Licence, NZ$100; or
+
+     (b) where the Software is used under a Commercial Licence, the fees you paid
+         to us for the Software in the twelve months immediately before the event
+         giving rise to the liability.
+
+11.3 Nothing in this clause limits liability that cannot lawfully be limited,
+     including liability for fraud or for death or personal injury caused by
+     negligence.
+
+--------------------------------------------------------------------------------
+12. GENERAL
+--------------------------------------------------------------------------------
+
+12.1 We may update this Agreement for future versions of the Software. The
+     version of this Agreement supplied with a given version of the Software
+     governs your use of that version. Continuing to use a new version after it is
+     supplied with updated terms is acceptance of those terms.
+
+12.2 This Agreement is the entire agreement between us about the Software and
+     supersedes any prior statement, including any statement on our website. Where
+     our website and this Agreement differ, this Agreement governs.
+
+12.3 If any provision is held unenforceable, it is severed and the rest continues
+     in force.
+
+12.4 A failure or delay in enforcing a right is not a waiver of it.
+
+12.5 Neither party is liable for failure to perform caused by events beyond its
+     reasonable control.
+
+--------------------------------------------------------------------------------
+13. GOVERNING LAW
+--------------------------------------------------------------------------------
+
+13.1 This Agreement is governed by the laws of New Zealand.
+
+13.2 The courts of New Zealand have non-exclusive jurisdiction over any dispute
+     arising out of or in connection with this Agreement.
+
+--------------------------------------------------------------------------------
+14. CONTACT
+--------------------------------------------------------------------------------
+
+Belton IT Nexus Limited, New Zealand
+Licensing enquiries: hello@noirdeck.dev

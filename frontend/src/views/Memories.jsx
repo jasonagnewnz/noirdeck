@@ -64,7 +64,7 @@ function Hygiene({ bump }) {
         )}
         {msg && <span className="chip hot">{msg}</span>}
       </div>
-      {!r && <div className="faint">namespace has no memory dir</div>}
+      {!r && <div className="faint">this project has no memories yet</div>}
       {r && (
         <>
           {r.skipped && <div className="dim">⚠ {r.skipped}</div>}
@@ -187,7 +187,6 @@ export default function Memories({ bump }) {
     (m) => !ql || m.name.toLowerCase().includes(ql) || (m.description || '').toLowerCase().includes(ql)
   )
   const [memPage, memPager] = usePager(mems, 50)
-  const [groupPage, groupPager] = usePager(data?.groups || [], 10)
   if (loading) return <div className="loading">reading memory namespaces</div>
   return (
     <>
@@ -209,32 +208,6 @@ export default function Memories({ bump }) {
 
       <div style={{ marginTop: 14 }}>
         <Hygiene bump={bump} />
-      </div>
-
-      <div className="panel" style={{ marginTop: 14 }}>
-        <h2>
-          Grouped themes — <b>common memory asks</b>
-        </h2>
-        <p className="sechint">
-          Clusters the miner spotted — repeated topics that may deserve one canonical memory file instead of many
-          overlapping ones.
-        </p>
-        {groupPage.map((g) => (
-          <details key={g.namespace + g.topic}>
-            <summary>
-              <span className="chip hot">{g.topic}</span> ×{g.count} in <span className="dim">{g.namespace}</span>
-            </summary>
-            <div style={{ padding: '6px 0 10px 14px' }}>
-              {g.members.map((m) => (
-                <div key={m} className="dim">
-                  · {m}
-                </div>
-              ))}
-            </div>
-          </details>
-        ))}
-        {(data.groups || []).length === 0 && <div className="faint">no clusters found</div>}
-        {groupPager}
       </div>
 
       <div className="panel">

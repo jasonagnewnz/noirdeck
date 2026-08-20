@@ -83,10 +83,18 @@ function AskBox({ launch }) {
   )
 }
 
+// ⛔ StartWorking DELETED 2026-08-19, one day after I added it. It was a project
+// picker plus a Start button — which is exactly what IntentBar already is, since
+// its submit only requires a project and not a typed prompt. I added a fifth front
+// door to fix an unclear front door instead of deleting the other four. Optimising
+// something that should have been deleted is the specific error the method warns
+// about, so this is the correction.
+
 export default function Overview({ overview: ov, bump, launch, onIntent }) {
   const { data: commits } = useData('/commits', bump)
   const { data: dg } = useData('/digest', bump)
   const { data: fleet } = useData('/fleet', bump)
+  const { data: health } = useData('/health', bump)
   if (!ov) return <div className="loading">getting your projects ready</div>
   const h = ov.history
   const peak = h.by_hour
@@ -96,7 +104,30 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
   return (
     <>
       <IntentBar fleet={fleet || []} onIntent={onIntent} />
-      <ToolPrompter fleet={fleet || []} onIntent={onIntent} />
+
+      {/* ⛔ A missing workspace and an EMPTY one both render as zero skills and zero
+          memories. Without this the console silently looks like an estate with
+          nothing in it, which is how the old hard-exit got "fixed" into a lie. */}
+      {health && health.claude_dir_ready === false && (
+        <div className="panel alarm">
+          <h2>Your AI workspace was not found</h2>
+          <p className="sechint">
+            Nothing was found at <code>{health.claude_dir}</code>, so skills, memories and history will stay empty.
+            Everything else works — live sessions, local models and background tasks are all fine without it. If Claude
+            Code lives somewhere else on this machine, point <code>NOIRDECK_CLAUDE_DIR</code> at it.
+          </p>
+        </div>
+      )}
+
+      {/* Demoted, not deleted. The essentials builder is genuinely useful — it is
+          the ten questions that turn "add payments" into a brief — but it is 289
+          lines of form that dominated the page a first-time user lands on, and it
+          is not how you START, it is what you reach for once you know what you
+          want. Closed by default; one click away. */}
+      <details className="home-extra">
+        <summary>Add something specific — payments, auth, hosting, email and seven more</summary>
+        <ToolPrompter fleet={fleet || []} onIntent={onIntent} />
+      </details>
 
       {dg && (
         <div className="panel reveal d1">
@@ -145,6 +176,22 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
           <div className="v">{ov.proposals_pending}</div>
         </div>
       </div>
+
+      {/* A cleartext credential in the workspace is the one finding that should
+          never wait for someone to go looking for it, so it interrupts Home
+          rather than sitting behind a menu. Shown only when there is something
+          unresolved. */}
+      {ov.secrets_open > 0 && (
+        <a className="panel alarm alarm-link" href="#secrets">
+          <h2>
+            {ov.secrets_open} credential {ov.secrets_open === 1 ? 'finding' : 'findings'} unresolved
+          </h2>
+          <p className="sechint">
+            Passwords or keys are sitting in cleartext where every session can read them, and where mining reads before
+            sending excerpts to a model. Open Credentials to see what and where — then rotate.
+          </p>
+        </a>
+      )}
 
       <div className="grid cols-2" style={{ marginTop: 14 }}>
         <div className="panel reveal d2">
@@ -296,7 +343,10 @@ function BackupDisclosure({ bump }) {
       <p className="sechint">
         {v.configured
           ? 'noirdeck keeps an encrypted copy of the work you cannot regenerate, and proves it by restoring a file and comparing it byte for byte after every run.'
-          : 'Backups are OFF — nothing is being copied anywhere. Point NOIRDECK_VAULT_REPO at a destination to turn them on.'}
+          : /* The backend already knows WHICH prerequisite is missing (repo unset,
+               passphrase file absent, or restic not installed). Naming only one of
+               them sends a fresh install to fix the wrong thing. */
+            `Backups are OFF — nothing is being copied anywhere.${v.reason ? ` Reason: ${v.reason}.` : ''} Backups need restic installed and NOIRDECK_VAULT_REPO pointed at a destination.`}
       </p>
       <div style={{ marginBottom: 8 }}>
         <span className="faint">restore verified: </span>

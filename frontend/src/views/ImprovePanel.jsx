@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, useData } from '../api.js'
+import { ConfirmButton } from '../ui.jsx'
 
 // change-status → existing pill vocabulary (queued=amber, done=quiet, dismissed=faint)
 const STATUS_PILL = { proposed: 'queued', merged: 'done', discarded: 'dismissed' }
@@ -38,15 +39,11 @@ export default function ImprovePanel({ bump }) {
     setPick('')
   }
 
+  // The merge TARGET is the repo's current branch, which is not always main — so it
+  // is named on the button itself (see mergeTarget below) instead of inside a dialog.
+  const mergeTarget = (c) => (fleet || []).find((f) => f.name === c.project)?.branch || 'the current branch'
+
   const decideChange = (c, action) => {
-    // say the real merge target — the merge lands on the repo's CURRENT
-    // branch, which is not always main
-    const target = (fleet || []).find((f) => f.name === c.project)?.branch
-    if (
-      action === 'merge' &&
-      !window.confirm(`Merge ${c.branch} into ${target ? `'${target}'` : 'the current branch'} of ${c.project}?`)
-    )
-      return
     call(
       `/improve/changes/${c.id}`,
       { action },
@@ -81,9 +78,17 @@ export default function ImprovePanel({ bump }) {
             </div>
           </details>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="act" disabled={busy} onClick={() => decideChange(c, 'merge')}>
-              merge
-            </button>
+            {/* The target branch is named ON the button: the merge lands on the
+                repo's CURRENT branch, which is not always main, and that was
+                previously only visible inside a dialog. */}
+            <ConfirmButton
+              className="act"
+              disabled={busy}
+              confirmLabel={`Merge into ${mergeTarget(c)}?`}
+              onConfirm={() => decideChange(c, 'merge')}
+            >
+              merge into {mergeTarget(c)}
+            </ConfirmButton>
             <button className="act ghost" disabled={busy} onClick={() => decideChange(c, 'discard')}>
               discard
             </button>
@@ -207,7 +212,7 @@ export default function ImprovePanel({ bump }) {
                 through the Proposals view (never written directly) */}
             {data.targets && data.assets && (
               <>
-                <div className="subsec">Estate targets — skills + memory, armed by you</div>
+                <div className="subsec">What it may touch — skills and memories you have allowed</div>
                 <div className="formrow" style={{ maxWidth: 620 }}>
                   <div>
                     <label className="fl" htmlFor="imp-tkind">

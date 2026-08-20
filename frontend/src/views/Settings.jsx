@@ -1,6 +1,7 @@
 import { useData } from '../api.js'
 import { THEMES } from '../ide/themes.js'
 import { ViewHead } from '../ui.jsx'
+import LocalModels from './LocalModels.jsx'
 
 // Everything the daily loop doesn't need. These are not lesser features — they
 // are lower-frequency ones, and putting them here keeps the rail honest about
@@ -28,6 +29,79 @@ const ADVANCED = [
     blurb: 'Repo health across the fleet, and the local-model pass that proposes small improvements.',
   },
 ]
+
+function BackgroundWork({ bump }) {
+  const { data } = useData('/scheduler', bump)
+  if (!data) return null
+  // ⛔ Nothing in the UI reported this before. Arming expires silently BY DESIGN,
+  // so "no tasks ran last night" and "the scheduler is not running at all" look
+  // identical from the outside — and the second one is a fault, not a quiet night.
+  return (
+    <div className="panel">
+      <h2>Background work</h2>
+      <p className="sechint">
+        Whether the recurring jobs are actually being run, and when each is next due. Arming contracts expire on
+        purpose, so a job being due is not a promise it will do anything — but a scheduler that is off will never even
+        try.
+      </p>
+      {/* The whole answer, first: a running scheduler with nothing armed runs
+          nothing, and vice versa. The API computes will_run so this screen and the
+          API can never disagree. */}
+      <div style={{ marginBottom: 8 }}>
+        {data.will_run ? (
+          <span className="pill PASS">unattended work will run</span>
+        ) : (
+          <span className="pill GAP">nothing will run — {data.blocked_by}</span>
+        )}
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <span className="faint">scheduler: </span>
+        {data.enabled ? (
+          <span className="pill PASS">running in this process</span>
+        ) : (
+          <span className="pill GAP">not running here</span>
+        )}{' '}
+        <span className="dim">— {data.mode}</span>
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <span className="faint">armed: </span>
+        {Object.entries(data.contracts || {}).filter(([, c]) => c.live).length === 0 ? (
+          <span className="dim">nothing</span>
+        ) : (
+          Object.entries(data.contracts || {})
+            .filter(([, c]) => c.live)
+            .map(([name, c]) => (
+              <span key={name} className="pill PASS" style={{ marginRight: 6 }}>
+                {name} until {(c.armed_until || '').slice(11, 16)}
+              </span>
+            ))
+        )}
+      </div>
+      {!data.enabled && (
+        <p className="faint">
+          In a source checkout the systemd timers own the schedule instead, so this is expected. On an installed copy it
+          means nothing recurring will run.
+        </p>
+      )}
+      <table>
+        <caption className="visually-hidden">Recurring jobs</caption>
+        <tbody>
+          {(data.jobs || []).map((j) => (
+            <tr key={j.name}>
+              <td>
+                <code>{j.name}</code>
+              </td>
+              <td className="dim">{j.schedule}</td>
+              <td className="faint">
+                {j.next_due ? `next ${j.next_due.slice(0, 16).replace('T', ' ')}` : 'not scheduled here'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export default function Settings({ bump, theme, onSetTheme }) {
   const { data: health } = useData('/health', bump)
@@ -99,6 +173,10 @@ export default function Settings({ bump, theme, onSetTheme }) {
           arm or disarm in Tasks →
         </a>
       </div>
+
+      <BackgroundWork bump={bump} />
+
+      <LocalModels bump={bump} />
 
       <div className="panel">
         <h2>Assistants</h2>

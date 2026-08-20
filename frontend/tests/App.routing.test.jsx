@@ -20,13 +20,13 @@ describe('hash routing', () => {
   it('renders the view named by the hash', async () => {
     window.location.hash = '#queue'
     render(<App />)
-    expect(await heading('Run later')).toBeInTheDocument()
+    expect(await heading('Tasks')).toBeInTheDocument()
   })
 
   it('only the part before the colon names the view (#help:queue → Help)', async () => {
     window.location.hash = '#help:queue'
     render(<App />)
-    expect(await heading('Help')).toBeInTheDocument()
+    expect(await heading('Guide')).toBeInTheDocument()
   })
 
   it('falls back to overview on an unknown hash', async () => {
@@ -40,20 +40,20 @@ describe('hash routing', () => {
   it('follows hashchange events (browser back/forward)', async () => {
     window.location.hash = '#queue'
     render(<App />)
-    expect(await heading('Run later')).toBeInTheDocument()
+    expect(await heading('Tasks')).toBeInTheDocument()
     await act(async () => {
       window.location.hash = '#help'
       window.dispatchEvent(new HashChangeEvent('hashchange'))
     })
-    expect(await heading('Help')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { level: 1, name: 'Run later' })).not.toBeInTheDocument()
+    expect(await heading('Guide')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1, name: 'Tasks' })).not.toBeInTheDocument()
   })
 })
 
 // The rail was trimmed to the daily loop. The risk in hiding a view is hiding
 // it *away* — these pin that the moved views are still fully reachable.
 describe('primary rail vs settings', () => {
-  // exact match, not a prefix regex — "Guide" is a prefix of "Guided Builds"
+  // exact match, not a prefix regex
   const railButton = (name) => screen.queryByRole('button', { name })
 
   it('keeps the rail to the daily loop plus settings', async () => {
@@ -61,11 +61,11 @@ describe('primary rail vs settings', () => {
     render(<App />)
     await screen.findByText('getting your projects ready')
 
-    for (const name of ['Home', 'Build Live', 'Guided Builds', 'Tasks', 'Review', 'History', 'Guide', 'Settings']) {
+    for (const name of ['Home', 'Build Live', 'Builds', 'Tasks', 'Review', 'History', 'Settings']) {
       expect(railButton(name)).toBeInTheDocument()
     }
     // the four moved views no longer occupy a slot
-    for (const name of ['Design', 'Helpers', 'Knowledge', 'Checks']) {
+    for (const name of ['Design', 'Skills', 'Memories', 'Checks', 'Guide']) {
       expect(railButton(name)).not.toBeInTheDocument()
     }
   })
@@ -90,5 +90,37 @@ describe('primary rail vs settings', () => {
     ]) {
       expect(screen.getByRole('link', { name: new RegExp(name) })).toHaveAttribute('href', hash)
     }
+  })
+})
+
+// ⛔ THE INVARIANT THAT WAS MISSING. Six of twelve nav items used to call the same
+// thing two different names — click "Knowledge", land on "Memories"; click "Tasks",
+// land on "Run later". Nothing caught it because each half was individually
+// correct. Pin the RELATIONSHIP, not the strings: whatever the rail says, the page
+// it opens must say the same word.
+describe('one word per concept', () => {
+  const RAIL = ['Home', 'Build Live', 'Builds', 'Tasks', 'Review', 'History']
+
+  it.each(RAIL)('the rail label "%s" matches the heading of the view it opens', async (label) => {
+    window.location.hash = ''
+    render(<App />)
+    const button = await screen.findByRole('button', { name: label })
+    await act(async () => button.click())
+    // Home is the only one allowed to differ: its H1 is the product hero, not a
+    // view title. Everything else must echo its own rail label exactly.
+    if (label === 'Home') return
+    expect(await screen.findByRole('heading', { level: 1, name: label })).toBeInTheDocument()
+  })
+})
+
+// Deleting from the rail must not delete the destination. The Guide left the daily
+// loop because a manual in primary navigation is the UI admitting it needs one —
+// but it is still a first-class view and must stay reachable by hash, or "demoted"
+// silently became "removed".
+describe('demoted, not deleted', () => {
+  it('the Guide is still reachable by its own hash', async () => {
+    window.location.hash = '#help'
+    render(<App />)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Guide' })).toBeInTheDocument()
   })
 })

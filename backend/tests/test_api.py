@@ -28,15 +28,25 @@ def test_api_smoke(tmp_path, monkeypatch, claude_dir):
     assert ov["skills"] == 1
     assert ov["history"]["total_prompts"] == 6
 
-    # heuristic mining stages proposals; approving one writes into the fixture claude dir
+    # The local pass stages the builder profile and NOTHING else. It must not
+    # invent skill drafts from repeated wording: the fixture history contains a
+    # prompt repeated 4x, which the old vocabulary heuristic would have turned
+    # into a skill proposal. Proposals for the operator's knowledge now require a
+    # model to have read the evidence (miner/runner.py + miner/evidence.py).
     mined = client.post("/api/mine").json()
     assert mined["proposals_created"] >= 1
+    assert mined["skill_candidates"] == 0
     props = client.get("/api/proposals", params={"status": "proposed"}).json()
-    skill_props = [p for p in props if p["kind"] == "skill"]
-    assert skill_props, "expected a skill-gap draft from the repeated fixture prompt"
-    pid = skill_props[0]["id"]
+    assert not [p for p in props if p["kind"] == "skill"], "string matching must never stage a skill draft"
+    profile = [p for p in props if p["kind"] == "profile_doc"]
+    assert profile, "expected the builder profile to be staged"
+    pid = profile[0]["id"]
     ok = client.post(f"/api/proposals/{pid}/approve", json={}).json()
-    assert ok["written_to"] and "skills/" in ok["written_to"]
+    assert ok["written_to"] and "builder-profile-noirdeck-" in ok["written_to"]
+
+    # create-only: re-approving the same target now that the file exists is refused
+    mined2 = client.post("/api/mine").json()
+    assert mined2["proposals_created"] == 0, "same-day profile must not be re-staged"
 
     # LLM mining refuses when unarmed
     llm = client.post("/api/mine/llm").json()
@@ -142,3 +152,39 @@ def test_design_capture_api(tmp_path, monkeypatch, claude_dir):
     captured = client.post("/api/design/capture", json={"project": "demo"}).json()
     assert captured["suggested_kit"] == "dashboard"
     assert "Capture the existing UI language" in captured["brief"]
+
+
+def test_queuing_a_task_arms_it_so_run_later_actually_runs(tmp_path, monkeypatch, claude_dir):
+    """⛔ Pressing "run later" used to accept the task and then never run it: the
+    runner needs a contract, and creating one was a separate screen with three
+    numbers to invent. Queuing IS the intent to run, so it arms with defaults."""
+    monkeypatch.setenv("NOIRDECK_CLAUDE_DIR", str(claude_dir))
+    monkeypatch.setenv("NOIRDECK_DB_PATH", str(tmp_path / "arm.db"))
+    monkeypatch.setenv("NOIRDECK_PROJECTS_DIR", str(tmp_path / "projects"))
+    repo = tmp_path / "projects" / "demo"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "-C", str(repo), "init", "-q", "-b", "main"], check=True)
+
+    import noirdeck.main as main
+
+    importlib.reload(main)
+    from fastapi.testclient import TestClient
+
+    client = TestClient(main.app)
+
+    before = client.get("/api/arming").json()["contracts"].get("overnight")
+    assert not (before and before.get("live")), "precondition: nothing armed"
+
+    out = client.post("/api/queue", json={"project": "demo", "title": "tidy the readme", "prompt": "do it"}).json()
+    assert out.get("id")
+    assert out.get("armed"), "the response must say what it armed, so it is visible and revocable"
+    assert out["armed"]["max_tasks"] and out["armed"]["max_tokens"], "a real budget, not an absent one"
+
+    after = client.get("/api/arming").json()["contracts"]["overnight"]
+    assert after["live"] is True
+
+    # queuing a SECOND task must not widen the contract the first one created
+    client.post("/api/queue", json={"project": "demo", "title": "second", "prompt": "do it"})
+    again = client.get("/api/arming").json()["contracts"]["overnight"]
+    assert again["max_tasks"] == after["max_tasks"], "an existing budget must never be topped up"
+    assert again["id"] == after["id"], "and must not be replaced"

@@ -51,7 +51,15 @@ def doctor(_args: argparse.Namespace) -> int:
     fatal = False
     try:
         settings = Settings.load()
-        _check("claude dir", True, str(settings.claude_dir))
+        # A missing workspace is a WARN, never a FAIL: the console is still useful
+        # with Codex or a local model, and refusing to start was the old bug.
+        _check(
+            "claude dir",
+            settings.claude_dir_ready,
+            str(settings.claude_dir)
+            if settings.claude_dir_ready
+            else f"{settings.claude_dir} not found — skills, memories and history will be empty",
+        )
         _check("database", True, str(settings.db_path))
         port_ok = _port_free(settings.port)
         _check(
@@ -148,6 +156,162 @@ def run_job(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_project(settings, given: str | None) -> tuple[str, Path] | tuple[None, None]:
+    """The project to work in: what was asked for, or the repo you are standing in.
+
+    Standing in a repo and having to name it is the kind of friction that makes a CLI
+    feel slower than a browser, so cwd is the default.
+    """
+    if given:
+        repo = (settings.projects_dir / given).resolve()
+        if not (repo.is_dir() and (repo / ".git").exists()):
+            print(f"noirdeck: no git repo named {given!r} under {settings.projects_dir}", file=sys.stderr)
+            return None, None
+        return given, repo
+    here = Path.cwd().resolve()
+    for candidate in (here, *here.parents):
+        if (candidate / ".git").exists():
+            if settings.projects_dir.resolve() in candidate.parents:
+                return candidate.name, candidate
+            print(
+                f"noirdeck: {candidate} is a git repo but not under {settings.projects_dir}; "
+                "pass --project or set NOIRDECK_PROJECTS_DIR",
+                file=sys.stderr,
+            )
+            return None, None
+    print("noirdeck: not inside a git repo — pass --project NAME", file=sys.stderr)
+    return None, None
+
+
+def do(args: argparse.Namespace) -> int:
+    """Give noirdeck a task from the terminal. No browser, no clicks.
+
+    Two modes, and the default is the impatient one:
+      noirdeck do "add retry to the sync"          -> runs now, streams, prints the verdict
+      noirdeck do "..." --later                    -> queues it for the unattended runner
+
+    Reuses the queue's own task path, so a terminal task gets exactly the same
+    treatment as a queued one: the context pack, the operating guardrails, the
+    PreToolUse guard, the staged plan/build/check for heavy work, and a structured
+    verdict. A second implementation would drift from it within a week.
+    """
+    import json
+
+    from .db import init_db
+
+    try:
+        settings = Settings.load()
+    except ConfigError as exc:
+        print(f"noirdeck: {exc}", file=sys.stderr)
+        return 1
+
+    name, repo = _resolve_project(settings, args.project)
+    if not name:
+        return 1
+
+    init_db(settings.db_path)
+    from .arming import DEFAULT_HOURS, DEFAULT_MAX_TASKS, DEFAULT_MAX_TOKENS, arm, status
+    from .db import connect, utcnow
+    from .licensing import allows
+
+    ok, why = allows("overnight")
+    if not ok:
+        print(f"noirdeck: {why}", file=sys.stderr)
+        return 2
+
+    title = args.task if len(args.task) <= 70 else args.task[:67] + "..."
+    conn = connect(settings.db_path)
+    try:
+        cur = conn.execute(
+            "INSERT INTO queue (project,title,prompt,status,created_at,weight) VALUES (?,?,?,?,?,?)",
+            (str(repo), title, args.task, "queued", utcnow(), args.depth),
+        )
+        task_id = cur.lastrowid
+        # Same rule as the console: queuing IS the intent to run, so arm if nothing is
+        # live, and never widen a contract the operator already set.
+        if not status(conn).get("overnight", {}).get("live"):
+            arm(conn, "overnight")
+            print(
+                f"armed for unattended work: {DEFAULT_HOURS:g}h, {DEFAULT_MAX_TASKS} tasks, "
+                f"{DEFAULT_MAX_TOKENS:,} tokens",
+                file=sys.stderr,
+            )
+        conn.commit()
+
+        if args.later:
+            print(json.dumps({"queued": task_id, "project": name, "title": title}))
+            return 0
+
+        print(f"noirdeck: working in {name} — {title}", file=sys.stderr)
+        from .overnight import run_task
+
+        task = conn.execute("SELECT * FROM queue WHERE id=?", (task_id,)).fetchone()
+        run_task(conn, settings, task)
+        row = conn.execute("SELECT status, verdict, question, tokens_out FROM queue WHERE id=?", (task_id,)).fetchone()
+    finally:
+        conn.close()
+
+    print(json.dumps(dict(row), default=str, indent=2))
+    # A blocked task asked you a question; that is not success, and a script should
+    # be able to tell without parsing prose.
+    return 0 if row["status"] == "done" else 1
+
+
+def status_cmd(args: argparse.Namespace) -> int:
+    """One screen of "is anything wrong", for people who live in a terminal.
+
+    Deliberately answers the questions the console answers on its Home page, in the
+    order they matter: leaked credentials first, then whether unattended work can
+    actually run, then what is waiting on you.
+    """
+    import json
+
+    from .db import connect, init_db
+
+    try:
+        settings = Settings.load()
+    except ConfigError as exc:
+        print(f"noirdeck: {exc}", file=sys.stderr)
+        return 1
+    init_db(settings.db_path)
+    from .arming import status as arming_status
+    from .licensing import status as licence_status
+
+    conn = connect(settings.db_path)
+    try:
+        secrets_open = conn.execute("SELECT COUNT(*) c FROM secret_findings WHERE status='open'").fetchone()["c"]
+        pending = conn.execute("SELECT COUNT(*) c FROM proposals WHERE status='proposed'").fetchone()["c"]
+        queue = {r["status"]: r["c"] for r in conn.execute("SELECT status, COUNT(*) c FROM queue GROUP BY status")}
+        contracts = arming_status(conn)
+    finally:
+        conn.close()
+
+    live = sorted(k for k, v in contracts.items() if v.get("live"))
+    report = {
+        "workspace": str(settings.claude_dir) if settings.claude_dir_ready else f"{settings.claude_dir} (NOT FOUND)",
+        "credential_findings_open": secrets_open,
+        "armed": live,
+        "reviews_waiting": pending,
+        "queue": queue,
+        "licensed": licence_status().get("licensed"),
+    }
+    if args.json:
+        print(json.dumps(report, indent=2))
+        return 0
+
+    # Worst news first. A status line that buries a leaked credential under a task
+    # count is a status line nobody should trust.
+    if secrets_open:
+        print(f"!  {secrets_open} credential finding(s) unresolved — noirdeck run secrets, then review")
+    print(f"   workspace : {report['workspace']}")
+    print(f"   armed     : {', '.join(live) if live else 'nothing (unattended work will not run)'}")
+    print(f"   reviews   : {pending} waiting")
+    print(f"   tasks     : {queue or 'none'}")
+    if not report["licensed"]:
+        print("   licence   : none installed (free during Early Access — request a key at noirdeck.dev)")
+    return 0 if not secrets_open else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="noirdeck", description="Local companion console for a Claude Code estate.")
     ap.add_argument("--version", action="version", version=f"noirdeck {VERSION}")
@@ -161,8 +325,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("doctor", help="check this machine's setup").set_defaults(func=doctor)
 
+    # The headless path. `do` is the whole point of having a CLI at all: a task from
+    # the terminal, no browser, no clicks, same spine as the console.
+    p_do = sub.add_parser("do", help="give noirdeck a task from the terminal")
+    p_do.add_argument("task", help="what you want, in a sentence")
+    p_do.add_argument("--project", help="repo name (default: the git repo you are standing in)")
+    p_do.add_argument("--later", action="store_true", help="queue it for the unattended runner instead of now")
+    p_do.add_argument("--depth", choices=["light", "heavy"], default=None, help="force staging depth")
+    p_do.set_defaults(func=do)
+
+    p_status = sub.add_parser("status", help="is anything wrong?")
+    p_status.add_argument("--json", action="store_true", help="machine-readable")
+    p_status.set_defaults(func=status_cmd)
+
     p_run = sub.add_parser("run", help="run one recurring job now")
-    p_run.add_argument("job", choices=["mine", "vault", "overnight", "improve"])
+    p_run.add_argument("job", choices=["mine", "vault", "overnight", "improve", "secrets"])
     p_run.set_defaults(func=run_job)
     return ap
 

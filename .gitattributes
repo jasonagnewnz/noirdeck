@@ -1,0 +1,11 @@
+# Files kept out of `git archive` — the release-repo export is built from an
+# archive of HEAD, so export-ignore is the mechanism that keeps internal
+# material out of the public-ready repo.
+#
+# PROJECT_PLAN.md: internal planning; names the operator throughout.
+# Issuance/custody runbooks: operational docs — where the signing key lives and
+# how keys are minted is need-to-know, not release content. The LICENCE itself
+# ships; these do not.
+PROJECT_PLAN.md export-ignore
+docs/ISSUING_LICENCES.md export-ignore
+docs/LICENCE_KEY_CUSTODY.md export-ignore

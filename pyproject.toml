@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "noirdeck"
-version = "0.26.0"
+version = "0.27.5"
 description = "Local-first companion console for a Claude Code estate"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,6 +15,21 @@ classifiers = [
   "Environment :: Console",
   "Environment :: Web Environment",
   "Intended Audience :: Developers",
+  # Source-available, NOT open source. The governing terms are the bespoke NOIRDECK
+  # SOFTWARE LICENCE AGREEMENT in ./LICENSE (v1.1) — free for personal use, and free
+  # for commercial use during Early Access under cl. 3A. This comment previously
+  # named PolyForm Internal Use 1.0.0, which appears nowhere in that agreement; the
+  # `license` field above has always pointed at the real file, but the stale comment
+  # would have told the next reader the wrong terms govern. No OSI-approved
+  # classifier fits, and claiming one would misrepresent the licence on PyPI.
+  "License :: Other/Proprietary License",
+  # ⛔ POSIX only, and this is not a preference. workspace.py imports pty, termios
+  # and fcntl at module top level and main.py imports workspace, so on native
+  # Windows noirdeck fails at IMPORT time — there is nothing to install. Windows
+  # users run it under WSL, which is Linux. Do not add a Windows classifier without
+  # a ConPTY implementation behind it.
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS :: MacOS X",
   "Programming Language :: Python :: 3.12",
   "Topic :: Software Development :: Quality Assurance",
 ]
@@ -23,6 +38,9 @@ dependencies = [
   "uvicorn[standard]>=0.52.3",
   "watchfiles>=1.0.4",
   "PyYAML>=6.0.2",
+  # Ed25519 verification for licence keys. Vetted library, never hand-rolled
+  # crypto — see backend/noirdeck/licensing.py.
+  "cryptography>=44",
 ]
 
 [project.optional-dependencies]

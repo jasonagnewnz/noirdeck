@@ -73,6 +73,11 @@ export default function TermPane({ sid, injectPrompt }) {
   const holder = useRef(null)
   const termRef = useRef(null)
   const [copied, setCopied] = useState(null) // 'screen' | 'session' | null
+  // Scroll state drives the Top/Bottom controls. `alt` matters: a full-screen
+  // TUI (Claude Code, vim) runs in xterm's ALTERNATE buffer, which has no
+  // scrollback at all — so jumping is genuinely impossible there, and the
+  // buttons say so rather than looking broken when a click does nothing.
+  const [scroll, setScroll] = useState({ atTop: true, atBottom: true, alt: false, lines: 0 })
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reconnecting a PTY is keyed by sid; injectPrompt is a one-shot paste when the socket opens.
   useEffect(() => {
@@ -97,6 +102,23 @@ export default function TermPane({ sid, injectPrompt }) {
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(holder.current)
+
+    // Keep the scroll controls honest about where we actually are. viewportY is
+    // the absolute buffer line at the top of the screen; baseY is that value
+    // when scrolled fully down — so equality means "at the bottom".
+    const syncScroll = () => {
+      const buf = term.buffer.active
+      setScroll({
+        atTop: buf.viewportY === 0,
+        atBottom: buf.viewportY >= buf.baseY,
+        alt: buf.type === 'alternate',
+        lines: buf.baseY,
+      })
+    }
+    const scrollSub = term.onScroll(syncScroll)
+    const writeSub = term.onWriteParsed(syncScroll)
+    const bufSub = term.buffer.onBufferChange(syncScroll)
+    syncScroll()
 
     // GPU renderer: the default DOM renderer ghosts and tears rows during fast
     // scroll. WebGL composites the whole grid per frame, so scrolling stays
@@ -166,6 +188,9 @@ export default function TermPane({ sid, injectPrompt }) {
       if (injectTimer) clearTimeout(injectTimer)
       ro.disconnect()
       themeObserver.disconnect()
+      scrollSub.dispose()
+      writeSub.dispose()
+      bufSub.dispose()
       sub.dispose()
       ws.close()
       if (webgl) webgl.dispose()
@@ -216,9 +241,59 @@ export default function TermPane({ sid, injectPrompt }) {
     copyText(readBufferText(term, 0, term.buffer.active.length), 'session')
   }, [copyText])
 
+  const scrollTop = useCallback(() => {
+    const term = termRef.current
+    if (term) term.scrollToTop()
+  }, [])
+
+  const scrollBottom = useCallback(() => {
+    const term = termRef.current
+    if (!term) return
+    term.scrollToBottom()
+    term.focus() // back to the bottom means back to typing
+  }, [])
+
+  // In the alternate buffer there is no history to move through, so both
+  // controls are disabled with the reason in the tooltip. Otherwise Top is dead
+  // only when already at the top, and Bottom only when already at the bottom.
+  const noHistory = scroll.alt || scroll.lines === 0
+  const jumpHint = scroll.alt
+    ? 'The running program owns the full screen (alternate buffer), which keeps no scrollback — there is no history to jump through'
+    : scroll.lines === 0
+      ? 'Nothing has scrolled off screen yet'
+      : null
+
   return (
     <div className="termpane-wrap">
       <div className="termpane-toolbar">
+        {/* No role="group": each button already carries its own accessible name
+            and tooltip, and a fieldset here would fight the toolbar layout. */}
+        <div className="term-scroll-group">
+          <button
+            type="button"
+            className="term-copy-btn"
+            onClick={scrollTop}
+            disabled={noHistory || scroll.atTop}
+            title={jumpHint || 'Jump to the start of the scrollback'}
+          >
+            ↑ Top
+          </button>
+          <button
+            type="button"
+            className="term-copy-btn"
+            onClick={scrollBottom}
+            disabled={noHistory || scroll.atBottom}
+            title={jumpHint || 'Jump to the live end of the session'}
+          >
+            ↓ Bottom
+          </button>
+          {!noHistory && !scroll.atBottom && (
+            <span className="term-scroll-flag" title="The session is still writing below this point">
+              scrolled back
+            </span>
+          )}
+        </div>
+        <div className="term-toolbar-spacer" />
         <button
           type="button"
           className="term-copy-btn"
@@ -231,7 +306,7 @@ export default function TermPane({ sid, injectPrompt }) {
           type="button"
           className="term-copy-btn"
           onClick={copySession}
-          title="Copy the whole session (scrollback + screen) to the clipboard"
+          title="Copy everything, including what has scrolled off the top"
         >
           {copied === 'session' ? 'Copied ✓' : 'Copy session'}
         </button>

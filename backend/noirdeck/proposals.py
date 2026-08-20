@@ -1,5 +1,18 @@
 """Propose → approve → execute. Approval is the ONLY path that writes into ~/.claude.
-Targets are allowlisted, traversal-checked, never silently overwritten, and audited."""
+Targets are allowlisted, traversal-checked, CREATE-ONLY, and audited.
+
+⛔ CREATE-ONLY is the operator's standing rule (2026-08-19): noirdeck may READ the
+knowledge tree and ADD its own files to it, and may never modify a file it did not
+create — not autonomously, and not with approval either. There is deliberately no
+overwrite escape hatch on approve(): a proposal whose target already exists is
+refused outright. The reason is that an approval is a click, and a click is a poor
+record of intent when what it silently replaced was a governance file that every
+other session on the estate obeys. If the improved version of an existing file is
+worth having, it lands beside the original under its own name and a human merges it.
+
+revert() keeps an overwrite flag, which is a different thing: it guards against
+destroying edits made AFTER an apply. Under create-only, revert of a new proposal
+only ever removes a file noirdeck itself created."""
 
 from __future__ import annotations
 
@@ -41,7 +54,9 @@ def _resolve_target(claude_dir: Path, target_path: str) -> Path:
     raise ProposalError(f"target_path outside allowed roots {roots}: {target_path}")
 
 
-def approve(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int, overwrite: bool = False) -> dict:
+def approve(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int) -> dict:
+    """Apply a proposal. Create-only: an existing target is refused, with no flag
+    that relaxes it. See the module docstring for why there is no overwrite."""
     row = conn.execute("SELECT * FROM proposals WHERE id=?", (proposal_id,)).fetchone()
     if not row:
         raise ProposalError(f"no proposal {proposal_id}")
@@ -49,22 +64,20 @@ def approve(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int, overwr
         raise ProposalError(f"proposal {proposal_id} already {row['status']}")
 
     written_to = None
-    prior_body = None
-    prior_existed = 0
     if row["target_path"]:
         target = _resolve_target(claude_dir, row["target_path"])
         if target.exists():
-            if not overwrite:
-                raise ProposalError(f"target exists (pass overwrite=true to replace): {row['target_path']}")
-            prior_body = target.read_text()
-            prior_existed = 1
+            raise ProposalError(
+                f"create-only: {row['target_path']} already exists and noirdeck never replaces a file "
+                "it did not create. Apply this by hand, or dismiss it."
+            )
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(row["body"])
         written_to = str(target)
 
     conn.execute(
         "UPDATE proposals SET status='approved', decided_at=?, prior_body=?, prior_existed=? WHERE id=?",
-        (utcnow(), prior_body, prior_existed, proposal_id),
+        (utcnow(), None, 0, proposal_id),
     )
     audit(
         conn, "operator", "proposal_approved", f"id={proposal_id} kind={row['kind']} target={row['target_path'] or '-'}"

@@ -33,3 +33,31 @@ def test_plain_text_untouched():
     clean, counts = redact("deploy the invoice sync to staging and run tests")
     assert clean == "deploy the invoice sync to staging and run tests"
     assert counts == {}
+
+
+def test_redacts_env_var_shaped_secrets():
+    """Regression: `\\b` never matches at an underscore, because `_` is a word
+    character. `\\bpassword\\b` therefore could not match the PASSWORD inside
+    DB_PASSWORD, so SCREAMING_SNAKE_CASE=value — the commonest shape a secret
+    takes in terminal output and .env files — passed through unredacted."""
+    for line in (
+        "DB_PASSWORD=hunter2xyz",
+        "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIKEXAMPLEKEY1",
+        "NOIRDECK_API_KEY=zzzzzzzzzzzz",
+        "export STRIPE_SECRET_KEY=sk_live_51H8xQ2eZvKYlo2C0abcdef",
+        "MY_DB_TOKEN: supersecretvalue",
+    ):
+        clean, counts = redact(line)
+        assert counts, f"not redacted: {line}"
+        assert "hunter2xyz" not in clean
+        assert "wJalrXUtnFEMIKEXAMPLEKEY1" not in clean
+        assert "supersecretvalue" not in clean
+
+
+def test_does_not_over_redact_benign_lines():
+    """Over-redaction is the safe direction, but a consultant that only ever
+    sees [REDACTED] is useless — keep ordinary output readable."""
+    for line in ("TOKEN_COUNT=1500", "running 32 tests, all passed"):
+        clean, counts = redact(line)
+        assert counts == {}, f"over-redacted: {line}"
+        assert clean == line

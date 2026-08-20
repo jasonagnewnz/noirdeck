@@ -37,10 +37,21 @@ def test_approve_rejects_traversal_and_outside_roots(conn, claude_dir):
             approve(conn, claude_dir, pid)
 
 
-def test_approve_refuses_silent_overwrite(conn, claude_dir):
-    pid = _insert(conn, "skills/deploy-wazuh/SKILL.md")  # exists in fixture
-    with pytest.raises(ProposalError, match="exists"):
+def test_approve_is_create_only_and_has_no_escape_hatch(conn, claude_dir):
+    """The operator's rule: noirdeck adds files, it never modifies one it did not
+    create — and approval is not a way around that."""
+    target = "skills/deploy-wazuh/SKILL.md"  # exists in fixture
+    original = (claude_dir / target).read_text()
+    pid = _insert(conn, target)
+    with pytest.raises(ProposalError, match="create-only"):
         approve(conn, claude_dir, pid)
+    assert (claude_dir / target).read_text() == original, "existing file must be untouched"
+    # there is no overwrite parameter to reach for
+    import inspect
+
+    assert "overwrite" not in inspect.signature(approve).parameters
+    # and the proposal stays actionable (dismissible), not silently consumed
+    assert list_proposals(conn, "proposed")[0]["id"] == pid
 
 
 def test_double_decision_blocked(conn, claude_dir):
@@ -56,12 +67,18 @@ def test_double_decision_blocked(conn, claude_dir):
 from noirdeck.proposals import revert  # noqa: E402
 
 
-def test_revert_restores_overwritten_content(conn, claude_dir):
+def test_revert_restores_legacy_overwritten_content(conn, claude_dir):
+    """Rows approved BEFORE create-only landed can carry prior_existed=1. Undo
+    must still restore those, or an old approval becomes unrevertable."""
     target = "skills/deploy-wazuh/SKILL.md"  # exists in fixture
     original = (claude_dir / target).read_text()
     pid = _insert(conn, target)
-    approve(conn, claude_dir, pid, overwrite=True)
-    assert (claude_dir / target).read_text() == "BODY"
+    # simulate a pre-create-only approval that replaced the file
+    (claude_dir / target).write_text("BODY")
+    conn.execute(
+        "UPDATE proposals SET status='approved', prior_body=?, prior_existed=1 WHERE id=?",
+        (original, pid),
+    )
 
     out = revert(conn, claude_dir, pid)
     assert out["outcome"] == "restored previous content"

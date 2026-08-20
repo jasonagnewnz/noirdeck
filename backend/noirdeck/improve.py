@@ -25,7 +25,7 @@ import subprocess
 import tempfile
 import threading
 import urllib.request
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .config import Settings
 from .db import audit, connect, utcnow
@@ -153,6 +153,18 @@ def safe_asset(claude_dir: Path, target_path: str) -> Path | None:
     return p if p.is_file() and p.suffix == ".md" else None
 
 
+PROPOSED_SUFFIX = ".noirdeck-proposed"
+
+
+def _sibling_target(target_path: str) -> str:
+    """Where an improvement to an existing file lands: beside it, under its own
+    name. Create-only approval forbids replacing the original, and a filename
+    that is not SKILL.md is not loaded by the harness, so the sibling cannot
+    change any session's behaviour before a human merges it."""
+    p = PurePosixPath(target_path)
+    return str(p.with_name(f"{p.stem}{PROPOSED_SUFFIX}{p.suffix}"))
+
+
 def _frontmatter_block(text: str) -> str | None:
     if not text.startswith("---\n"):
         return None
@@ -185,10 +197,19 @@ def improve_asset_one(settings: Settings, conn, target: dict, model: str | None 
     path = safe_asset(settings.claude_dir, target["target_path"])
     if path is None:
         return {"skipped": label, "reason": "target missing or outside the write allowlist"}
+    # Proposals now carry the SIBLING path, so dedup must ask about that path —
+    # asking about the original would never match and every run would re-propose.
+    sibling = _sibling_target(target["target_path"])
     if conn.execute(
-        "SELECT 1 FROM proposals WHERE target_path=? AND status='proposed'", (target["target_path"],)
+        "SELECT 1 FROM proposals WHERE target_path IN (?,?) AND status='proposed'",
+        (sibling, target["target_path"]),
     ).fetchone():
         return {"skipped": label, "reason": "a proposal for this target is already pending"}
+    if (path.parent / Path(sibling).name).exists():
+        return {
+            "skipped": label,
+            "reason": "an earlier proposal for this file is still sitting unmerged beside it",
+        }
     original = path.read_text(errors="replace")
     if len(original) > MAX_ASSET_BYTES:
         return {"skipped": label, "reason": f"file too large ({len(original)} > {MAX_ASSET_BYTES} bytes)"}
@@ -220,13 +241,19 @@ def improve_asset_one(settings: Settings, conn, target: dict, model: str | None 
             tofile=target["target_path"] + " (proposed)",
         )
     )
+    # Create-only (proposals.py): approval never replaces a file noirdeck did not
+    # create, so an improvement lands BESIDE the original under its own name. The
+    # diff above is what the operator actually reviews; the sibling is there to
+    # merge from. A non-SKILL.md/non-frontmatter name is inert to the harness, so
+    # writing it cannot change how any session behaves.
+    proposed_path = _sibling_target(target["target_path"])
     cur = conn.execute(
         "INSERT INTO proposals (kind, title, body, target_path, diff, created_at) VALUES (?,?,?,?,?,?)",
         (
             f"improve_{target['kind']}",
             f"improve({target['kind']}): {target['target_path']}",
             content,
-            target["target_path"],
+            proposed_path,
             diff[:60_000],
             utcnow(),
         ),

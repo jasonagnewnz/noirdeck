@@ -29,6 +29,27 @@ jobs:
           rm -rf backend/noirdeck/web
           cp -r frontend/dist backend/noirdeck/web
 
+      # The issuer public key is baked in HERE, not in the checked-in source.
+      # A source checkout must stay unlicensed so contributors and the test suite
+      # can run without a keypair; a published wheel must be licensed. Keeping the
+      # value out of git is what makes both true at once.
+      - name: Bake the issuer public key into the build
+        env:
+          PUBKEY: ${{ vars.NOIRDECK_ISSUER_PUBKEY }}
+        run: |
+          test -n "$PUBKEY" || { echo "::error::NOIRDECK_ISSUER_PUBKEY repo variable is not set"; exit 1; }
+          python - <<'EOF'
+          import os, pathlib, re
+          p = pathlib.Path("backend/noirdeck/licensing.py")
+          s = p.read_text()
+          s2 = re.sub(r'^_BAKED_ISSUER_PUBLIC_KEY = ""',
+                      f'_BAKED_ISSUER_PUBLIC_KEY = "{os.environ["PUBKEY"]}"', s, count=1, flags=re.M)
+          assert s2 != s, "could not find the placeholder to replace"
+          p.write_text(s2)
+          EOF
+          # Fail loudly rather than ship a wheel with licensing switched off.
+          python -c "import re,pathlib; t=pathlib.Path('backend/noirdeck/licensing.py').read_text(); m=re.search(r'_BAKED_ISSUER_PUBLIC_KEY = \"([^\"]*)\"', t); assert m and m.group(1), 'issuer key not baked'; print('baked issuer key, length', len(m.group(1)))"
+
       - name: Build wheel + sdist
         run: |
           pip install build
@@ -48,6 +69,25 @@ jobs:
           /tmp/smoke/bin/noirdeck --version
           # the SPA must be inside the wheel, not resolved from this checkout
           /tmp/smoke/bin/python -c "import noirdeck.paths as p; assert p.web_dir() is not None, 'SPA missing from wheel'"
+          # A wheel whose licensing is inactive would hand every paid feature away.
+          /tmp/smoke/bin/python -c "import noirdeck.licensing as l; assert l.active(), 'wheel shipped with licensing INACTIVE'; print('licensing active in wheel')"
+          # ⛔⛔ The guard shipped ABSENT from every wheel until 2026-08-19: it lived in
+          # ops/, which is not packaged, so guard_settings_args() returned [] and every
+          # unattended session ran with acceptEdits and no hook. It passed all tests
+          # because tests run in a checkout where ops/ exists. Assert against the
+          # INSTALLED package, and prove it actually denies rather than merely existing.
+          /tmp/smoke/bin/python -c "
+          from noirdeck.guard import guard_available, guard_settings_args, GUARD_SCRIPT
+          assert guard_available(), f'guard MISSING from wheel at {GUARD_SCRIPT}'
+          args = guard_settings_args()
+          assert args and args[0] == '--settings', 'guard produced no hook settings'
+          print('guard present in wheel:', GUARD_SCRIPT)
+          "
+          # and it must actually refuse a write into the operator's workspace
+          echo '{"tool_name":"Write","tool_input":{"file_path":"'"$HOME"'/.claude/CLAUDE.md","content":"x"}}' \
+            | /tmp/smoke/bin/python "$(/tmp/smoke/bin/python -c 'from noirdeck.guard import GUARD_SCRIPT; print(GUARD_SCRIPT)')" \
+            && { echo "::error::the packaged guard ALLOWED a write to CLAUDE.md"; exit 1; } \
+            || echo "packaged guard denies knowledge-tree writes"
 
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
@@ -80,12 +120,12 @@ jobs:
       # key to hold or rotate. Signs the SBOM too — an unattributable SBOM is
       # one of the 17 minimum elements missing.
       - name: Sign artifacts and SBOM
-        uses: sigstore/gh-action-sigstore-python@f7ad0af51a5648d09a20d00370f0a91c3bdf8f84 # v3.0.1
+        uses: sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9 # v3.5.0
         with:
           inputs: ./dist/*.whl ./dist/*.tar.gz ./dist/sbom.cyclonedx.json
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           # trusted publishing (OIDC) — no API token stored anywhere
           skip-existing: true
@@ -95,7 +135,7 @@ jobs:
           attestations: false
 
       - name: Create the GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: dist/*
           generate_release_notes: true

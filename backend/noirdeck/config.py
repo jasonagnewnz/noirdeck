@@ -43,12 +43,31 @@ class Settings:
     mining_armed: bool
     overnight_armed: bool
     mine_max_batches: int
+    # Whether the AI workspace actually exists. Not fatal — a first run without
+    # Claude Code is legitimate — but the UI and `doctor` must be able to say so,
+    # because "no skills, no memories" and "no workspace" look identical otherwise
+    # and silence would read as an empty estate rather than a missing one.
+    claude_dir_ready: bool = True
 
     @classmethod
     def load(cls) -> "Settings":
+        # ⛔ This used to raise when ~/.claude was absent, which meant a
+        # brand-new install exited 1 instead of starting — for ANY runner. The
+        # product advertises Codex, Ollama and "bring your own CLI", none of
+        # which need a Claude directory, and the error named `doctor` as the
+        # remedy when doctor can only diagnose. An EMPTY directory works fine
+        # (every reader is is_dir()-guarded), so absence must never be fatal.
+        # projects_dir has always been unvalidated; claude_dir now matches.
         claude_dir = _path("NOIRDECK_CLAUDE_DIR", "~/.claude")
-        if not claude_dir.is_dir():
-            raise ConfigError(f"NOIRDECK_CLAUDE_DIR does not exist: {claude_dir}")
+        explicitly_set = bool(os.environ.get("NOIRDECK_CLAUDE_DIR"))
+        if not claude_dir.is_dir() and not explicitly_set:
+            # Only ever create the DEFAULT location. If someone named a directory
+            # explicitly and it is not there, that is likely a typo and inventing
+            # it would hide their mistake — so it is surfaced, not fabricated.
+            try:
+                claude_dir.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                pass  # reported via claude_dir_ready, never fatal
         projects_dir = _path("NOIRDECK_PROJECTS_DIR", "~/projects")
         db_raw = os.environ.get("NOIRDECK_DB_PATH")
         # A relative override resolves against the data home for the current
@@ -59,6 +78,7 @@ class Settings:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return cls(
             claude_dir=claude_dir,
+            claude_dir_ready=claude_dir.is_dir(),
             projects_dir=projects_dir,
             db_path=db_path,
             port=int(os.environ.get("NOIRDECK_PORT", "4747")),

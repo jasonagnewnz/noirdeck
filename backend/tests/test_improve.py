@@ -101,7 +101,7 @@ def test_run_improver_fail_closed(env, monkeypatch):
     monkeypatch.setenv("NOIRDECK_IMPROVER_ARMED", "true")
     monkeypatch.setattr(improve, "available_models", lambda: ["qwen2.5-coder:7b"])
     out = improve.run_improver(s)  # armed but NO contract → halted before any work
-    assert out.get("halted") and "no arming contract" in out["halted"]
+    assert out.get("halted") and "not armed" in out["halted"]
 
 
 def test_per_repo_model_reaches_generate_and_change_row(env, monkeypatch):
@@ -263,11 +263,19 @@ def test_improve_asset_one_proposes_via_spine_and_dedups(env, monkeypatch):
     # a pending proposal blocks a duplicate
     out2 = improve.improve_asset_one(s, conn, target)
     assert out2["skipped"] and "already pending" in out2["reason"]
-    # approval (with overwrite — target exists) writes through the spine
+    # create-only: the proposal targets a SIBLING, and approval leaves the
+    # original file exactly as it was
     from noirdeck.proposals import approve
 
-    approve(conn, s.claude_dir, prop["id"], overwrite=True)
-    assert "Run the rollout." in (s.claude_dir / "skills/deploy-wazuh/SKILL.md").read_text()
+    assert prop["target_path"] == "skills/deploy-wazuh/SKILL.noirdeck-proposed.md"
+    approve(conn, s.claude_dir, prop["id"])
+    sibling = s.claude_dir / "skills/deploy-wazuh/SKILL.noirdeck-proposed.md"
+    assert "Run the rollout." in sibling.read_text()
+    assert (s.claude_dir / "skills/deploy-wazuh/SKILL.md").read_text() == SKILL_MD
+
+    # a sibling left unmerged suppresses re-proposing the same file
+    out3 = improve.improve_asset_one(s, conn, target)
+    assert out3["skipped"] and "unmerged" in out3["reason"]
 
 
 def test_run_improver_only_touches_armed_targets(env, monkeypatch):

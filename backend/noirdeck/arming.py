@@ -43,8 +43,23 @@ def _is_live(row: sqlite3.Row | None) -> bool:
     return True
 
 
+# ⛔ Sensible defaults, not an absent limit. Queuing one task used to require filling
+# in hours, max_tasks and max_tokens first — ~11 interactions before the product did
+# anything, and the numbers are ones a new operator has no basis to choose. These are
+# deliberately modest: an overnight window, a handful of tasks, a bounded spend. The
+# contract is still expiring, still budgeted, still re-checked before every task; the
+# only thing removed is the requirement to invent the numbers up front.
+DEFAULT_HOURS = 8.0
+DEFAULT_MAX_TASKS = 5
+DEFAULT_MAX_TOKENS = 300_000
+
+
 def arm(
-    conn: sqlite3.Connection, subsystem: str, hours: float, max_tasks: int | None = None, max_tokens: int | None = None
+    conn: sqlite3.Connection,
+    subsystem: str,
+    hours: float = DEFAULT_HOURS,
+    max_tasks: int | None = DEFAULT_MAX_TASKS,
+    max_tokens: int | None = DEFAULT_MAX_TOKENS,
 ) -> dict:
     if subsystem not in SUBSYSTEMS:
         raise ArmingError(f"unknown subsystem {subsystem!r}")
@@ -82,7 +97,7 @@ def check(conn: sqlite3.Connection, subsystem: str) -> tuple[bool, str]:
     """(allowed, reason). The runner gate — call before every task."""
     row = _active_row(conn, subsystem)
     if row is None:
-        return False, "no arming contract — arm from the Overnight Queue view"
+        return False, f"not armed: {subsystem} has no live contract, so nothing will run unattended"
     if not _is_live(row):
         if datetime.fromisoformat(row["armed_until"]) <= _now():
             return False, f"contract expired {row['armed_until']}"

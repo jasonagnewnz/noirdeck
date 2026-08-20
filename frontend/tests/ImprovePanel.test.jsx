@@ -61,23 +61,29 @@ describe('ImprovePanel', () => {
     expect(await screen.findByRole('button', { name: 'run now' })).toBeEnabled()
   })
 
-  it('merge confirm names the repo CURRENT branch from fleet, not main', async () => {
+  // The assertion that matters is unchanged: the user must be told which branch the
+  // merge lands on, because it is the repo's CURRENT branch and not always main. Only
+  // the MECHANISM changed — the branch is now named on the button and in the inline
+  // confirmation, instead of inside a window.confirm nobody could style or read.
+  it('the merge control names the repo CURRENT branch from fleet, not main', async () => {
     IMPROVE.changes = [change()]
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     render(<ImprovePanel bump={0} />)
-    fireEvent.click(await screen.findByRole('button', { name: 'merge' }))
-    expect(confirm).toHaveBeenCalledOnce()
-    expect(confirm.mock.calls[0][0]).toContain("'dev'")
-    // declined confirm must not post the merge
+    // the branch is visible BEFORE any click
+    const button = await screen.findByRole('button', { name: /merge into dev/i })
+    fireEvent.click(button)
+    // and again in the inline confirmation
+    expect(await screen.findByText(/Merge into dev\?/i)).toBeInTheDocument()
+    // declining must not post the merge
+    fireEvent.click(await screen.findByRole('button', { name: 'No' }))
     expect(calls.some(([u]) => u === '/api/improve/changes/7')).toBe(false)
     IMPROVE.changes = []
   })
 
   it('confirmed merge posts the action to the change endpoint', async () => {
     IMPROVE.changes = [change()]
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     render(<ImprovePanel bump={0} />)
-    fireEvent.click(await screen.findByRole('button', { name: 'merge' }))
+    fireEvent.click(await screen.findByRole('button', { name: /merge into dev/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes' }))
     await screen.findByText('change #7 merged')
     const [, opts] = calls.find(([u]) => u === '/api/improve/changes/7')
     expect(JSON.parse(opts.body)).toEqual({ action: 'merge' })

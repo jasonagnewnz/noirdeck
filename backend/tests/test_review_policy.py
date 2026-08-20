@@ -20,7 +20,7 @@ def test_security_path_always_reviews_even_tiny():
         "app/auth.py",
         "backend/app/proposals.py",
         "lib/token_store.js",
-        "ops/pipeline-guard.py",
+        "backend/noirdeck/pipeline_guard.py",
         "app/arming.py",
     ):
         needed, reason = review_needed(1, [f], "PASS", [])

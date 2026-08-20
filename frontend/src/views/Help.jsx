@@ -16,6 +16,7 @@ const SECTIONS = [
   ['proposals', 'Review'],
   ['queue', 'Tasks'],
   ['quality', 'Checks'],
+  ['secrets', 'Credentials'],
   ['safety', 'The safety model'],
   ['automation', 'Background automation'],
   ['keys', 'Keyboard & palette'],
@@ -51,7 +52,7 @@ export default function Help() {
   return (
     <>
       <ViewHead
-        title="Help"
+        title="Guide"
         hint="The full manual — what each view does, how the safety model works, and what runs while you sleep."
       />
 
@@ -355,6 +356,34 @@ export default function Help() {
         </ul>
       </Sec>
 
+      <Sec id="secrets" title="Credentials">
+        <p>
+          Passwords, API keys and tokens have a way of ending up in notes. A prompt like &ldquo;the password is
+          hunter2&rdquo; becomes a transcript, a transcript becomes a memory file, and that file then loads into every
+          session you run. This view finds those and tells you where they are.
+        </p>
+        <p>
+          It runs nightly at 02:00, deliberately ahead of mining at 02:30 — mining reads the same files and sends
+          excerpts to a model, so anything leaking should be flagged before that happens. You can also scan on demand.
+          Markdown, settings and config are always covered; transcripts are opt-in because there are tens of thousands
+          of them, and the result always tells you what was actually scanned so &ldquo;nothing found&rdquo; can never be
+          confused with &ldquo;did not look&rdquo;.
+        </p>
+        <p>
+          <b>No finding ever shows you the secret.</b> You get the kind of credential, the file and line, the source
+          line with the value replaced, and a fingerprint — a hash, so the same fingerprint appearing in two files tells
+          you it is one secret in both places. Showing a &ldquo;safe&rdquo; few characters of a password would simply
+          move the password somewhere new.
+        </p>
+        <p>
+          Two actions, both yours: <b>Acknowledge</b> records that you have dealt with it or that it is a false
+          positive, and changes no file. <b>Move file out of workspace</b> relocates the whole file to{' '}
+          <code>~/noirdeck-quarantine</code> so it stops loading into sessions. Neither is a fix. A credential that has
+          been sitting in a file readable by every session, and copied into transcripts and backups, is disclosed —{' '}
+          <b>rotate it</b>.
+        </p>
+      </Sec>
+
       <Sec id="safety" title="The safety model">
         <p className="help">Independent layers — any one failing still leaves the others standing:</p>
         <ul className="helplist">
@@ -447,7 +476,7 @@ export default function Help() {
             trust; after that the session continues normally.
           </li>
           <li>
-            <b>Runner marked "not found"</b> — install the CLI or set its binary env var, for example{' '}
+            <b>Helper marked "not found"</b> — install the CLI or set its binary env var, for example{' '}
             <b>NOIRDECK_CODEX_BIN</b>, <b>NOIRDECK_OLLAMA_BIN</b> or <b>NOIRDECK_GROK_BIN</b>.
           </li>
           <li>

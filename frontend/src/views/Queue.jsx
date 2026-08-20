@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, useData } from '../api.js'
 import { usePager } from '../pager.jsx'
-import { ViewHead } from '../ui.jsx'
+import { ConfirmButton, ViewHead } from '../ui.jsx'
 
 // Arming = a CONTRACT, not a switch: expiry + task/token budget, revocable,
 // double-gated with the env master flags. Runners re-check before every task.
@@ -113,7 +113,7 @@ function ArmPanel({ bump }) {
             placeholder="∞"
           />
         </div>
-        <span className="faint">arm uses these limits · runs need env flag AND a live contract</span>
+        <span className="faint">these limits apply for as long as it stays on</span>
       </div>
       {row('overnight')}
       {row('mining')}
@@ -135,6 +135,7 @@ export default function Queue({ bump, launch }) {
   const [form, setForm] = useState({ project: '', title: '', prompt: '', weight: '', runner: 'claude', model: '' })
   const [answers, setAnswers] = useState({})
   const [err, setErr] = useState(null)
+  const [notice, setNotice] = useState(null)
   const defaultsLoaded = useRef(false)
   const launched = useRef(null)
   const runners = runtime?.runners || []
@@ -181,10 +182,29 @@ export default function Queue({ bump, launch }) {
     setRefresh((r) => r + 1)
   }
 
+  // The consequence is printed beside the button, not inside a dialog. Confirming
+  // is one inline click; the outcome (resumed conversation vs fresh session) is
+  // reported after, where it is actually actionable.
+  const takeOver = async (t) => {
+    setErr(null)
+    try {
+      const out = await api(`/queue/${t.id}/takeover`)
+      setNotice(
+        out.resumed_conversation
+          ? `Task #${t.id} is yours — its conversation is open in Build Live.`
+          : `Task #${t.id} stopped, but no transcript was found: Build Live opened a FRESH session in the same repo, so its context did not carry over.`
+      )
+      window.location.hash = '#workspace'
+    } catch (ex) {
+      setErr(ex.message)
+    }
+    setRefresh((r) => r + 1)
+  }
+
   return (
     <>
       <ViewHead
-        title="Run later"
+        title="Tasks"
         helpId="queue"
         hint="Send work off without opening a live session. Pick where, who, and how deep; anything uncertain comes back as a question."
       />
@@ -296,6 +316,15 @@ export default function Queue({ bump, launch }) {
         )}
       </div>
 
+      {/* Takeover reports its outcome here rather than in an alert(): whether the
+          task's conversation carried over is the one thing you need to know, and it
+          is only useful once the action has happened. */}
+      {notice && (
+        <div className="scanline" role="status">
+          {notice}
+        </div>
+      )}
+
       <ArmPanel bump={bump} />
 
       {(tasks || []).length > 0 && (
@@ -337,9 +366,13 @@ export default function Queue({ bump, launch }) {
                 >
                   answer
                 </button>
-                <button type="button" className="act ghost" onClick={() => act(`/queue/${t.id}/cancel`)}>
+                <ConfirmButton
+                  className="act ghost"
+                  confirmLabel="Cancel it?"
+                  onConfirm={() => act(`/queue/${t.id}/cancel`)}
+                >
                   cancel
-                </button>
+                </ConfirmButton>
               </div>
             </div>
           )}
@@ -348,6 +381,23 @@ export default function Queue({ bump, launch }) {
               <button type="button" className="act ghost" onClick={() => act(`/queue/${t.id}/cancel`)}>
                 cancel
               </button>
+            </div>
+          )}
+          {t.status === 'running' && (
+            <div style={{ marginTop: 8 }}>
+              <ConfirmButton confirmLabel="Stop the run and take it?" onConfirm={() => takeOver(t)}>
+                Take over this task
+              </ConfirmButton>
+              <div className="faint" style={{ marginTop: 4 }}>
+                Stops the unattended run now and opens its conversation in a terminal you can type into. Any turn still
+                in progress is lost.
+              </div>
+            </div>
+          )}
+          {t.status === 'claimed' && (
+            <div className="faint" style={{ marginTop: 8 }}>
+              You took this over{t.claimed_at ? ` at ${t.claimed_at.slice(11, 16)}` : ''} — it is yours now, so the
+              runner will not touch it again.
             </div>
           )}
         </div>

@@ -73,6 +73,10 @@ class TermSession:
         self._sb_size = 0
         self.queue: asyncio.Queue[bytes | None] = asyncio.Queue()
         self._reader_attached = False
+        # Optional observer, filled in by the app layer (see main.py). Kept as a
+        # plain callable so this module stays ignorant of what is watching and
+        # why — the PTY has no business knowing about consultants.
+        self.watch_hook = None
 
     def start(self) -> None:
         pid, fd = pty.fork()
@@ -102,6 +106,14 @@ class TermSession:
         while self._sb_size > SCROLLBACK_BYTES and len(self.scrollback) > 1:
             self._sb_size -= len(self.scrollback.popleft())
         self.queue.put_nowait(data)
+        if self.watch_hook is not None:
+            # An observer must never be able to break the terminal it observes:
+            # this runs inside the event-loop reader, so anything raised here
+            # would kill the session's output. Swallow broadly and deliberately.
+            try:
+                self.watch_hook(self, data)
+            except Exception:  # noqa: BLE001 - advisory path, never fatal
+                self.watch_hook = None
 
     def _detach(self) -> None:
         if self._reader_attached and self.fd is not None:

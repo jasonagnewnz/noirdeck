@@ -202,6 +202,44 @@ MIGRATIONS: list[str] = [
         body TEXT NOT NULL,
         created_at TEXT NOT NULL
     )""",
+    # 31: paused sessions can be DISCARDED, not only resumed. Without this the
+    # list only ever grew: every pause added a row and nothing could remove one,
+    # so a restart-heavy week left a wall of stale sessions nobody would ever
+    # resume. Kept distinct from resumed_at so the record still says which
+    # happened — "I finished with it" and "I threw it away" are not the same act.
+    "ALTER TABLE paused_sessions ADD COLUMN discarded_at TEXT",
+    # 32: credential findings in the knowledge tree. Added after a generated skill
+    # file was found holding a sudo password in cleartext (see secrets_scan.py).
+    # ⛔ There is no column for the secret itself, and there must never be: a
+    # findings table that stores credentials is a credential store. `fingerprint`
+    # is a SHA-256 prefix, enough to recognise the same secret in two places;
+    # `context` is the source line with the value replaced, not truncated.
+    """CREATE TABLE secret_findings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        detector TEXT NOT NULL,
+        confidence TEXT NOT NULL,
+        path TEXT NOT NULL,
+        line INTEGER NOT NULL,
+        fingerprint TEXT NOT NULL,
+        context TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        note TEXT,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        decided_at TEXT
+    )""",
+    "CREATE UNIQUE INDEX idx_secret_findings_site ON secret_findings (path, line, fingerprint)",
+    # 33: human takeover of a running autonomous task.
+    # `worker_pid` is the child's process-group leader, so a takeover can stop the
+    # unattended run before adopting its conversation. `transcript_session_id` is
+    # captured WHILE the task runs, not at takeover time: by then the cwd's "most
+    # recent transcript" may belong to a different session entirely (the same trap
+    # workspace.latest_transcript_session_id was written for). `claimed_at` makes
+    # "a human owns this now" a distinct outcome from done/failed — the worker must
+    # not mark a claimed task failed just because it killed the child.
+    "ALTER TABLE queue ADD COLUMN worker_pid INTEGER",
+    "ALTER TABLE queue ADD COLUMN transcript_session_id TEXT",
+    "ALTER TABLE queue ADD COLUMN claimed_at TEXT",
 ]
 
 

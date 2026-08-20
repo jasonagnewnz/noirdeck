@@ -6,7 +6,7 @@ underneath: project-aware briefs, polished live work, multi-runtime coding
 sessions, autonomous pipelines with enforced guardrails, all at
 `http://127.0.0.1:4747` on your own machine.
 
-> Calm Pro by default; Noir still one theme switch away.
+> Mono Dark by default; nine more themes, including Calm Pro, one switch away.
 
 ![overview](docs/screenshots/overview.png)
 
@@ -122,7 +122,7 @@ the spend is engineered:
 Four layers, all fail-closed:
 
 1. **Enforced guardrails** — every headless pipeline session launches with a
-   PreToolUse hook (`ops/pipeline-guard.py`) that denies `git push`, publishing,
+   PreToolUse hook (`noirdeck/pipeline_guard.py`, shipped inside the package) that denies `git push`, publishing,
    deploys, kubernetes/terraform mutation, and remote access *before execution*.
    Not a prompt instruction — a harness boundary, verified against a live session.
 2. **Propose → approve → revert** — the only write path into `~/.claude` is

@@ -13,6 +13,7 @@ import Overview from './views/Overview.jsx'
 import Proposals from './views/Proposals.jsx'
 import Quality from './views/Quality.jsx'
 import Queue from './views/Queue.jsx'
+import Secrets from './views/Secrets.jsx'
 import Sessions from './views/Sessions.jsx'
 import Settings from './views/Settings.jsx'
 import Skills from './views/Skills.jsx'
@@ -30,19 +31,26 @@ const Workspace = lazy(() => import('./views/Workspace.jsx'))
 const PRIMARY_VIEWS = [
   ['overview', 'Home', Overview],
   ['workspace', 'Build Live', Workspace],
-  ['builds', 'Guided Builds', Builds],
+  ['builds', 'Builds', Builds],
   ['queue', 'Tasks', Queue],
   ['proposals', 'Review', Proposals],
   ['sessions', 'History', Sessions],
-  ['help', 'Guide', Help],
 ]
 
 // Reached from Settings, the palette, or a direct #hash — not from the rail.
+// ⛔ Guide moved OUT of the primary rail 2026-08-19. A manual in the daily-loop
+// navigation is the UI admitting it needs one: 2,563 words of explanation sitting
+// beside the seven things you actually do. Every view still links to its own
+// chapter via "how this works", so it is one click from wherever the confusion
+// happened — which is more useful than a permanent rail slot anyway. If the Guide
+// starts getting heavy traffic again, fix the screen people arrive from.
 const ADVANCED_VIEWS = [
+  ['help', 'Guide', Help],
   ['design', 'Design', Design],
-  ['skills', 'Helpers', Skills],
-  ['memories', 'Knowledge', Memories],
+  ['skills', 'Skills', Skills],
+  ['memories', 'Memories', Memories],
   ['quality', 'Checks', Quality],
+  ['secrets', 'Credentials', Secrets],
 ]
 
 const VIEWS = [...PRIMARY_VIEWS, ...ADVANCED_VIEWS, ['settings', 'Settings', Settings]]
@@ -206,7 +214,9 @@ export default function App() {
           expanded={sidebarExpanded}
           onToggleExpanded={toggleSidebar}
         />
-        <main className="main" id="main" tabIndex={-1}>
+        {/* Build live owns the viewport: the terminal must fit exactly so the
+            session scrolls inside xterm, never by scrolling the page under it. */}
+        <main className={`main${view === 'workspace' ? ' main-flush' : ''}`} id="main" tabIndex={-1}>
           <Suspense fallback={<div className="loading">loading…</div>}>
             <Current
               bump={bump}

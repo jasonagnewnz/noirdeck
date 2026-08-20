@@ -20,10 +20,21 @@ PATTERNS: list[tuple[str, re.Pattern]] = [
     ("google_key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b")),
     ("bearer_header", re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{16,}")),
+    ("stripe_key", re.compile(r"\bsk_(live|test)_[A-Za-z0-9]{16,}\b")),
     (
         "kv_secret",
+        # ⛔ The keyword is NOT anchored with \b. `_` is a word character, so
+        # \bpassword\b cannot match the PASSWORD inside DB_PASSWORD — which meant
+        # SCREAMING_SNAKE_CASE=value, the commonest shape a secret takes in
+        # terminal output and .env files, went through completely unredacted
+        # (PASSWORD= was caught, DB_PASSWORD= was not). The surrounding
+        # [A-Za-z0-9_.-]* lets the keyword sit anywhere inside an identifier, and
+        # the lookarounds treat `_` as a separator rather than a letter.
+        # Over-redaction is the safe direction here; under-redaction leaks.
         re.compile(
-            r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|client[_-]?secret|access[_-]?key)\b\s*[=:]\s*[\"']?[^\s\"',;]{6,}"
+            r"(?i)(?<![A-Za-z0-9])[A-Za-z0-9_.-]*"
+            r"(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|credential)"
+            r"[A-Za-z0-9_.-]*\s*[=:]\s*[\"']?[^\s\"',;]{6,}"
         ),
     ),
 ]

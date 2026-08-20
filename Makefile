@@ -15,6 +15,15 @@ venv:
 test:
 	cd backend && ../$(PY) -m pytest -q
 
+# Run the suite the way CI will actually see it: a scratch HOME with no ~/.claude,
+# and no `claude`/`ollama` on PATH. Three CI failures in a row came from tests that
+# quietly assumed this machine — an existing config dir, a home-relative cwd, an
+# installed CLI. All three passed locally. Run this before pushing, not after.
+test-ci-env:
+	@d=$$(mktemp -d); \
+	HOME=$$d PATH=/usr/local/bin:/usr/bin:/bin $(PY) -m pytest backend -q; \
+	rc=$$?; rm -rf $$d; exit $$rc
+
 frontend:
 	cd frontend && npm install --no-fund --no-audit && npm run build
 
