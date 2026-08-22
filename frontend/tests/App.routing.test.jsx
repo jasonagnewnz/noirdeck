@@ -109,7 +109,11 @@ describe('one word per concept', () => {
     // Home is the only one allowed to differ: its H1 is the product hero, not a
     // view title. Everything else must echo its own rail label exactly.
     if (label === 'Home') return
-    expect(await screen.findByRole('heading', { level: 1, name: label })).toBeInTheDocument()
+    // Longer than the default: several of these views are code-split, so this
+    // waits on a dynamic import rather than on a render. Under load the default
+    // 1s loses that race, which showed up once as a flake in a full run and
+    // never when the file ran alone.
+    expect(await screen.findByRole('heading', { level: 1, name: label }, { timeout: 5000 })).toBeInTheDocument()
   })
 })
 

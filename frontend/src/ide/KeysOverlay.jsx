@@ -76,6 +76,7 @@ export default function KeysOverlay({ open, views, onClose, onSelect }) {
           <div className="keys-tabs" role="tablist" aria-labelledby="keys-head" onKeyDown={onTabsKeyDown}>
             {TAB_KEYS.map((key) => (
               <button
+                type="button"
                 key={key}
                 ref={(el) => {
                   tabRefs.current[key] = el

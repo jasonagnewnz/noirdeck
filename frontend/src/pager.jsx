@@ -24,6 +24,7 @@ export function usePager(items, initialSize = 25) {
         <span className="pager-sizes">
           {SIZES.map((s) => (
             <button
+              type="button"
               key={s}
               className={`pz ${size === s ? 'on' : ''}`}
               onClick={() => {
@@ -37,16 +38,29 @@ export function usePager(items, initialSize = 25) {
         </span>
         {pages > 1 && (
           <span className="pager-nav">
-            <button className="pz" disabled={page === 0} onClick={() => setPage(0)} aria-label="First page">
+            <button
+              type="button"
+              className="pz"
+              disabled={page === 0}
+              onClick={() => setPage(0)}
+              aria-label="First page"
+            >
               «
             </button>
-            <button className="pz" disabled={page === 0} onClick={() => setPage(page - 1)} aria-label="Previous page">
+            <button
+              type="button"
+              className="pz"
+              disabled={page === 0}
+              onClick={() => setPage(page - 1)}
+              aria-label="Previous page"
+            >
               ‹
             </button>
             <span className="dim" aria-live="polite">
               {page + 1}/{pages}
             </span>
             <button
+              type="button"
               className="pz"
               disabled={page >= pages - 1}
               onClick={() => setPage(page + 1)}
@@ -55,6 +69,7 @@ export function usePager(items, initialSize = 25) {
               ›
             </button>
             <button
+              type="button"
               className="pz"
               disabled={page >= pages - 1}
               onClick={() => setPage(pages - 1)}

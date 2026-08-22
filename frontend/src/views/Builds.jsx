@@ -25,38 +25,38 @@ const fmtMin = (s) => (s < 90 ? `${s}s` : `${Math.round(s / 60)}m`)
 // for not-yet.
 function PhaseStepper({ b }) {
   return (
-    <div aria-label="Build progress" className="stepper">
+    <ul aria-label="Build progress" className="stepper">
       {STEPS.map(([key]) => {
         const entry = phaseOutcome(b.log, key)
         if (entry && entry.status === 'done') {
           return (
-            <span key={key} className="chip" aria-label={`${key}: finished`}>
+            <li key={key} className="chip" aria-label={`${key}: finished`}>
               ✓ {key} {fmtMin(entry.seconds)}
-            </span>
+            </li>
           )
         }
         if (b.phase === key && b.status === 'running') {
           return (
-            <span key={key} className="pill running" aria-label={`${key}: happening now`}>
+            <li key={key} className="pill running" aria-label={`${key}: happening now`}>
               {key}…
-            </span>
+            </li>
           )
         }
         if (entry) {
           return (
-            <span key={key} className="pill blocked" aria-label={`${key}: stuck`}>
+            <li key={key} className="pill blocked" aria-label={`${key}: stuck`}>
               {key}: stuck
-            </span>
+            </li>
           )
         }
         return (
-          <span key={key} className="chip pending" aria-label={`${key}: not started yet`}>
+          <li key={key} className="chip pending" aria-label={`${key}: not started yet`}>
             {key}
-          </span>
+          </li>
         )
       })}
       {b.tokens_out > 0 && <span className="faint">{(b.tokens_out / 1000).toFixed(0)}k tok</span>}
-    </div>
+    </ul>
   )
 }
 
@@ -82,7 +82,7 @@ function TryIt({ b }) {
   if (!finished || !inf?.available) return null
   return (
     <div style={{ marginTop: 10 }}>
-      <button className="act" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button type="button" className="act" aria-expanded={open} onClick={() => setOpen(!open)}>
         {open ? 'close the preview' : 'try it: see it working'}
       </button>
       {open && (
@@ -116,19 +116,19 @@ function ExpertCard({ b, refresh, openWorkspace }) {
       <PhaseStepper b={b} />
       {b.question && <div className="kickoff">The builder asks: {b.question}</div>}
       <div className="btnrow">
-        <button className="act ghost" onClick={() => setOpen(!open)}>
+        <button type="button" className="act ghost" onClick={() => setOpen(!open)}>
           {open ? 'hide log' : 'phase log'}
         </button>
-        <button className="act ghost" onClick={() => openWorkspace({ project: b.name })}>
+        <button type="button" className="act ghost" onClick={() => openWorkspace({ project: b.name })}>
           open in workspace
         </button>
         {(b.status === 'running' || b.status === 'queued') && (
-          <button className="act ghost" onClick={cancel}>
+          <button type="button" className="act ghost" onClick={cancel}>
             stop this build
           </button>
         )}
         {(b.status === 'blocked' || b.status === 'cancelled' || b.status === 'attention') && (
-          <button className="act" onClick={resume}>
+          <button type="button" className="act" onClick={resume}>
             continue this build
           </button>
         )}
@@ -200,7 +200,7 @@ export default function Builds({ openWorkspace }) {
       />
 
       <div className="panel toolbar">
-        <button className="act" aria-expanded={showIntake} onClick={() => setIntakeOpen(!showIntake)}>
+        <button type="button" className="act" aria-expanded={showIntake} onClick={() => setIntakeOpen(!showIntake)}>
           {showIntake ? 'close' : '+ start a build'}
         </button>
         {builds !== null && builds.length > 0 && (

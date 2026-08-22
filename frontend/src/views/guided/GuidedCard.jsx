@@ -83,42 +83,42 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
       </h2>
 
       {/* narrated progress stepper */}
-      <div aria-label="Build progress" className="stepper">
+      <ul aria-label="Build progress" className="stepper">
         {STEPS.map(([key, label]) => {
           if (doneSet.has(key)) {
             return (
-              <span key={key} className="chip" aria-label={`${label}: finished`}>
+              <li key={key} className="chip" aria-label={`${label}: finished`}>
                 ✓ {label}
-              </span>
+              </li>
             )
           }
           if (activePhase === key) {
             return b.status === 'blocked' ? (
-              <span key={key} className="pill blocked" aria-label={`${label}: stuck, needs your attention`}>
+              <li key={key} className="pill blocked" aria-label={`${label}: stuck, needs your attention`}>
                 {label}: stuck
-              </span>
+              </li>
             ) : (
-              <span key={key} className="pill running" aria-label={`${label}: happening now`}>
+              <li key={key} className="pill running" aria-label={`${label}: happening now`}>
                 {label}…
-              </span>
+              </li>
             )
           }
           return (
-            <span key={key} className="chip pending" aria-label={`${label}: not started yet`}>
+            <li key={key} className="chip pending" aria-label={`${label}: not started yet`}>
               {label}
-            </span>
+            </li>
           )
         })}
         {b.phase === 'complete' ? (
-          <span className="chip hot" aria-label="Done">
+          <li className="chip hot" aria-label="Done">
             Done
-          </span>
+          </li>
         ) : (
-          <span className="chip pending" aria-label="Done: not yet">
+          <li className="chip pending" aria-label="Done: not yet">
             Done
-          </span>
+          </li>
         )}
-      </div>
+      </ul>
 
       {/* plan approval gate */}
       {b.status === 'awaiting_plan' && (
@@ -128,10 +128,11 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
             {b.plan_summary || 'The plan is still being written up: check back in a moment.'}
           </div>
           <div className="btnrow">
-            <button className="act" disabled={!!busy} onClick={() => decide('approve')}>
+            <button type="button" className="act" disabled={!!busy} onClick={() => decide('approve')}>
               Approve: start building
             </button>
             <button
+              type="button"
               className="act ghost"
               aria-expanded={revising}
               disabled={!!busy}
@@ -153,7 +154,12 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
                 onChange={(e) => setFeedback(e.target.value)}
               />
               <div style={{ marginTop: 6 }}>
-                <button className="act" disabled={!!busy || !feedback.trim()} onClick={() => decide('revise')}>
+                <button
+                  type="button"
+                  className="act"
+                  disabled={!!busy || !feedback.trim()}
+                  onClick={() => decide('revise')}
+                >
                   Send changes back
                 </button>
               </div>
@@ -256,11 +262,12 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
 
       {/* actions */}
       <div className="btnrow">
-        <button className="act ghost" onClick={() => openWorkspace({ project: b.name })}>
+        <button type="button" className="act ghost" onClick={() => openWorkspace({ project: b.name })}>
           open in workspace
         </button>
         {(b.status === 'running' || b.status === 'queued') && (
           <button
+            type="button"
             className="act ghost"
             onClick={async () => {
               await api(`/builds/${b.id}/cancel`, { body: {} })
@@ -272,6 +279,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
         )}
         {(b.status === 'blocked' || b.status === 'cancelled' || b.status === 'attention') && (
           <button
+            type="button"
             className="act"
             onClick={async () => {
               try {

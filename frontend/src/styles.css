@@ -1303,12 +1303,17 @@ tr.subrow > td {
 }
 
 /* build stepper + shared layout rows */
+/* A real <ul>, so a screen reader announces "list, 5 items" and each phase's
+   label is carried by something that supports one. Flex already decides the
+   layout; these three lines only remove what a list adds by default. */
 .stepper {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 4px;
   align-items: center;
   margin: 6px 0;
+  padding: 0;
+  list-style: none;
 }
 .stepper .chip,
 .stepper .pill {

@@ -83,7 +83,7 @@ function Hygiene({ bump }) {
                       {p.ratio < 1 ? ` ${Math.round(p.ratio * 100)}%` : ''}
                     </span>
                     {canPropose && (
-                      <button className="act ghost" disabled={busy} onClick={() => merge(p.files)}>
+                      <button type="button" className="act ghost" disabled={busy} onClick={() => merge(p.files)}>
                         propose merge
                       </button>
                     )}

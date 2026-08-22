@@ -82,7 +82,7 @@ export default function Quality({ bump }) {
             </>
           )}
           <div className="btnrow">
-            <button className="act ghost" onClick={() => setBrief(null)}>
+            <button type="button" className="act ghost" onClick={() => setBrief(null)}>
               close briefing
             </button>
           </div>
@@ -140,6 +140,7 @@ export default function Quality({ bump }) {
                         </td>
                         <td className="num">
                           <button
+                            type="button"
                             className="act ghost"
                             onClick={(e) => {
                               e.stopPropagation()

@@ -89,7 +89,7 @@ export default function ImprovePanel({ bump }) {
             >
               merge into {mergeTarget(c)}
             </ConfirmButton>
-            <button className="act ghost" disabled={busy} onClick={() => decideChange(c, 'discard')}>
+            <button type="button" className="act ghost" disabled={busy} onClick={() => decideChange(c, 'discard')}>
               discard
             </button>
           </div>
@@ -138,6 +138,7 @@ export default function ImprovePanel({ bump }) {
                 {data.model_available ? 'reachable' : 'local model offline'}
               </span>
               <button
+                type="button"
                 className="act"
                 disabled={busy || !!runBlocked}
                 title={runBlocked || 'propose one small change per enabled repo, on isolated branches'}
@@ -162,7 +163,13 @@ export default function ImprovePanel({ bump }) {
                   ))}
                 </select>
               </div>
-              <button className="act" disabled={busy || !pick} onClick={mapRepo} style={{ marginBottom: 1 }}>
+              <button
+                type="button"
+                className="act"
+                disabled={busy || !pick}
+                onClick={mapRepo}
+                style={{ marginBottom: 1 }}
+              >
                 map repo
               </button>
             </div>
@@ -197,6 +204,7 @@ export default function ImprovePanel({ bump }) {
                     </select>
                   )}
                   <button
+                    type="button"
                     className="act ghost sm"
                     disabled={busy}
                     aria-label={`${r.enabled ? 'disable' : 'enable'} improvements for ${r.project}`}
@@ -247,6 +255,7 @@ export default function ImprovePanel({ bump }) {
                     </select>
                   </div>
                   <button
+                    type="button"
                     className="act"
                     disabled={busy || !tPick}
                     style={{ marginBottom: 1 }}
@@ -299,6 +308,7 @@ export default function ImprovePanel({ bump }) {
                         </select>
                       )}
                       <button
+                        type="button"
                         className="act ghost sm"
                         disabled={busy}
                         onClick={() =>
@@ -312,6 +322,7 @@ export default function ImprovePanel({ bump }) {
                         {t.armed ? 'disarm' : 'arm 7d'}
                       </button>
                       <button
+                        type="button"
                         className="x"
                         aria-label={`Remove target ${t.target_path}`}
                         onClick={() => call(`/improve/targets/${t.id}`, { action: 'remove' }, 'removed')}

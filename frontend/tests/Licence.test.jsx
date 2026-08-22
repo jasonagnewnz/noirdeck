@@ -29,39 +29,47 @@ let calls
 
 beforeEach(() => {
   calls = []
-  global.fetch = vi.fn(async (url, init) => {
-    calls.push({ url: String(url), init })
-    const body = init?.body ? JSON.parse(init.body) : null
-    if (String(url).endsWith('/api/license') && init?.method === 'POST') {
-      if (body?.key === 'good-key') {
-        return new Response(
-          JSON.stringify(
-            status({
-              licensed: true,
-              state: 'active',
-              detail: 'Valid until 2027-08-22.',
-              email: 'someone@example.com',
-              plan: 'commercial',
-              expires_at: '2027-08-22T00:00:00+00:00',
-            })
-          ),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        )
+  // ⛔ vi.stubGlobal, not a bare assignment. restoreAllMocks only restores spies
+  // created with vi.spyOn, so `global.fetch = vi.fn()` leaks the stub into every
+  // suite that runs after this one: these tests passed, and two unrelated ones
+  // in another file started failing.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url, init) => {
+      calls.push({ url: String(url), init })
+      const body = init?.body ? JSON.parse(init.body) : null
+      if (String(url).endsWith('/api/license') && init?.method === 'POST') {
+        if (body?.key === 'good-key') {
+          return new Response(
+            JSON.stringify(
+              status({
+                licensed: true,
+                state: 'active',
+                detail: 'Valid until 2027-08-22.',
+                email: 'someone@example.com',
+                plan: 'commercial',
+                expires_at: '2027-08-22T00:00:00+00:00',
+              })
+            ),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+        return new Response(JSON.stringify({ detail: 'signature does not match: key is not genuine' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
       }
-      return new Response(JSON.stringify({ detail: 'signature does not match: key is not genuine' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-    if (String(url).endsWith('/api/license')) {
-      return new Response(JSON.stringify(status()), { status: 200, headers: { 'Content-Type': 'application/json' } })
-    }
-    // Nothing else is rendered here; the panel owns its own fetch.
-    return new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } })
-  })
+      if (String(url).endsWith('/api/license')) {
+        return new Response(JSON.stringify(status()), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      // Nothing else is rendered here; the panel owns its own fetch.
+      return new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+  )
 })
 
 afterEach(() => {
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 

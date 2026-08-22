@@ -853,7 +853,7 @@ export default function Workspace({ launch }) {
               <div className="tabstrip">
                 {sessions.map((s) => (
                   // two sibling buttons, not a clickable span wrapping a nested button:
-                  // <button> cannot contain another interactive element
+                  // <button type="button"> cannot contain another interactive element
                   <span key={s.id} className={`termtab ${active === s.id ? 'on' : ''}`}>
                     <button
                       type="button"

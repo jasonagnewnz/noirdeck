@@ -1,3 +1,9 @@
+// biome-ignore-all lint/a11y/noSvgWithoutTitle: every icon spreads `base`, which
+// carries aria-hidden="true" and focusable="false"; the rule cannot see through
+// the spread. Adding a <title> would be worse than the warning: the icon sits
+// inside a control that already has an accessible name, so a title would make a
+// screen reader announce the same thing twice.
+
 // Inline-SVG stroke icon set for the activity bar. Hand-drawn, zero external
 // assets (matches the zero-egress posture already established for fonts).
 // All icons are decorative by default: the interactive control they sit in

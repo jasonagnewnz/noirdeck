@@ -77,6 +77,7 @@ export default function FileExplorer({ project, onOpenFile, collapsed, onToggleC
     return (
       <div className="explorer collapsed">
         <button
+          type="button"
           className="explorer-toggle"
           title="Show explorer"
           aria-label="Show explorer"
@@ -94,6 +95,7 @@ export default function FileExplorer({ project, onOpenFile, collapsed, onToggleC
       <div className="explorer-head">
         <span id="explorer-heading">Explorer</span>
         <button
+          type="button"
           className="explorer-toggle"
           title="Collapse explorer"
           aria-label="Collapse explorer"
@@ -103,7 +105,7 @@ export default function FileExplorer({ project, onOpenFile, collapsed, onToggleC
           <ChevronIcon className="open-left" />
         </button>
       </div>
-      <div className="explorer-body" aria-labelledby="explorer-heading">
+      <section className="explorer-body" aria-labelledby="explorer-heading">
         {err && (
           <div className="err" role="alert" style={{ padding: '8px 12px' }}>
             {err}
@@ -122,7 +124,7 @@ export default function FileExplorer({ project, onOpenFile, collapsed, onToggleC
         {!err &&
           root &&
           root.map((e) => <Node key={e.path} project={project} entry={e} cache={cache} onOpenFile={onOpenFile} />)}
-      </div>
+      </section>
     </div>
   )
 }

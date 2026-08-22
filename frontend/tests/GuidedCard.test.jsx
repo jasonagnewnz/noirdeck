@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import GuidedCard from '../src/views/guided/GuidedCard.jsx'
 
@@ -43,6 +43,22 @@ describe('GuidedCard stepper', () => {
     render(<GuidedCard b={b} refresh={noop} openWorkspace={noop} />)
     expect(screen.getByLabelText('Designing it: finished')).toBeInTheDocument()
     expect(screen.getByLabelText('Writing the code: happening now')).toBeInTheDocument()
+  })
+
+  it('the phase stepper is a real list, so its labels reach a screen reader', () => {
+    // ⛔ WHAT THIS PROTECTS (2026-08-22). Every phase carried a carefully written
+    // aria-label on a bare <span>, and a <span> has no role, so assistive
+    // technology ignored all of them. The labels were written, shipped, and
+    // announced to nobody. They are now list items inside a list, which is both
+    // what the thing is and the shape that supports a label.
+    render(<GuidedCard b={build({ status: 'blocked', phase: 'test' })} refresh={noop} openWorkspace={noop} />)
+
+    const list = screen.getByRole('list', { name: 'Build progress' })
+    expect(list).toBeInTheDocument()
+    const items = within(list).getAllByRole('listitem')
+    expect(items.length).toBeGreaterThan(1)
+    // The label has to be the accessible name, not merely an attribute present.
+    expect(items.every((li) => li.getAttribute('aria-label'))).toBe(true)
   })
 
   it('a blocked build marks the active phase stuck and offers continue', () => {
