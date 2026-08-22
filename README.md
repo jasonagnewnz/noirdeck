@@ -265,6 +265,19 @@ kits rather than colour schemes.
 
 ![workspace](docs/screenshots/workspace.png)
 
+## Third-party notices
+
+noirdeck bundles **IBM Plex Sans** and **IBM Plex Mono**, copyright IBM Corp.,
+under the SIL Open Font License 1.1 with Reserved Font Name "Plex". The files are
+IBM's own unmodified Latin-1 builds, and the licence ships with them at
+`frontend/public/fonts/LICENSE-IBM-Plex.txt`, served at `/fonts/LICENSE-IBM-Plex.txt`
+and included in the wheel. They are bundled rather than fetched because noirdeck
+binds loopback and must work with no network at all.
+
+Everything else third-party is a declared dependency rather than vendored source:
+FastAPI, Uvicorn, watchfiles, PyYAML and `cryptography` on the Python side, React
+and xterm.js on the front end. No third-party code is copied into this repository.
+
 ## Keyboard
 
 | Key | Action |

@@ -2,6 +2,57 @@
    Token names kept stable from the graphite/amber era (--accent/--border-strong/etc.) so every view resnaps
    automatically as themes switch. No external font fetches by design (zero-egress posture):
    committed system-mono stack. */
+/* ── bundled type ──────────────────────────────────────────────────────────
+   IBM Plex, shipped with the product rather than fetched. noirdeck binds
+   loopback and must work with no network at all, so a webfont host is not an
+   option, and the Carbon kit named a face that most machines do not have: it
+   silently fell back to the system sans, which quietly removed one of the four
+   things a kit is supposed to change.
+
+   These are IBM's own Latin-1 split files, unmodified. SIL Open Font License
+   1.1 with Reserved Font Name "Plex": redistribution inside a larger work is
+   permitted, the licence must travel with the fonts, and an unmodified file may
+   keep the name. The licence ships at /fonts/LICENSE-IBM-Plex.txt and in the
+   wheel. Do not subset or otherwise alter these files: a modified version may
+   not use the reserved name. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/IBMPlexSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/IBMPlexSans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+/* 600 also answers for 700: the kit never sets a heavier weight, and shipping a
+   Bold nobody uses would be a quarter of the type budget for nothing. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+  font-weight: 500 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Default appearance, mirrored from the carbon dark kit in ide/appearance.js.
    This block is what the browser paints BEFORE any script runs, so it must stay
    in step with the default there; index.html then overwrites it from the four

@@ -226,7 +226,7 @@ def status() -> dict:
         return {
             "licensed": False,
             "state": "unlicensed",
-            "detail": "No key yet. Keys are not being issued yet: request one at noirdeck.dev.",
+            "detail": "No key installed. Get one free during Early Access at noirdeck.dev.",
             "gated": sorted(GATED_FEATURES),
             "gated_detail": {k: GATED_LABELS[k] for k in sorted(GATED_FEATURES)},
         }
@@ -274,15 +274,20 @@ def allows(feature: str) -> tuple[bool, str]:
         # a failed *refresh* must never reach here.
         return False, f"key is not valid: {exc}"
     if lic is None:
-        # B3c (2026-08-19): this used to say "sign up at noirdeck.dev to get one".
-        # Signup is a WAITLIST: it returns "we will email your key the day noirdeck
-        # is published": so the instruction was a dead end for anyone who followed
-        # it. Say what is actually true. When issuance ships (B3a/B3b in
-        # PROJECT_PLAN.md) this message changes back, and not before.
+        # This message has been wrong in both directions. It once sent people to a
+        # signup that was a waitlist, so it was changed to say keys were not being
+        # issued; issuance opened on 2026-08-22 and it was then wrong the other
+        # way, in a shipped wheel. The rule that survives both: say what someone
+        # can do right now, and check it when the answer changes.
+        #
+        # It deliberately does not say HOW to install a key. The only mechanism is
+        # POST /api/license, which no screen calls yet, and telling someone to
+        # craft an API request is not an instruction. That gap does not bite while
+        # Early Access ships unlicensed and this branch is unreachable, and it is
+        # a blocker for the day enforcement is switched on.
         return False, (
-            "noirdeck needs a key for this. Keys are not being issued yet: "
-            "request one at noirdeck.dev and it arrives when noirdeck is published. "
-            "Everything else keeps working without a key."
+            "noirdeck needs a key for this. Keys are free during Early Access: "
+            "get one at noirdeck.dev. Everything else keeps working without a key."
         )
     if lic.dead:
         return False, f"key expired {lic.expires_at.date()} and grace has passed: refresh it to continue"

@@ -99,6 +99,37 @@ def doctor(_args: argparse.Namespace) -> int:
 
     _check("scheduler", True, f"{'on' if scheduler.enabled() else 'off'}: {scheduler.mode()}")
 
+    # What machine this is, and which assistant environments are on it. On WSL
+    # there are two homes and noirdeck reads one, so the Windows half is worth
+    # saying out loud rather than leaving someone to wonder why their history
+    # looks short.
+    from .environment import scan_ai_environments
+
+    env = scan_ai_environments()
+    platform = env["platform"]
+    if platform["kind"] == "wsl":
+        wsl = platform["wsl"]
+        _check("platform", True, f"WSL{wsl['version']} ({wsl['distro'] or 'unknown distro'})")
+    else:
+        _check("platform", True, platform["kind"])
+
+    counts = env["counts"]
+    _check("ai runtimes", counts["drivable"] > 0, f"{counts['drivable']} usable of {counts['total']} found")
+    for tool in env["tools"]:
+        if tool["host"] != "linux":
+            continue
+        where = tool["bin"] or (tool["config"][0] if tool["config"] else "")
+        note = " (Windows program, via interop)" if tool["via_interop"] else ""
+        print(f"        {'·' if tool['drivable'] else ' '} {tool['label']:<22} {where}{note}")
+
+    unread = env["unread_windows_environments"]
+    if unread:
+        print()
+        print(f"  NOTE  a second AI environment exists on the Windows side: {', '.join(unread)}")
+        for profile in platform["wsl"]["windows_profiles"]:
+            print(f"        {profile}")
+        print("        noirdeck reads this Linux home only. Nothing there is being used.")
+
     print("\nnot ready" if fatal else "\nready")
     return 1 if fatal else 0
 

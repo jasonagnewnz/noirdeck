@@ -1,5 +1,5 @@
 NOIRDECK SOFTWARE LICENCE AGREEMENT
-Version 1.2, 22 August 2026
+Version 1.3, 22 August 2026
 
 Copyright (c) 2026 Belton IT Nexus Limited (New Zealand company). All rights
 reserved.
@@ -280,14 +280,21 @@ You must not, and must not permit any other person to:
 11. LIABILITY
 --------------------------------------------------------------------------------
 
-11.1 To the fullest extent permitted by law, we are not liable for any indirect,
-     incidental, special, consequential, or punitive loss, or for any loss of
-     profit, revenue, data, goodwill, or business interruption, however caused,
-     whether in contract, tort (including negligence), or otherwise, even if we
-     were advised of the possibility.
+11.1 To the fullest extent permitted by law, we have NO liability to you of any
+     kind arising out of or in connection with this Agreement, the Software, or
+     your use of or inability to use the Software. This exclusion applies to
+     every type and head of loss without limit, including direct, indirect,
+     incidental, special, consequential and punitive loss, and loss of profit,
+     revenue, data, goodwill, savings, or business, and applies however the
+     liability arises, whether in contract, tort (including negligence), breach
+     of statutory duty, restitution, or otherwise, and whether or not we were
+     advised of the possibility.
 
-11.2 To the fullest extent permitted by law, our total aggregate liability
-     arising out of or in connection with this Agreement is limited to:
+11.2 Clause 11.1 is intended to operate as a complete exclusion. Where a court
+     or other competent authority finds that a complete exclusion is not
+     permitted in the circumstances, clause 11.1 applies to the fullest extent
+     that is permitted, and our total aggregate liability for all claims
+     arising out of or in connection with this Agreement is instead limited to:
 
      (a) where the Software is used under the Free Personal Licence, the amount
          you have paid us for the Software, which is nil; or
@@ -296,9 +303,12 @@ You must not, and must not permit any other person to:
          fully paid-up twelve month licence term, or part of such a term, in
          force at the time of the event giving rise to the liability.
 
-11.3 Nothing in this clause limits liability that cannot lawfully be limited,
-     including liability for fraud or for death or personal injury caused by
-     negligence.
+11.3 Each part of clauses 11.1 and 11.2 operates separately. If any part is held
+     to be unenforceable, the remaining parts continue to apply.
+
+11.4 Nothing in this clause limits liability that cannot lawfully be limited,
+     including liability for fraud, and for death or personal injury caused by
+     negligence. Clause 10 continues to apply.
 
 --------------------------------------------------------------------------------
 12. GENERAL

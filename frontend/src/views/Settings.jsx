@@ -1,4 +1,5 @@
-import { useData } from '../api.js'
+import { useCallback, useEffect, useState } from 'react'
+import { api, useData } from '../api.js'
 import { DENSITIES, KITS, MODES, SCALES } from '../ide/appearance.js'
 import { ViewHead } from '../ui.jsx'
 import LocalModels from './LocalModels.jsx'
@@ -99,6 +100,100 @@ function BackgroundWork({ bump }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/**
+ * Where a licence key gets installed.
+ *
+ * ⛔ Until 2026-08-22 there was nowhere. POST /api/license existed and nothing
+ * called it, so the only way to install a key was to craft the request by hand.
+ * That did not bite while Early Access ships unlicensed and no key is needed,
+ * and it would have been a hard blocker the day enforcement was switched on.
+ *
+ * Shown even when licensing is inactive, saying so, because "do I need a key?"
+ * is a question people have before they need the answer.
+ */
+export function LicencePanel() {
+  const [state, setState] = useState(null)
+  const [key, setKey] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  const load = useCallback(async () => {
+    try {
+      // No opts: api() attaches a JSON body whenever any are passed, and a GET
+      // carrying a body throws before it reaches the network.
+      setState(await api('/license'))
+    } catch (e) {
+      setError(e.message)
+    }
+  }, [])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const save = async (e) => {
+    e.preventDefault()
+    if (!key.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      setState(await api('/license', { body: { key: key.trim() } }))
+      setKey('')
+    } catch (e2) {
+      // The server's message is the useful one: it says which part of the key
+      // failed, and a generic "invalid" would throw that away.
+      setError(e2.message)
+    }
+    setBusy(false)
+  }
+
+  const inactive = state?.state === 'inactive'
+  return (
+    <div className="panel">
+      <h2>Licence</h2>
+      <p className="sechint">{state?.detail || 'Checking…'}</p>
+      {!inactive && (
+        <form className="settings-row" onSubmit={save}>
+          <label htmlFor="licence-key">Key</label>
+          <input
+            id="licence-key"
+            type="text"
+            value={key}
+            spellCheck="false"
+            autoComplete="off"
+            placeholder="paste the key from your email"
+            onChange={(e) => setKey(e.target.value)}
+          />
+          <button className="act" type="submit" disabled={busy || !key.trim()}>
+            {busy ? 'Checking…' : 'Install'}
+          </button>
+        </form>
+      )}
+      {state?.email && (
+        <ul className="tight">
+          <li>
+            <span className="dim">issued to</span> <code>{state.email}</code>
+          </li>
+          <li>
+            <span className="dim">plan</span> <code>{state.plan}</code>
+          </li>
+          <li>
+            <span className="dim">valid until</span> <code>{(state.expires_at || '').slice(0, 10) || '—'}</code>
+          </li>
+        </ul>
+      )}
+      {error && (
+        <p className="err" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="faint">
+        The key is checked here, on this machine. noirdeck never contacts us to validate it, which is why it keeps
+        working whether or not we do.
+      </p>
     </div>
   )
 }
@@ -218,6 +313,8 @@ export default function Settings({ bump, appearance, onSetDial }) {
           </p>
         )}
       </div>
+
+      <LicencePanel />
 
       <div className="panel">
         <h2>About</h2>

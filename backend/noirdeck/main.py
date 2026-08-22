@@ -19,6 +19,7 @@ from . import (
     ask,
     consult,
     digest,
+    environment,
     guided,
     hygiene,
     improve,
@@ -1631,6 +1632,17 @@ def ask_get(job_id: str):
 
 class LicenseBody(BaseModel):
     key: str
+
+
+@app.get("/api/environment")
+def environment_scan(refresh: bool = False):
+    """What machine this is, and every assistant environment on it.
+
+    On WSL that is two homes, not one, and the Windows half is the half noirdeck
+    does not read. Cached in the module; `refresh=true` forces a re-scan after
+    someone installs something.
+    """
+    return environment.scan_ai_environments(refresh=refresh)
 
 
 @app.get("/api/license")

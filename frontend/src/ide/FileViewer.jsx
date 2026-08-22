@@ -1,5 +1,5 @@
 import React from 'react'
-import { tokenizeLines } from './highlight'
+import { tokenizeLines } from './tokenize'
 
 const fmtSize = (n) => {
   if (n == null) return ''
@@ -9,7 +9,7 @@ const fmtSize = (n) => {
 }
 
 // Read-only file viewer tab: breadcrumb header + generated line-number gutter.
-// Syntax highlighting is a hand-rolled tokenizer (./highlight.js), no runtime
+// Syntax highlighting is a hand-rolled tokenizer (./tokenize.js), no runtime
 // dependency: see that file for the token-to-theme-token mapping.
 export default function FileViewer({ tab }) {
   if (tab.error)
