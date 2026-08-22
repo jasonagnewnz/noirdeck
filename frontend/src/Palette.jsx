@@ -4,19 +4,19 @@ import { PALETTE_SHORTCUTS } from './ide/claudeRef.js'
 import { useFocusTrap } from './ide/useFocusTrap.js'
 import { buildIntent, QUICK_INTENTS } from './intent.js'
 
-// Shortcut content is shared with the "?" quick-keys menu (ide/claudeRef.js) —
+// Shortcut content is shared with the "?" quick-keys menu (ide/claudeRef.js):
 // one source of truth for the whole Claude Code reference.
 const SHORTCUTS = PALETTE_SHORTCUTS
 
 const TIPS = [
   'Quick keys: 1–0 jump between views, Ctrl+B toggles the sidebar, ? shows the cheat sheet.',
-  'Use plan mode before big or irreversible changes — review the plan before code lands.',
+  'Use plan mode before big or irreversible changes: review the plan before code lands.',
   'Run background tasks in noirdeck.dev so work can move while you do something else.',
   'Open a session with /context-prime instead of reading the whole tree cold.',
   'Paste screenshots straight into the prompt with Ctrl+V for visual bugs and mockups.',
   'Use worktrees to try parallel changes in one project without them treading on each other.',
   'Say "think hard" (or "think harder") to trigger extended thinking on a genuinely hard problem.',
-  'Fan a big sweep out to subagents that return conclusions, not file dumps — keep the main thread thin.',
+  'Fan a big sweep out to subagents that return conclusions, not file dumps: keep the main thread thin.',
   'Land the work and write a memory note before the context window fills, then /clear.',
 ]
 
@@ -156,7 +156,7 @@ export default function Palette({ open, onClose, onIntent }) {
         clearTimeout(copyTimer.current)
         copyTimer.current = setTimeout(() => setCopiedKey(null), 1100)
       } catch {
-        // clipboard blocked (insecure context / permission denied) — fail quietly, no crash
+        // clipboard blocked (insecure context / permission denied): fail quietly, no crash
       }
     },
     [onClose, onIntent]
@@ -210,44 +210,44 @@ export default function Palette({ open, onClose, onIntent }) {
         @keyframes jcp-pop { from { opacity: 0; transform: translateY(-6px) scale(.98) } to { opacity: 1; transform: none } }
         .jcp-panel {
           width: 640px; max-width: 92vw; max-height: 70vh; display: flex; flex-direction: column;
-          background: var(--panel, #15120f); border: 1px solid var(--line, #2c2620);
+          background: var(--surface-1); border: 1px solid var(--border);
           box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-          font-family: var(--mono, ui-monospace, monospace);
+          font-family: var(--font-mono);
           animation: jcp-pop .14s ease both;
         }
-        .jcp-searchwrap { padding: 12px 14px; border-bottom: 1px solid var(--line, #2c2620); }
+        .jcp-searchwrap { padding: 12px 14px; border-bottom: 1px solid var(--border); }
         .jcp-topline { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-        .jcp-topline span { color: var(--ink-faint, #8a827a); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+        .jcp-topline span { color: var(--text-3); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
         .jcp-close {
           all: unset; box-sizing: border-box; cursor: pointer; margin-left:auto;
-          color: var(--ink-faint, #8a827a); border: 1px solid var(--line, #2c2620);
+          color: var(--text-3); border: 1px solid var(--border);
           min-width: 24px; min-height: 24px; display:inline-flex; align-items:center; justify-content:center;
         }
-        .jcp-close:hover, .jcp-close:focus-visible { color: var(--amber, #F0525E); border-color: var(--amber, #F0525E); }
+        .jcp-close:hover, .jcp-close:focus-visible { color: var(--accent); border-color: var(--accent); }
         .jcp-input {
-          width: 100%; background: var(--bg-deep, #0a0807); border: 1px solid var(--line, #2c2620);
-          color: var(--ink, #e6e3d8); font-family: inherit; font-size: 14px; padding: 9px 12px;
+          width: 100%; background: var(--surface-sunken); border: 1px solid var(--border);
+          color: var(--text); font-family: inherit; font-size: 14px; padding: 9px 12px;
         }
-        .jcp-input:focus { outline: none; border-color: var(--amber, #F0525E); }
+        .jcp-input:focus { outline: none; border-color: var(--accent); }
         .jcp-list { overflow-y: auto; padding: 6px; }
         .jcp-section-label {
           font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
-          color: var(--ink-faint, #8a827a); padding: 8px 8px 4px;
+          color: var(--text-3); padding: 8px 8px 4px;
         }
         .jcp-row {
           display: flex; align-items: center; gap: 8px; padding: 7px 8px; cursor: pointer;
           border-left: 2px solid transparent;
         }
-        .jcp-row.on { background: var(--amber-soft, rgba(240,82,94,0.14)); border-left-color: var(--amber, #F0525E); }
-        .jcp-row .jcp-title { color: var(--ink, #e6e3d8); font-size: 12.5px; flex-shrink: 0; }
+        .jcp-row.on { background: var(--accent-soft); border-left-color: var(--accent); }
+        .jcp-row .jcp-title { color: var(--text); font-size: 12.5px; flex-shrink: 0; }
         .jcp-row .jcp-subtitle {
-          color: var(--ink-dim, #a89e92); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis;
+          color: var(--text-2); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis;
           white-space: nowrap; flex: 1; min-width: 0;
         }
-        .jcp-empty { color: var(--ink-faint, #8a827a); padding: 24px 8px; text-align: center; font-size: 12px; }
+        .jcp-empty { color: var(--text-3); padding: 24px 8px; text-align: center; font-size: 12px; }
         .jcp-footer {
-          display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--line, #2c2620);
-          color: var(--ink-faint, #8a827a); font-size: 10.5px; letter-spacing: 0.04em;
+          display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--border);
+          color: var(--text-3); font-size: 10.5px; letter-spacing: 0.04em;
         }
       `}</style>
       <div className="jcp-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label="Command palette">
@@ -315,7 +315,7 @@ export default function Palette({ open, onClose, onIntent }) {
                       {KIND_LABEL[item.kind] || item.kind}
                     </span>
                     <span className="jcp-title">{item.title}</span>
-                    {item.subtitle && <span className="jcp-subtitle">— {item.subtitle}</span>}
+                    {item.subtitle && <span className="jcp-subtitle">· {item.subtitle}</span>}
                     {copiedKey === item.id && (
                       <span className="pill done" role="status" aria-live="polite">
                         copied ✓

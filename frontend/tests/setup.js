@@ -3,7 +3,7 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
 // jsdom has no EventSource; useEvents() opens one on mount. A silent stub keeps
-// the SSE seam inert — tests drive refetches through props, not the bus.
+// the SSE seam inert: tests drive refetches through props, not the bus.
 class FakeEventSource {
   constructor() {
     this.onopen = null

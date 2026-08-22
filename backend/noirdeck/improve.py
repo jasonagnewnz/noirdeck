@@ -1,8 +1,8 @@
-"""Improve — mapped repos that a small LOCAL model quietly improves.
+"""Improve: mapped repos that a small LOCAL model quietly improves.
 
 The trust design does the heavy lifting, not the model:
 - every change happens in a TEMPORARY git worktree (the real working tree is
-  never touched — sessions may be editing it right now)
+  never touched: sessions may be editing it right now)
 - on its own branch, one small change per repo per run
 - syntax-gated (py_compile), diff-capped, test-gated when tests exist
 - recorded as a PROPOSED change with the full diff; merge is a human click
@@ -11,7 +11,7 @@ The trust design does the heavy lifting, not the model:
 
 Zero-egress: the model is Ollama on 127.0.0.1. Candidate selection is
 deterministic (readiness-gate style scans); the model only writes prose-level
-improvements — docstrings, comment tidy, README gaps — the change classes a
+improvements: docstrings, comment tidy, README gaps: the change classes a
 7B model does well and a diff cap keeps honest."""
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from .db import audit, connect, utcnow
 
 OLLAMA = os.environ.get("NOIRDECK_OLLAMA_URL", "http://127.0.0.1:11434")
 MAX_CHANGED_LINES = 120
-MAX_FILE_LINES = 400  # only small files — small model, small blast radius
+MAX_FILE_LINES = 400  # only small files: small model, small blast radius
 GEN_TIMEOUT_S = int(os.environ.get("NOIRDECK_GEN_TIMEOUT_S", "1800"))
 # CPU inference is slow (muse-glimmer:30b measured ~1-2 tok/s + ~100s cold load);
 # the timeout covers load + prompt eval + generation in one urlopen.
@@ -41,7 +41,7 @@ _RUN_LOCK = threading.Lock()
 
 def safe_repo(settings: Settings, project: str) -> Path | None:
     """project must be a single path segment naming a direct child of the
-    projects dir — ~ is itself a git repo, so ".." would pass a .git check
+    projects dir: ~ is itself a git repo, so ".." would pass a .git check
     (same escape class fixed in the files and hygiene APIs)."""
     if "/" in project or "\\" in project or project in ("", ".", ".."):
         return None
@@ -61,7 +61,7 @@ def local_model() -> str:
 
 
 def available_models() -> list[str]:
-    """Tags actually pulled into the local Ollama — the only models the
+    """Tags actually pulled into the local Ollama: the only models the
     improver may ever use (zero-egress by design, never a cloud model)."""
     try:
         with urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=5) as r:
@@ -72,7 +72,7 @@ def available_models() -> list[str]:
 
 
 def _model_in(model: str, avail: list[str]) -> bool:
-    # exact tag match only — a loose prefix match let "muse-glimmer:30b" pass
+    # exact tag match only: a loose prefix match let "muse-glimmer:30b" pass
     # when only muse-glimmer:7b was pulled, failing later with a vague reason.
     # An untagged name resolves to :latest, mirroring ollama itself.
     return model in avail or (":" not in model and f"{model}:latest" in avail)
@@ -83,10 +83,10 @@ def model_available(model: str | None = None) -> bool:
 
 
 def _generate(prompt: str, model: str) -> tuple[str | None, str | None]:
-    """(text, None) on success, (None, reason) on failure — one reason string
+    """(text, None) on success, (None, reason) on failure: one reason string
     per distinct failure so the audit trail diagnoses itself (a single vague
     reason previously covered timeout, missing model, AND cap rejections).
-    think:false — reasoning models (muse-glimmer) otherwise burn the token
+    think:false: reasoning models (muse-glimmer) otherwise burn the token
     budget in the thinking channel at CPU speeds and time out into skips;
     non-thinking models (qwen2.5-coder) ignore the field. Verified on 0.32.9."""
     body = json.dumps(
@@ -117,7 +117,7 @@ def _generate(prompt: str, model: str) -> tuple[str | None, str | None]:
 # ── estate targets: manually-armed assets under ~/.claude ───────────────────
 # Beyond repos: skills and memory notes become improvement targets, but ONLY
 # while individually armed (fail-closed expiry). Output never touches disk
-# here — it lands in the propose→approve spine, whose allowlist is the real
+# here: it lands in the propose→approve spine, whose allowlist is the real
 # write boundary into ~/.claude.
 
 ASSET_KINDS = ("skill", "memory")
@@ -142,7 +142,7 @@ _LINK_RE = re.compile(r"\[\[[^\]]+\]\]")
 
 
 def safe_asset(claude_dir: Path, target_path: str) -> Path | None:
-    """Resolve an estate target through the PROPOSALS allowlist — the same
+    """Resolve an estate target through the PROPOSALS allowlist: the same
     boundary approval enforces, so nothing addable here is unwritable there."""
     from .proposals import ProposalError, _resolve_target
 
@@ -173,18 +173,18 @@ def _frontmatter_block(text: str) -> str | None:
 
 
 def _asset_ok(kind: str, original: str, new: str) -> str | None:
-    """None when structurally safe, else the reason. Structure guards only —
+    """None when structurally safe, else the reason. Structure guards only:
     factual fidelity is the human's call in the proposal diff. Growth is
     kind-aware: refining a draft skill legitimately adds structure; a memory
     tidy must not add bulk. +200 bytes of headroom keeps tiny files workable."""
     fm = _frontmatter_block(original)
     if fm and not new.startswith(fm):
-        return "frontmatter was altered — rejected"
+        return "frontmatter was altered: rejected"
     growth = 1.5 if kind == "skill" else 1.1
     if len(new) > len(original) * growth + 200:
-        return f"result grew beyond the {kind} cap — too much added bulk"
+        return f"result grew beyond the {kind} cap: too much added bulk"
     if len(new) < len(original) * 0.5:
-        return "result lost >50% of the file — too aggressive"
+        return "result lost >50% of the file: too aggressive"
     missing = set(_LINK_RE.findall(original)) - set(_LINK_RE.findall(new))
     if missing:
         return "dropped [[links]]: " + ", ".join(sorted(missing)[:4])
@@ -197,7 +197,7 @@ def improve_asset_one(settings: Settings, conn, target: dict, model: str | None 
     path = safe_asset(settings.claude_dir, target["target_path"])
     if path is None:
         return {"skipped": label, "reason": "target missing or outside the write allowlist"}
-    # Proposals now carry the SIBLING path, so dedup must ask about that path —
+    # Proposals now carry the SIBLING path, so dedup must ask about that path:
     # asking about the original would never match and every run would re-propose.
     sibling = _sibling_target(target["target_path"])
     if conn.execute(
@@ -275,7 +275,7 @@ MUTE_DISCARDS = 3  # this many discards with zero merges mutes a kind per repo
 
 
 def decision_stats(conn) -> dict:
-    """Tallies of the operator's own merge/discard decisions — the improver's
+    """Tallies of the operator's own merge/discard decisions: the improver's
     only learning signal. Deterministic and fully inspectable: no model in
     the loop, and merging a previously-discarded kind un-mutes it naturally."""
     rows = conn.execute(
@@ -296,7 +296,7 @@ def decision_stats(conn) -> dict:
 
 def _apply_decisions(stats: dict, project: str, cands: list[dict]) -> tuple[list[dict], list[str]]:
     """Re-rank candidates by decision history and drop muted kinds.
-    weight = (merged+1)/(discarded+1) — repo-specific counts at full strength,
+    weight = (merged+1)/(discarded+1): repo-specific counts at full strength,
     the global kind history at quarter strength as a prior."""
     out, muted = [], []
     for c in cands:
@@ -412,7 +412,7 @@ def _propose_content(kind: str, path: Path, model: str) -> tuple[str | None, str
         return None, "model output was empty after unwrapping the markers"
     orig_lines, new_lines = original.splitlines(), content.splitlines()
     if len(new_lines) < len(orig_lines) * 0.7:
-        return None, "rewrite deleted >30% of the file — not subtle, rejected"
+        return None, "rewrite deleted >30% of the file: not subtle, rejected"
     changed = sum(1 for a, b in zip(orig_lines, new_lines) if a != b) + abs(len(new_lines) - len(orig_lines))
     if changed == 0:
         return None, "model proposed no changes"
@@ -422,7 +422,7 @@ def _propose_content(kind: str, path: Path, model: str) -> tuple[str | None, str
 
 
 def _code_unchanged(kind: str, original: str, new: str) -> bool:
-    """For python edits: the executable structure must be identical —
+    """For python edits: the executable structure must be identical:
     docstrings/comments are the ONLY thing a small model is trusted to touch."""
     if kind == "readme_gap":
         return True
@@ -466,7 +466,7 @@ def improve_one(settings: Settings, conn, project: str, model: str | None = None
     repo = safe_repo(settings, project)
     if repo is None:
         # an ENABLED repo that fails the safety check is an anomaly, not a
-        # quiet no-op — surface it instead of returning silently
+        # quiet no-op: surface it instead of returning silently
         return {"skipped": {"kind": "-", "file": "-"}, "reason": "repo missing or failed the safety check"}
     cands = candidates(repo)
     if not cands:
@@ -492,7 +492,7 @@ def improve_one(settings: Settings, conn, project: str, model: str | None = None
             return {"skipped": cand, "reason": f"worktree add failed: {type(exc).__name__}"}
         if wt_add.returncode != 0:
             # e.g. the proposal branch already exists from a concurrent or
-            # earlier run — an audited skip, never a silent None
+            # earlier run: an audited skip, never a silent None
             return {"skipped": cand, "reason": f"worktree add failed: {(wt_add.stderr or '').strip()[-120:]}"}
         try:
             target = wt / cand["file"]
@@ -507,7 +507,7 @@ def improve_one(settings: Settings, conn, project: str, model: str | None = None
                 except py_compile.PyCompileError:
                     return {"skipped": cand, "reason": "result does not compile"}
                 if not _code_unchanged(cand["kind"], original, content):
-                    return {"skipped": cand, "reason": "executable code changed — rejected"}
+                    return {"skipped": cand, "reason": "executable code changed: rejected"}
             tests = _run_tests(wt)
             if tests.startswith("FAIL"):
                 return {"skipped": cand, "reason": tests}
@@ -564,7 +564,7 @@ def run_improver(settings: Settings) -> dict:
 
     if not _RUN_LOCK.acquire(blocking=False):
         return {"skipped": True, "reason": "already running"}
-    # the thread lock only covers THIS process — "Run now" lives in the API
+    # the thread lock only covers THIS process: "Run now" lives in the API
     # service while the hourly timer is its own process, and both mutate the
     # same repos. flock is advisory but both writers are ours.
     lock_file = open(settings.db_path.parent / "improve.lock", "w")
@@ -603,9 +603,9 @@ def run_improver(settings: Settings) -> dict:
                 consume(conn, "improver", tasks=1)
             else:
                 results["skipped"] += 1
-                # a silent skip is invisible in a background thread — record why
+                # a silent skip is invisible in a background thread: record why
                 audit(conn, "improver", "change_skipped", f"{project}: {out.get('reason', '?')[:160]}")
-        # estate targets — only while manually armed and unexpired (fail-closed)
+        # estate targets: only while manually armed and unexpired (fail-closed)
         if "halted" not in results:
             targets = [
                 dict(r)
@@ -656,8 +656,8 @@ def decide(settings: Settings, conn, change_id: int, action: str) -> dict:
             ["git", "-C", str(repo), "status", "--porcelain"], capture_output=True, text=True, timeout=30
         ).stdout.strip()
         if dirty:
-            raise ValueError("working tree has uncommitted changes — merge later")
-        # the merge lands on whatever branch the repo has checked out — say so
+            raise ValueError("working tree has uncommitted changes: merge later")
+        # the merge lands on whatever branch the repo has checked out: say so
         # honestly everywhere instead of claiming "main"
         into = (
             subprocess.run(

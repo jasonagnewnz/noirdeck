@@ -39,7 +39,7 @@ def test_approve_rejects_traversal_and_outside_roots(conn, claude_dir):
 
 def test_approve_is_create_only_and_has_no_escape_hatch(conn, claude_dir):
     """The operator's rule: noirdeck adds files, it never modifies one it did not
-    create — and approval is not a way around that."""
+    create: and approval is not a way around that."""
     target = "skills/deploy-wazuh/SKILL.md"  # exists in fixture
     original = (claude_dir / target).read_text()
     pid = _insert(conn, target)

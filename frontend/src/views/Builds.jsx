@@ -6,11 +6,11 @@ import GuidedCard, { FRIENDLY, STEPS } from './guided/GuidedCard.jsx'
 import GuidedIntake from './guided/GuidedIntake.jsx'
 
 // Attention-first ordering: things waiting on the operator, then things moving,
-// then the rest — a returning user's question is always "does anything need me?"
+// then the rest: a returning user's question is always "does anything need me?"
 const RANK = { awaiting_plan: 0, blocked: 0, attention: 0, running: 1, queued: 1 }
 const sortBuilds = (builds) => [...builds].sort((a, b) => (RANK[a.status] ?? 2) - (RANK[b.status] ?? 2) || b.id - a.id)
 
-// A phase can log several attempts (failed tries then the successful one) —
+// A phase can log several attempts (failed tries then the successful one):
 // judge it by its best outcome, not its first attempt.
 const phaseOutcome = (log, phase) => {
   const entries = log.filter((l) => l.phase === phase)
@@ -20,7 +20,7 @@ const phaseOutcome = (log, phase) => {
 
 const fmtMin = (s) => (s < 90 ? `${s}s` : `${Math.round(s / 60)}m`)
 
-// Stepper for a non-gated (expert) build — same visual language as the guided
+// Stepper for a non-gated (expert) build: same visual language as the guided
 // card: quiet ✓ chips for done, a live pill for the active phase, dashed chips
 // for not-yet.
 function PhaseStepper({ b }) {
@@ -30,27 +30,27 @@ function PhaseStepper({ b }) {
         const entry = phaseOutcome(b.log, key)
         if (entry && entry.status === 'done') {
           return (
-            <span key={key} className="chip" aria-label={`${key} — finished`}>
+            <span key={key} className="chip" aria-label={`${key}: finished`}>
               ✓ {key} {fmtMin(entry.seconds)}
             </span>
           )
         }
         if (b.phase === key && b.status === 'running') {
           return (
-            <span key={key} className="pill running" aria-label={`${key} — happening now`}>
+            <span key={key} className="pill running" aria-label={`${key}: happening now`}>
               {key}…
             </span>
           )
         }
         if (entry) {
           return (
-            <span key={key} className="pill blocked" aria-label={`${key} — stuck`}>
-              {key} — stuck
+            <span key={key} className="pill blocked" aria-label={`${key}: stuck`}>
+              {key}: stuck
             </span>
           )
         }
         return (
-          <span key={key} className="chip pending" aria-label={`${key} — not started yet`}>
+          <span key={key} className="chip pending" aria-label={`${key}: not started yet`}>
             {key}
           </span>
         )
@@ -73,7 +73,7 @@ function TryIt({ b }) {
     api(`/preview-info/${b.name}`)
       .then((d) => alive && setInf(d))
       .catch(() => {
-        /* non-web build — no preview, no noise */
+        /* non-web build: no preview, no noise */
       })
     return () => {
       alive = false
@@ -83,7 +83,7 @@ function TryIt({ b }) {
   return (
     <div style={{ marginTop: 10 }}>
       <button className="act" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? 'close the preview' : 'try it — see it working'}
+        {open ? 'close the preview' : 'try it: see it working'}
       </button>
       {open && (
         <iframe
@@ -111,7 +111,7 @@ function ExpertCard({ b, refresh, openWorkspace }) {
   return (
     <>
       <h2>
-        #{b.id} — <b>{b.name}</b> <span className={`pill ${pillClass}`}>{statusText}</span>
+        #{b.id}: <b>{b.name}</b> <span className={`pill ${pillClass}`}>{statusText}</span>
       </h2>
       <PhaseStepper b={b} />
       {b.question && <div className="kickoff">The builder asks: {b.question}</div>}
@@ -196,7 +196,7 @@ export default function Builds({ openWorkspace }) {
       <ViewHead
         title="Builds"
         helpId="builds"
-        hint="Describe what you want and it gets built for you: a plan you approve first, then the code is written, tested and double-checked by a second reviewer — with plain proof of what was done at the end. Nothing ships without you."
+        hint="Describe what you want and it gets built for you: a plan you approve first, then the code is written, tested and double-checked by a second reviewer: with plain proof of what was done at the end. Nothing ships without you."
       />
 
       <div className="panel toolbar">
@@ -234,7 +234,7 @@ export default function Builds({ openWorkspace }) {
               aria-pressed={mode === 'guided'}
               onClick={() => setMode('guided')}
             >
-              Guided — answer a few questions
+              Guided: answer a few questions
             </button>
             <button
               type="button"
@@ -242,7 +242,7 @@ export default function Builds({ openWorkspace }) {
               aria-pressed={mode === 'expert'}
               onClick={() => setMode('expert')}
             >
-              Expert — write the brief yourself
+              Expert: write the brief yourself
             </button>
           </div>
 
@@ -263,7 +263,7 @@ export default function Builds({ openWorkspace }) {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                   />
                   <label className="fl" htmlFor="build-prompt">
-                    The full brief — write it like a proper product spec
+                    The full brief: write it like a proper product spec
                   </label>
                   <textarea
                     id="build-prompt"
@@ -294,7 +294,7 @@ export default function Builds({ openWorkspace }) {
         <div className="listhead">
           Your builds · <b>{sorted.length}</b>{' '}
           <span className="faint" style={{ textTransform: 'none', letterSpacing: 0 }}>
-            — the ones needing you first
+            : the ones needing you first
           </span>
         </div>
       )}
@@ -311,7 +311,7 @@ export default function Builds({ openWorkspace }) {
       {buildPager && <div className="panel">{buildPager}</div>}
       {builds !== null && builds.length === 0 && !showIntake && (
         <div className="panel">
-          <div className="faint">No builds yet — press “+ start a build” above.</div>
+          <div className="faint">No builds yet: press “+ start a build” above.</div>
         </div>
       )}
     </>

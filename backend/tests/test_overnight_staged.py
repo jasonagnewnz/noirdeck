@@ -1,5 +1,5 @@
 """The staged (heavy) queue path: plan → do → conditional check, with fallback.
-The _execute seam is monkeypatched — no real claude sessions run here."""
+The _execute seam is monkeypatched: no real claude sessions run here."""
 
 import subprocess
 

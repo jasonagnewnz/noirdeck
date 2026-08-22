@@ -18,7 +18,7 @@ def _git(repo: Path, *args: str) -> None:
 
 
 def _pushed_repo(root: Path, name: str) -> Path:
-    """A repo whose every commit is on its remote — nothing for a bundle to carry.
+    """A repo whose every commit is on its remote: nothing for a bundle to carry.
     This is the shape that used to vanish from the report entirely."""
     bare = root / f"{name}.git"
     subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True, capture_output=True)
@@ -127,7 +127,7 @@ def test_pushed_but_dirty_repo_is_captured_not_skipped(tmp_path):
 
     entry = {e["repo"]: e for e in vault._bundle_unpushed(proj, staging)}["shipped-app"]
 
-    assert entry["bundled"] is False, "nothing unpushed, so no bundle — but still reported"
+    assert entry["bundled"] is False, "nothing unpushed, so no bundle: but still reported"
     assert entry["dirty_files"] == 2
     assert entry["tracked_patch"] is True
     assert entry["untracked_files"] == 1
@@ -277,7 +277,7 @@ def test_manifest_matches_what_is_actually_backed_up(tmp_path, claude_dir, monke
 def test_detects_tampered_restore(vault_env, claude_dir):
     out = vault.run_backup(vault_env)
     assert out["status"] == "ok"
-    # live file changes AFTER the snapshot — verify must FAIL loudly, not lie
+    # live file changes AFTER the snapshot: verify must FAIL loudly, not lie
     mem = claude_dir / "projects" / "-home-user" / "memory" / "MEMORY.md"
     mem.write_text(mem.read_text() + "\nedited after snapshot\n")
     ok, note = vault._restore_test(vault_env, out["snapshot"])

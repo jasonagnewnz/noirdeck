@@ -155,7 +155,7 @@ def test_design_capture_api(tmp_path, monkeypatch, claude_dir):
 
 
 def test_queuing_a_task_arms_it_so_run_later_actually_runs(tmp_path, monkeypatch, claude_dir):
-    """⛔ Pressing "run later" used to accept the task and then never run it: the
+    """Pressing "run later" used to accept the task and then never run it: the
     runner needs a contract, and creating one was a separate screen with three
     numbers to invent. Queuing IS the intent to run, so it arms with defaults."""
     monkeypatch.setenv("NOIRDECK_CLAUDE_DIR", str(claude_dir))

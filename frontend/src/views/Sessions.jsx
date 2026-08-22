@@ -33,8 +33,8 @@ export default function Sessions({ bump, openWorkspace }) {
       <div className="panel">
         <h2>Search your prompt history</h2>
         <p className="sechint">
-          Full-text search over every recorded prompt, in every project — find how you phrased it last time before
-          asking again.
+          Full-text search over every recorded prompt, in every project: find how you phrased it last time before asking
+          again.
         </p>
         <form onSubmit={search} style={{ display: 'flex', gap: 8 }}>
           <input
@@ -52,7 +52,7 @@ export default function Sessions({ bump, openWorkspace }) {
             <p className="listhead">
               {hits.total} {hits.total === 1 ? 'prompt' : 'prompts'} in {hits.groups.length}{' '}
               {hits.groups.length === 1 ? 'group' : 'groups'}
-              {hits.collapsed > 0 && <span className="dim"> — {hits.collapsed} repeats folded in</span>}
+              {hits.collapsed > 0 && <span className="dim">: {hits.collapsed} repeats folded in</span>}
             </p>
             <table style={{ marginTop: 10 }}>
               <caption className="visually-hidden">

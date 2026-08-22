@@ -41,14 +41,14 @@ describe('GuidedCard stepper', () => {
       ],
     })
     render(<GuidedCard b={b} refresh={noop} openWorkspace={noop} />)
-    expect(screen.getByLabelText('Designing it — finished')).toBeInTheDocument()
-    expect(screen.getByLabelText('Writing the code — happening now')).toBeInTheDocument()
+    expect(screen.getByLabelText('Designing it: finished')).toBeInTheDocument()
+    expect(screen.getByLabelText('Writing the code: happening now')).toBeInTheDocument()
   })
 
   it('a blocked build marks the active phase stuck and offers continue', () => {
     render(<GuidedCard b={build({ status: 'blocked', phase: 'test' })} refresh={noop} openWorkspace={noop} />)
     expect(screen.getByText('Needs your attention')).toBeInTheDocument()
-    expect(screen.getByLabelText('Testing until it passes — stuck, needs your attention')).toBeInTheDocument()
+    expect(screen.getByLabelText('Testing until it passes: stuck, needs your attention')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'continue this build' })).toBeInTheDocument()
   })
 
@@ -65,7 +65,7 @@ describe('GuidedCard plan gate', () => {
   it('approve posts the decision to the plan endpoint', async () => {
     const refresh = vi.fn()
     render(<GuidedCard b={gated()} refresh={refresh} openWorkspace={noop} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Approve — start building' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Approve: start building' }))
     await vi.waitFor(() => expect(refresh).toHaveBeenCalled())
     const [url, opts] = calls.find(([u]) => u === '/api/builds/3/plan')
     expect(url).toBe('/api/builds/3/plan')

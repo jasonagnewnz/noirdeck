@@ -28,7 +28,7 @@ def test_scan_finds_dupes_tiny_and_dangling(mem):
     assert any({p["a"], p["b"]} == {"near_a.md", "near_b.md"} for p in r["near_dupes"])
     assert any(t["file"] == "tiny.md" for t in r["tiny"])
     assert any(dl["file"] == "linker.md" and dl["links"] == ["does_not_exist"] for dl in r["dangling_links"])
-    # dup_a resolves as a real link target — must NOT be dangling
+    # dup_a resolves as a real link target: must NOT be dangling
     assert all("dup_a" not in dl["links"] for dl in r["dangling_links"])
 
 
@@ -42,7 +42,7 @@ def test_report_rejects_namespace_traversal(claude_dir):
     for bad in ("..", ".", "../x", "a/b", "..\\x"):
         with pytest.raises(ValueError):
             report(claude_dir, bad)
-    # empty string is not traversal — it falls back to the default namespace
+    # empty string is not traversal: it falls back to the default namespace
     assert report(claude_dir, "")["namespace_report"] is not None
 
 

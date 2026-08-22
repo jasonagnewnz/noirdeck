@@ -1,8 +1,8 @@
-"""Ask-your-estate — plain-English questions answered by a READ-ONLY headless
+"""Ask-your-estate: plain-English questions answered by a READ-ONLY headless
 Claude session over ~/projects and the ~/.claude memory.
 
 The read-only cage is layered: the session's tool set is restricted to
-Read/Grep/Glob (no Bash, no Write, no Edit — the tools simply don't exist in
+Read/Grep/Glob (no Bash, no Write, no Edit: the tools simply don't exist in
 the session), and the pipeline guard hook rides along for depth. Answers are
 ephemeral (in-memory): this is a question box, not a records system."""
 
@@ -35,7 +35,7 @@ def _prompt(settings: Settings, question: str) -> str:
         "You are answering one question about this machine's code estate for its "
         "operator, who may be non-technical. You have READ-ONLY access.\n"
         f"- Projects live under {settings.projects_dir} (each subfolder is a repo).\n"
-        f"- Long-term memory notes live under {mem_index.parent} — start with the "
+        f"- Long-term memory notes live under {mem_index.parent}: start with the "
         "index MEMORY.md, then read only the notes that look relevant.\n"
         "Ground every claim in something you actually read; if you cannot find the "
         "answer, say so plainly rather than guessing. Answer in plain English, "
@@ -81,7 +81,7 @@ def _run(settings: Settings, job_id: str) -> None:
             answer, _tin, tout = parse_cli_json(proc.stdout)
             job.update(
                 status="done",
-                answer=(answer or "").strip() or "The session returned no answer — try asking more specifically.",
+                answer=(answer or "").strip() or "The session returned no answer: try asking more specifically.",
                 tokens_out=tout,
             )
         else:
@@ -90,7 +90,7 @@ def _run(settings: Settings, job_id: str) -> None:
                 answer=f"The answer session failed (rc={proc.returncode}). {(proc.stderr or '').strip()[-200:]}",
             )
     except subprocess.TimeoutExpired:
-        job.update(status="error", answer=f"Timed out after {TIMEOUT_S // 60} minutes — try a narrower question.")
+        job.update(status="error", answer=f"Timed out after {TIMEOUT_S // 60} minutes: try a narrower question.")
     except Exception as exc:  # a background thread must never die silently
         job.update(status="error", answer=f"{type(exc).__name__}: {exc}"[:300])
     finally:
@@ -105,7 +105,7 @@ def submit(settings: Settings, question: str) -> dict:
         raise AskError(f"keep the question under {MAX_QUESTION} characters")
     with _lock:
         if any(j["status"] == "running" for j in _jobs.values()):
-            raise AskError("an answer is already being worked on — wait for it to finish")
+            raise AskError("an answer is already being worked on: wait for it to finish")
         job_id = uuid.uuid4().hex[:12]
         _jobs[job_id] = {
             "id": job_id,

@@ -105,7 +105,7 @@ def test_expired_past_grace_is_denied(issuer, monkeypatch, tmp_path):
 
 
 def test_ungated_features_never_need_a_key(issuer, monkeypatch, tmp_path):
-    """The console itself must stay reachable unlicensed — otherwise a licence
+    """The console itself must stay reachable unlicensed: otherwise a licence
     problem hides the very screen used to fix it."""
     monkeypatch.setattr(licensing, "key_path", lambda: tmp_path / "nothing.key")
     for feature in ("overview", "files", "settings", "memories"):
@@ -150,7 +150,7 @@ def test_status_never_raises(issuer, monkeypatch, tmp_path):
     out = licensing.status()
     assert out["licensed"] is False and out["state"] == "unlicensed"
 
-    # A stored key that cannot be verified must REPORT, not explode — this is
+    # A stored key that cannot be verified must REPORT, not explode: this is
     # the exact path that broke the first time it was written.
     (tmp_path / "bad.key").write_text("noirdeck-nonsense.nonsense")
     monkeypatch.setattr(licensing, "key_path", lambda: tmp_path / "bad.key")

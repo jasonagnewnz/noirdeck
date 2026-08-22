@@ -3,9 +3,9 @@ headless session and the operator's governance files. These tests pin BOTH
 boundaries, and specifically pin the 2026-08-19 hole: the hook used to inspect
 Bash only, so Write/Edit sailed straight through under acceptEdits.
 
-⛔ HERMETIC ON PURPOSE. The first version of this file assumed the author's own
-machine — it used `~/.claude` as a subprocess cwd and hardcoded the author's
-home path — and it passed locally and failed in CI, where HOME is /home/runner and
+HERMETIC ON PURPOSE. The first version of this file assumed the author's own
+machine: it used `~/.claude` as a subprocess cwd and hardcoded the author's
+home path: and it passed locally and failed in CI, where HOME is /home/runner and
 no `.claude` directory exists. A guard test that depends on the developer's home
 layout tests the machine, not the guard. Everything below drives the guard's
 CLAUDE_CONFIG_DIR at a tmp_path instead, so the protected tree exists, is
@@ -86,7 +86,7 @@ def test_notebook_edit_cannot_touch_the_knowledge_tree(rel, workspace):
 
 
 def test_the_real_default_home_tree_is_protected_too():
-    """Independent of CLAUDE_CONFIG_DIR, ~/.claude is always a protected root —
+    """Independent of CLAUDE_CONFIG_DIR, ~/.claude is always a protected root:
     otherwise unsetting one env var would disarm the whole guard. Path only: the
     directory need not exist for this to hold."""
     target = Path.home() / ".claude" / "CLAUDE.md"
@@ -117,7 +117,7 @@ def test_project_files_are_still_writable(workspace, tmp_path):
     assert_allowed(
         run_guard("Edit", {"file_path": str(repo / "notes.md"), "old_string": "a", "new_string": "b"}, workspace)
     )
-    # a directory whose name merely CONTAINS the protected one must not match —
+    # a directory whose name merely CONTAINS the protected one must not match:
     # string matching on ".claude" would wrongly deny this
     lookalike = tmp_path / f"{workspace.name}-notes"
     lookalike.mkdir()

@@ -58,7 +58,7 @@ def doctor(_args: argparse.Namespace) -> int:
             settings.claude_dir_ready,
             str(settings.claude_dir)
             if settings.claude_dir_ready
-            else f"{settings.claude_dir} not found — skills, memories and history will be empty",
+            else f"{settings.claude_dir} not found: skills, memories and history will be empty",
         )
         _check("database", True, str(settings.db_path))
         port_ok = _port_free(settings.port)
@@ -77,14 +77,14 @@ def doctor(_args: argparse.Namespace) -> int:
             print("        run: make frontend")
 
     claude = shutil.which("claude")
-    if not _check("claude cli", claude is not None, claude or "not found — sessions/builds unavailable"):
+    if not _check("claude cli", claude is not None, claude or "not found: sessions/builds unavailable"):
         print("        install: https://claude.com/claude-code")
 
     git = shutil.which("git")
-    _check("git", git is not None, git or "not found — repo views unavailable")
+    _check("git", git is not None, git or "not found: repo views unavailable")
 
     restic = shutil.which("restic") or (Path.home() / ".local/bin/restic").exists()
-    _check("restic", bool(restic), "found" if restic else "not found — vault backups unavailable")
+    _check("restic", bool(restic), "found" if restic else "not found: vault backups unavailable")
 
     ollama = os.environ.get("NOIRDECK_OLLAMA_URL", "http://127.0.0.1:11434")
     try:
@@ -92,12 +92,12 @@ def doctor(_args: argparse.Namespace) -> int:
 
         with urllib.request.urlopen(f"{ollama}/api/tags", timeout=2):
             _check("ollama", True, f"reachable at {ollama}")
-    except Exception:  # noqa: BLE001 — unreachable is a normal, reportable state
-        _check("ollama", False, f"unreachable at {ollama} — improver unavailable")
+    except Exception:  # noqa: BLE001 - unreachable is a normal, reportable state
+        _check("ollama", False, f"unreachable at {ollama}: improver unavailable")
 
     from . import scheduler
 
-    _check("scheduler", True, f"{'on' if scheduler.enabled() else 'off'} — {scheduler.mode()}")
+    _check("scheduler", True, f"{'on' if scheduler.enabled() else 'off'}: {scheduler.mode()}")
 
     print("\nnot ready" if fatal else "\nready")
     return 1 if fatal else 0
@@ -116,7 +116,7 @@ def serve(args: argparse.Namespace) -> int:
 
     if not _port_free(settings.port):
         print(
-            f"noirdeck: port {settings.port} is already in use — "
+            f"noirdeck: port {settings.port} is already in use: "
             f"another instance may be running. Try `noirdeck serve --port <n>`.",
             file=sys.stderr,
         )
@@ -125,7 +125,7 @@ def serve(args: argparse.Namespace) -> int:
     url = f"http://{BIND_HOST}:{settings.port}"
     print(f"noirdeck {VERSION} → {url}   (local only; Ctrl-C to stop)")
     if web_dir() is None:
-        print("  note: web UI not built — serving the API only")
+        print("  note: web UI not built: serving the API only")
 
     if args.open:
         # after a beat, so the browser lands on a server that is actually up
@@ -179,7 +179,7 @@ def _resolve_project(settings, given: str | None) -> tuple[str, Path] | tuple[No
                 file=sys.stderr,
             )
             return None, None
-    print("noirdeck: not inside a git repo — pass --project NAME", file=sys.stderr)
+    print("noirdeck: not inside a git repo: pass --project NAME", file=sys.stderr)
     return None, None
 
 
@@ -242,7 +242,7 @@ def do(args: argparse.Namespace) -> int:
             print(json.dumps({"queued": task_id, "project": name, "title": title}))
             return 0
 
-        print(f"noirdeck: working in {name} — {title}", file=sys.stderr)
+        print(f"noirdeck: working in {name}: {title}", file=sys.stderr)
         from .overnight import run_task
 
         task = conn.execute("SELECT * FROM queue WHERE id=?", (task_id,)).fetchone()
@@ -302,13 +302,13 @@ def status_cmd(args: argparse.Namespace) -> int:
     # Worst news first. A status line that buries a leaked credential under a task
     # count is a status line nobody should trust.
     if secrets_open:
-        print(f"!  {secrets_open} credential finding(s) unresolved — noirdeck run secrets, then review")
+        print(f"!  {secrets_open} credential finding(s) unresolved: noirdeck run secrets, then review")
     print(f"   workspace : {report['workspace']}")
     print(f"   armed     : {', '.join(live) if live else 'nothing (unattended work will not run)'}")
     print(f"   reviews   : {pending} waiting")
     print(f"   tasks     : {queue or 'none'}")
     if not report["licensed"]:
-        print("   licence   : none installed (free during Early Access — request a key at noirdeck.dev)")
+        print("   licence   : none installed (free during Early Access: request a key at noirdeck.dev)")
     return 0 if not secrets_open else 1
 
 

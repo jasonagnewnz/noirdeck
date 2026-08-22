@@ -13,7 +13,7 @@ export function usePager(items, initialSize = 25) {
   }, [total, size, pages])
   const view = !items ? [] : size === 'all' ? items : items.slice(page * size, (page + 1) * size)
 
-  // No bar when everything already fits on one page at the smallest size —
+  // No bar when everything already fits on one page at the smallest size:
   // "1–1 of 1 · 10 25 50 100 all" under a single item is pure noise.
   const bar =
     total <= SIZES[0] ? null : (

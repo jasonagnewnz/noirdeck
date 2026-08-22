@@ -31,7 +31,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 
 def b64(raw: bytes) -> str:
-    """urlsafe, unpadded — keys get pasted into terminals and emails, and '='
+    """urlsafe, unpadded: keys get pasted into terminals and emails, and '='
     has a habit of being eaten on the way."""
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
@@ -49,7 +49,7 @@ def cmd_keygen(_args: argparse.Namespace) -> int:
         encoding=serialization.Encoding.Raw,
         format=serialization.PublicFormat.Raw,
     )
-    print("PRIVATE (issuer only — secrets manager, never this repo):")
+    print("PRIVATE (issuer only: secrets manager, never this repo):")
     print(f"  NOIRDECK_ISSUER_PRIVKEY={b64(raw_priv)}")
     print()
     print("PUBLIC (safe to ship inside the wheel):")
@@ -60,7 +60,7 @@ def cmd_keygen(_args: argparse.Namespace) -> int:
 def cmd_issue(args: argparse.Namespace) -> int:
     secret = os.environ.get("NOIRDECK_ISSUER_PRIVKEY", "")
     if not secret:
-        print("NOIRDECK_ISSUER_PRIVKEY is not set — refusing to issue", file=sys.stderr)
+        print("NOIRDECK_ISSUER_PRIVKEY is not set: refusing to issue", file=sys.stderr)
         return 2
     priv = Ed25519PrivateKey.from_private_bytes(base64.urlsafe_b64decode(secret + "=" * (-len(secret) % 4)))
 

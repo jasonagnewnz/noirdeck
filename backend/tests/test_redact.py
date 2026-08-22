@@ -38,8 +38,8 @@ def test_plain_text_untouched():
 def test_redacts_env_var_shaped_secrets():
     """Regression: `\\b` never matches at an underscore, because `_` is a word
     character. `\\bpassword\\b` therefore could not match the PASSWORD inside
-    DB_PASSWORD, so SCREAMING_SNAKE_CASE=value — the commonest shape a secret
-    takes in terminal output and .env files — passed through unredacted."""
+    DB_PASSWORD, so SCREAMING_SNAKE_CASE=value: the commonest shape a secret
+    takes in terminal output and .env files: passed through unredacted."""
     for line in (
         "DB_PASSWORD=hunter2xyz",
         "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIKEXAMPLEKEY1",
@@ -56,7 +56,7 @@ def test_redacts_env_var_shaped_secrets():
 
 def test_does_not_over_redact_benign_lines():
     """Over-redaction is the safe direction, but a consultant that only ever
-    sees [REDACTED] is useless — keep ordinary output readable."""
+    sees [REDACTED] is useless: keep ordinary output readable."""
     for line in ("TOKEN_COUNT=1500", "running 32 tests, all passed"):
         clean, counts = redact(line)
         assert counts == {}, f"over-redacted: {line}"

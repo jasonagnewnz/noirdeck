@@ -7,13 +7,22 @@ import {
   FRONTEND_VERSION,
   isoDateTime,
 } from '../buildInfo.js'
+import { KITS } from './appearance.js'
 import { getJSON } from './ideApi.js'
-import { THEMES } from './themes.js'
 
-// Bottom status bar — live state, decision counts, active build count
+// Bottom status bar: live state, decision counts, active build count
 // (self-polled), the ⌘K launcher, and build identity for both frontend/backend
 // so stale bundles are obvious.
-export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, theme, onSetTheme }) {
+export default function StatusBar({
+  live,
+  overview,
+  onOpenPalette,
+  onOpenKeys,
+  appearance,
+  onSetDial,
+  dockOpen,
+  onToggleDock,
+}) {
   const [sessionCount, setSessionCount] = useState(null)
   const [health, setHealth] = useState(null)
 
@@ -115,15 +124,31 @@ export default function StatusBar({ live, overview, onOpenPalette, onOpenKeys, t
         active <b>{sessionCount === null ? '—' : sessionCount}</b>
       </span>
       {vaultState && vaultState[0] !== 'off' && (
-        <span className="sb-item" role="status" aria-live="polite" title="offsite backup — last verified restore">
+        <span className="sb-item" role="status" aria-live="polite" title="offsite backup: last verified restore">
           <b className={vaultState[0] === 'warn' ? 'sb-accent' : ''}>{vaultState[1]}</b>
         </span>
       )}
       <span className="sb-spacer" />
-      <select className="sb-theme" aria-label="Theme" value={theme} onChange={(e) => onSetTheme?.(e.target.value)}>
-        {THEMES.map((t) => (
-          <option key={t.key} value={t.key} title={t.blurb}>
-            {t.name}
+      <button
+        type="button"
+        className={`sb-kbd${dockOpen ? ' is-on' : ''}`}
+        onClick={onToggleDock}
+        aria-pressed={!!dockOpen}
+        title="Terminal panel (Ctrl+`)"
+      >
+        Terminal
+      </button>
+      {/* The kit is the one appearance dial worth a permanent slot. Mode,
+          density and text size live in Settings with the rest of them. */}
+      <select
+        className="sb-theme"
+        aria-label="Interface kit"
+        value={appearance?.kit ?? 'carbon'}
+        onChange={(e) => onSetDial?.('kit', e.target.value)}
+      >
+        {KITS.map((kit) => (
+          <option key={kit.key} value={kit.key} title={kit.blurb}>
+            {kit.name}
           </option>
         ))}
       </select>

@@ -4,7 +4,7 @@ Contract:
 - Fail-closed: refuses unless NOIRDECK_OVERNIGHT_ARMED=true.
 - One task at a time, bounded turns, model routed per the estate routing table.
 - The session must end with a structured verdict; uncertainty PARKS the task with a
-  question for the operator and the runner MOVES ON — one ambiguity never stops the night.
+  question for the operator and the runner MOVES ON: one ambiguity never stops the night.
 - Never pushes, deploys, or takes outward-facing action: stops at code-ready.
 """
 
@@ -23,7 +23,7 @@ from . import ai_runtime
 from .config import Settings
 
 # Routing table: explicit pinned IDs, never family aliases (override via
-# NOIRDECK_MODEL_THINK/BUILD/REVIEW — see config.model()).
+# NOIRDECK_MODEL_THINK/BUILD/REVIEW: see config.model()).
 from .config import model as _model
 from .db import audit, connect, init_db, utcnow
 from .readers.skills import list_agents
@@ -60,7 +60,7 @@ def route_model(text: str) -> str:
 
 # Weight routing: staging (think → do → check) pays for itself only when a wrong
 # approach would cost more than the extra sessions' discovery overhead. Small
-# tasks stay single-session — three stages on a one-file fix roughly triples the
+# tasks stay single-session: three stages on a one-file fix roughly triples the
 # fixed cost for the same change.
 _HEAVY_HINT = re.compile(
     r"(architect|redesign|\bdesign\b|migrat|refactor|rewrite|overhaul|restructur"
@@ -130,7 +130,7 @@ def parse_cli_json(stdout: str) -> tuple[str, int | None, int | None]:
 def _git_state(project_dir: Path) -> dict | None:
     """HEAD + dirty-file set, or None when the dir isn't a readable git repo.
     Snapshotted around each session to detect work a failed run strands in the
-    SHARED working tree (the tree is not ours alone — never auto-revert it)."""
+    SHARED working tree (the tree is not ours alone: never auto-revert it)."""
     try:
         head = subprocess.run(
             ["git", "-C", str(project_dir), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=15
@@ -151,7 +151,7 @@ def _parse_verdict(result_text: str) -> dict:
         return {
             "status": "blocked",
             "summary": result_text[-300:],
-            "question": "Session ended without a structured verdict — review the summary.",
+            "question": "Session ended without a structured verdict: review the summary.",
         }
     try:
         raw = result_text[idx + len("VERDICT:") :].strip()
@@ -161,7 +161,7 @@ def _parse_verdict(result_text: str) -> dict:
         return {
             "status": "blocked",
             "summary": result_text[-300:],
-            "question": "Verdict line was malformed — review the summary.",
+            "question": "Verdict line was malformed: review the summary.",
         }
 
 
@@ -207,7 +207,7 @@ def _execute(
     on_start=None,
 ) -> tuple[bool, str, int | None, int, str]:
     """(ok, result_text, tokens_in, tokens_out, failure_note). Salvages the CLI's
-    own JSON on nonzero exit — error_max_turns and friends still emit a result
+    own JSON on nonzero exit: error_max_turns and friends still emit a result
     object whose subtype names the cause. Test seam: monkeypatch this.
 
     `on_start(pid)` is called once the child exists, so a takeover can stop this
@@ -264,13 +264,13 @@ You are the PLANNING pass of a two-stage task. READ-ONLY: survey exactly what th
 task needs and produce a COMPACT EXECUTION BRIEF (max ~50 lines) for the builder:
 GOAL (one line), APPROACH (short), FILES TO TOUCH (paths), ORDERED STEPS, RISKS /
 things that look easy but aren't here, ACCEPTANCE (how the builder proves it worked).
-No code, no fluff — every line must change what the builder does. Output ONLY the brief.
+No code, no fluff: every line must change what the builder does. Output ONLY the brief.
 """
 
 _CHECK_INSTRUCTION = (
     """
 You are the CHECK pass after an unattended change. Review ONLY the change described
-below as a hostile senior reviewer — correctness, security, data handling, tests.
+below as a hostile senior reviewer: correctness, security, data handling, tests.
 FIX anything real you find and re-run the relevant tests; ignore style nits.
 """
     + _GUARDRAILS
@@ -280,8 +280,8 @@ FIX anything real you find and re-run the relevant tests; ignore style nits.
 def _register_worker(conn: sqlite3.Connection, settings: Settings, task_id: int, pid: int, project_dir: Path) -> None:
     """Record what a takeover needs, at the moment the child starts.
 
-    ⛔ The transcript id is captured HERE, not at takeover time. By then the cwd's
-    most-recent transcript may belong to a different session — the exact trap
+    The transcript id is captured HERE, not at takeover time. By then the cwd's
+    most-recent transcript may belong to a different session: the exact trap
     `workspace.latest_transcript_session_id` documents. The transcript file may not
     exist for a beat after spawn, so this is best-effort and re-attempted by the
     takeover route if still null.
@@ -351,7 +351,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                 # staging must never cost a night: a failed plan falls back to
                 # the single-session path instead of blocking the task
                 weight = "light"
-                stage_notes.append(f"plan failed ({note[:120]}) — fell back to single-session")
+                stage_notes.append(f"plan failed ({note[:120]}): fell back to single-session")
 
         do_prompt = (f"{pack}\n\n" if pack else "") + base_prompt
         if brief:
@@ -369,7 +369,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
         # A human may have taken this task over while the builder ran (see
         # main.py /api/queue/{id}/takeover): the takeover kills the child, so `ok`
         # is False and the verdict below would record a failure for work that was
-        # actually adopted. Claimed tasks belong to the operator now — leave the
+        # actually adopted. Claimed tasks belong to the operator now: leave the
         # row alone and stop.
         if _is_claimed(conn, task["id"]):
             audit(conn, "queue", "task_left_to_operator", f"task={task['id']} claimed mid-run")
@@ -384,7 +384,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
             baseline = before["head"] if before else None
             stats = diff_since(project_dir, baseline) if baseline else None
             if stats is None:
-                needed, reason = True, "change could not be measured — reviewing (fail-safe)"
+                needed, reason = True, "change could not be measured: reviewing (fail-safe)"
             else:
                 gates = evaluate_project(project_dir, light=True)["overall"]
                 needed, reason = review_needed(stats["lines"], stats["files"], gates, stats["untracked"])
@@ -410,10 +410,10 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
                         verdict = {
                             "status": "blocked",
                             "summary": f"{verdict.get('summary', '')} | check: {v2.get('summary', '')}"[:1800],
-                            "question": v2.get("question") or "The check pass flagged issues — see summary.",
+                            "question": v2.get("question") or "The check pass flagged issues: see summary.",
                         }
                 else:
-                    stage_notes.append(f"check failed to run ({note2[:120]}) — result stands unreviewed")
+                    stage_notes.append(f"check failed to run ({note2[:120]}): result stands unreviewed")
             else:
                 stage_notes.append(f"check skipped: {reason}")
     except subprocess.TimeoutExpired:
@@ -441,7 +441,7 @@ def run_task(conn: sqlite3.Connection, settings: Settings, task: sqlite3.Row) ->
             if status == "blocked":
                 verdict["question"] = (
                     verdict.get("question") or ""
-                ) + f" ⚠ {note} — review, commit or revert before any other commit in this repo."
+                ) + f" ⚠ {note}: review, commit or revert before any other commit in this repo."
     conn.execute(
         "UPDATE queue SET status=?, runner=?, model=?, agent_type=?, weight=?, verdict=?, question=?, "
         "tokens_in=?, tokens_out=?, finished_at=? WHERE id=?",

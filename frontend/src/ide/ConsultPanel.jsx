@@ -7,7 +7,7 @@ import { api } from '../api.js'
 // it speak up when the session shows a signal (a traceback, a failing test).
 //
 // It is ADVISORY. The consultant runs read-only and everything it produces is
-// text you can read, copy or dismiss — there is nothing here to approve,
+// text you can read, copy or dismiss: there is nothing here to approve,
 // because there is nothing it can change.
 
 const POLL_MS = 1200
@@ -88,7 +88,7 @@ export default function ConsultPanel({ sessionId, runners = [] }) {
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !busy && ask()}
-          placeholder="optional — what do you want a second opinion on?"
+          placeholder="optional: what do you want a second opinion on?"
           aria-label="What do you want a second opinion on?"
         />
         <select
@@ -100,7 +100,7 @@ export default function ConsultPanel({ sessionId, runners = [] }) {
           {(runners.length ? runners : [{ id: 'ollama', label: 'Ollama local' }]).map((r) => (
             <option key={r.id} value={r.id}>
               {r.label}
-              {r.id === 'ollama' ? ' — local, no egress' : ''}
+              {r.id === 'ollama' ? ': local, no egress' : ''}
             </option>
           ))}
         </select>
@@ -118,7 +118,7 @@ export default function ConsultPanel({ sessionId, runners = [] }) {
 
       {jobs.length === 0 ? (
         <p className="sechint">
-          Nothing consulted yet. Everything sent is redacted for secrets first, and the consultant is read-only — it can
+          Nothing consulted yet. Everything sent is redacted for secrets first, and the consultant is read-only: it can
           suggest, never change.
         </p>
       ) : (

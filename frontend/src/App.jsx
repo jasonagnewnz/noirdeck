@@ -1,30 +1,35 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { useData, useEvents } from './api.js'
 import ActivityBar from './ide/ActivityBar.jsx'
+import { applyAppearance, loadAppearance, saveAppearance } from './ide/appearance.js'
 import KeysOverlay from './ide/KeysOverlay.jsx'
 import StatusBar from './ide/StatusBar.jsx'
-import { applyTheme, loadThemeKey, THEME_STORAGE_KEY } from './ide/themes.js'
 import Palette from './Palette.jsx'
 import Builds from './views/Builds.jsx'
-import Design from './views/Design.jsx'
-import Help from './views/Help.jsx'
-import Memories from './views/Memories.jsx'
 import Overview from './views/Overview.jsx'
 import Proposals from './views/Proposals.jsx'
-import Quality from './views/Quality.jsx'
 import Queue from './views/Queue.jsx'
-import Secrets from './views/Secrets.jsx'
 import Sessions from './views/Sessions.jsx'
-import Settings from './views/Settings.jsx'
-import Skills from './views/Skills.jsx'
 
-// Workspace pulls in @xterm/xterm (a full terminal emulator) — the heaviest
-// dependency in the app by far. Deferring it keeps that weight out of the
-// initial chunk for every session that never opens a terminal.
+// What loads up front is the daily loop and nothing else.
+//
+// Workspace pulls in @xterm/xterm, a full terminal emulator and by a wide margin
+// the heaviest dependency here. The advanced views are deferred for the opposite
+// reason: they are individually small but collectively large, and most sessions
+// open none of them. Help is the clearest case at roughly 2,500 words of manual
+// that every visitor used to download whether or not they read it.
 const Workspace = lazy(() => import('./views/Workspace.jsx'))
+const BottomPanel = lazy(() => import('./ide/BottomPanel.jsx'))
+const Design = lazy(() => import('./views/Design.jsx'))
+const Help = lazy(() => import('./views/Help.jsx'))
+const Memories = lazy(() => import('./views/Memories.jsx'))
+const Quality = lazy(() => import('./views/Quality.jsx'))
+const Secrets = lazy(() => import('./views/Secrets.jsx'))
+const Settings = lazy(() => import('./views/Settings.jsx'))
+const Skills = lazy(() => import('./views/Skills.jsx'))
 
 // The rail carries the daily loop. Everything else is still a first-class view
-// with its own #hash — it just isn't competing for attention in the sidebar.
+// with its own #hash: it just isn't competing for attention in the sidebar.
 // PRIMARY order is also the 1-9 digit-key order, so moving an entry between
 // these two lists silently renumbers the shortcuts; update KeysOverlay's copy
 // if you reorder.
@@ -37,12 +42,12 @@ const PRIMARY_VIEWS = [
   ['sessions', 'History', Sessions],
 ]
 
-// Reached from Settings, the palette, or a direct #hash — not from the rail.
-// ⛔ Guide moved OUT of the primary rail 2026-08-19. A manual in the daily-loop
+// Reached from Settings, the palette, or a direct #hash: not from the rail.
+//Guide moved OUT of the primary rail 2026-08-19. A manual in the daily-loop
 // navigation is the UI admitting it needs one: 2,563 words of explanation sitting
 // beside the seven things you actually do. Every view still links to its own
 // chapter via "how this works", so it is one click from wherever the confusion
-// happened — which is more useful than a permanent rail slot anyway. If the Guide
+// happened: which is more useful than a permanent rail slot anyway. If the Guide
 // starts getting heavy traffic again, fix the screen people arrive from.
 const ADVANCED_VIEWS = [
   ['help', 'Guide', Help],
@@ -57,10 +62,21 @@ const VIEWS = [...PRIMARY_VIEWS, ...ADVANCED_VIEWS, ['settings', 'Settings', Set
 
 const SIDEBAR_KEY = 'nd.sidebar'
 
+// Read once, at module scope: the dock should open at the height it was left,
+// not jump to it a frame later.
+const DEFAULT_DOCK_HEIGHT = (() => {
+  try {
+    const stored = Number.parseInt(localStorage.getItem('nd.panelH'), 10)
+    return Number.isFinite(stored) ? stored : 300
+  } catch {
+    return 300
+  }
+})()
+
 // Views deep-link as #builds / #queue etc so refresh, bookmarks and the browser
-// back button all keep your place — state alone loses it on every reload.
+// back button all keep your place: state alone loses it on every reload.
 const viewFromHash = () => {
-  // "#help:queue" = the help view, scrolled to its queue chapter — only the
+  // "#help:queue" = the help view, scrolled to its queue chapter: only the
   // part before the colon names the view; the suffix belongs to the view itself
   const k = window.location.hash.replace(/^#\/?/, '').split(':')[0]
   return VIEWS.some(([key]) => key === k) ? k : 'overview'
@@ -73,6 +89,12 @@ export default function App() {
     if (window.location.hash !== `#${k}`) window.location.hash = k
   }, [])
   const [launch, setLaunch] = useState(null)
+  // The dock is the shell's own terminal. Build Live already fills the viewport
+  // with one, so the dock stays out of its way there rather than running a
+  // second emulator over the top of the first.
+  const [dockOpen, setDockOpen] = useState(false)
+  const [dockHeight, setDockHeight] = useState(DEFAULT_DOCK_HEIGHT)
+  const toggleDock = useCallback(() => setDockOpen((open) => !open), [])
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [keysOpen, setKeysOpen] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {
@@ -82,17 +104,25 @@ export default function App() {
       return false
     }
   })
-  const [theme, setTheme] = useState(loadThemeKey)
-  // useLayoutEffect: tokens land on <html> before first paint, so a persisted
-  // non-default theme never flashes noir on load
+  // index.html has already stamped the stored appearance before this component
+  // exists, so this is not what prevents a flash. It is what keeps the DOM in
+  // step once a dial is turned.
+  const [appearance, setAppearance] = useState(loadAppearance)
+  const setDial = useCallback((dial, value) => {
+    setAppearance((current) => ({ ...current, [dial]: value }))
+  }, [])
   useLayoutEffect(() => {
-    applyTheme(theme)
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, theme)
-    } catch {
-      /* storage unavailable */
-    }
-  }, [theme])
+    applyAppearance(appearance)
+    saveAppearance(appearance)
+  }, [appearance])
+  // 'Match system' has to keep matching after the system changes its mind.
+  useEffect(() => {
+    if (appearance.mode !== 'system' || !window.matchMedia) return undefined
+    const query = window.matchMedia('(prefers-color-scheme: light)')
+    const resync = () => applyAppearance(appearance)
+    query.addEventListener('change', resync)
+    return () => query.removeEventListener('change', resync)
+  }, [appearance])
   const openWorkspace = (payload) => {
     setLaunch(payload)
     setView('workspace')
@@ -129,14 +159,14 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    // browser back/forward — hashchange is the source of truth for the view
+    // browser back/forward: hashchange is the source of truth for the view
     const onHash = () => setViewState(viewFromHash())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
   useEffect(() => {
-    // unmodified keys (digits, "?") must never fire while the user is typing —
+    // unmodified keys (digits, "?") must never fire while the user is typing:
     // inputs, selects, contenteditable, and xterm's hidden helper textarea
     const typing = (e) => {
       const t = e.target
@@ -150,7 +180,7 @@ export default function App() {
       const key = e.key.toLowerCase()
       if ((e.metaKey || e.ctrlKey) && key === 'k') {
         e.preventDefault()
-        // only one modal traps focus at a time — opening one always closes the other
+        // only one modal traps focus at a time: opening one always closes the other
         setPaletteOpen((o) => {
           const next = !o
           if (next) setKeysOpen(false)
@@ -158,8 +188,13 @@ export default function App() {
         })
         return
       }
+      if ((e.metaKey || e.ctrlKey) && (key === '`' || key === '~')) {
+        e.preventDefault()
+        toggleDock()
+        return
+      }
       if ((e.metaKey || e.ctrlKey) && key === 'b') {
-        // the terminal has its own Ctrl+B (Claude Code: background a running task) —
+        // the terminal has its own Ctrl+B (Claude Code: background a running task):
         // let a focused xterm keep it instead of stealing it for the sidebar toggle
         if (e.target?.closest?.('.termpane')) return
         e.preventDefault()
@@ -182,7 +217,7 @@ export default function App() {
         return
       }
       if (/^[0-9]$/.test(e.key)) {
-        // digits address the rail only — 0 opens Settings, which has no slot
+        // digits address the rail only: 0 opens Settings, which has no slot
         if (e.key === '0') {
           e.preventDefault()
           setView('settings')
@@ -201,7 +236,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setView, toggleSidebar])
+  }, [setView, toggleSidebar, toggleDock])
 
   return (
     <div className="shell">
@@ -224,17 +259,29 @@ export default function App() {
               launch={launch}
               openWorkspace={openWorkspace}
               onIntent={runIntent}
-              theme={theme}
-              onSetTheme={setTheme}
+              appearance={appearance}
+              onSetDial={setDial}
             />
           </Suspense>
         </main>
       </div>
+      {dockOpen && view !== 'workspace' && (
+        <Suspense fallback={null}>
+          <BottomPanel
+            height={dockHeight}
+            onResize={setDockHeight}
+            onClose={() => setDockOpen(false)}
+            onOpenWorkspace={() => setView('workspace')}
+          />
+        </Suspense>
+      )}
       <StatusBar
         live={live}
         overview={ov}
-        theme={theme}
-        onSetTheme={setTheme}
+        appearance={appearance}
+        onSetDial={setDial}
+        dockOpen={dockOpen && view !== 'workspace'}
+        onToggleDock={toggleDock}
         onOpenPalette={() =>
           setPaletteOpen((o) => {
             const next = !o

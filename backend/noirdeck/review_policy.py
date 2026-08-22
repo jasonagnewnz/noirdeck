@@ -4,7 +4,7 @@ the build pipeline and the staged queue runner.
 The rule is asymmetric on purpose: every path that can't be measured reviews
 anyway (fail-safe), and security-flagged paths ALWAYS review regardless of
 size. Skipping is only allowed when the change is measurably small, fully
-tracked, and the deterministic QA gates found nothing blocking — the exact
+tracked, and the deterministic QA gates found nothing blocking: the exact
 territory where a paid review pass reliably finds nothing the gates didn't."""
 
 from __future__ import annotations
@@ -26,18 +26,18 @@ SMALL_CHANGE_LINES = 40
 def review_needed(
     lines_changed: int, files: list[str], gates_overall: str, untracked: list[str] | None = None
 ) -> tuple[bool, str]:
-    """(needed, reason). Reasons are operator-facing — they appear in phase logs."""
+    """(needed, reason). Reasons are operator-facing: they appear in phase logs."""
     if untracked:
-        return True, f"{len(untracked)} untracked file(s) present — content unmeasured, reviewing"
+        return True, f"{len(untracked)} untracked file(s) present: content unmeasured, reviewing"
     flagged = sorted(f for f in files if SECURITY_PATH.search(f))
     if flagged:
-        return True, f"security-flagged path touched ({flagged[0]}) — always reviewed"
+        return True, f"security-flagged path touched ({flagged[0]}): always reviewed"
     if gates_overall == "BLOCKER":
         return True, "a deterministic QA gate is at BLOCKER"
     if lines_changed <= SMALL_CHANGE_LINES:
         return False, (
             f"small change ({lines_changed} lines), no security paths, "
-            f"gates {gates_overall} — deterministic rule, no model review"
+            f"gates {gates_overall}: deterministic rule, no model review"
         )
     return True, f"substantial change ({lines_changed} lines)"
 

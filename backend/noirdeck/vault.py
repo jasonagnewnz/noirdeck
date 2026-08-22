@@ -1,4 +1,4 @@
-"""Vault — recurring encrypted offsite backup with a VERIFIED restore, wrapping
+"""Vault: recurring encrypted offsite backup with a VERIFIED restore, wrapping
 restic (boring, proven; no hand-rolled crypto per the security doctrine).
 
 Backup set (the irreplaceable knowledge, not the bulk):
@@ -36,7 +36,7 @@ MAX_DIRTY_BYTES = 25 * 1024 * 1024  # per repo, working-tree capture
 # .gitignore is the real secret filter here: untracked files are chosen with
 # --exclude-standard, which is what keeps a gitignored .env out. This pattern
 # is defence in depth for a repo that never ignored its secrets in the first
-# place. Skips are COUNTED in the report — never dropped silently.
+# place. Skips are COUNTED in the report: never dropped silently.
 SECRET_NAME_RE = re.compile(
     r"(^|/)(\.env(\..+)?|.+\.(pem|key|p12|pfx|jks|keystore|kdbx)|id_(rsa|dsa|ecdsa|ed25519))$",
     re.IGNORECASE,
@@ -78,7 +78,7 @@ def _restic(*args: str, timeout: int = 1800) -> subprocess.CompletedProcess:
 
 
 def _git(repo: Path, *args: str, timeout: int = 60) -> subprocess.CompletedProcess | None:
-    """Run git in repo. None means the call itself failed — distinct from a
+    """Run git in repo. None means the call itself failed: distinct from a
     non-zero return, so callers can report 'could not check' rather than 'clean'."""
     try:
         return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=timeout)
@@ -103,7 +103,7 @@ def _make_bundle(repo: Path, staging: Path, entry: dict) -> None:
     size = dest.stat().st_size
     if size > MAX_BUNDLE_BYTES:
         dest.unlink(missing_ok=True)
-        entry["note"] = f"skipped: bundle {size // 1_048_576}MB > cap — push this repo"
+        entry["note"] = f"skipped: bundle {size // 1_048_576}MB > cap: push this repo"
         return
     entry["bundled"] = True
     entry["bytes"] = size
@@ -117,7 +117,7 @@ def _capture_dirty(repo: Path, staging: Path, entry: dict) -> None:
         raw = patch.encode()
         if len(raw) > MAX_DIRTY_BYTES:
             entry["tracked_patch"] = False
-            entry["tracked_note"] = f"patch {len(raw) // 1_048_576}MB > cap — commit this repo"
+            entry["tracked_note"] = f"patch {len(raw) // 1_048_576}MB > cap: commit this repo"
         else:
             (staging / f"{repo.name}.dirty.patch").write_bytes(raw)
             entry["tracked_patch"] = True
@@ -170,14 +170,14 @@ def _bundle_unpushed(projects_dir: Path, staging: Path) -> list[dict]:
     local-only commits (a git bundle) and/or an uncommitted working tree.
 
     A repo with nothing at risk is omitted. A repo WITH something at risk is
-    never omitted silently — the old version skipped clean-HEAD-but-dirty repos
+    never omitted silently: the old version skipped clean-HEAD-but-dirty repos
     before recording anything, so an unprotected tree read as 'nothing to do'."""
     out = []
     for repo in sorted(p for p in projects_dir.iterdir() if (p / ".git").exists()):
         probe = _git(repo, "log", "--branches", "--not", "--remotes", "--oneline", "-1", timeout=30)
         status = _git(repo, "status", "--porcelain")
         if probe is None or status is None:
-            out.append({"repo": repo.name, "bundled": False, "note": "git probe failed — COULD NOT CHECK"})
+            out.append({"repo": repo.name, "bundled": False, "note": "git probe failed: COULD NOT CHECK"})
             continue
 
         has_local_commits = probe.returncode == 0 and bool(probe.stdout.strip())
@@ -212,7 +212,7 @@ CLAUDE_DIR_ITEMS: list[tuple[str, str]] = [
 ]
 
 # NEVER backed up, whatever else changes: live auth material. A backup is a
-# copy in another place — a copy of a credential is a second thing to steal.
+# copy in another place: a copy of a credential is a second thing to steal.
 NEVER_BACKUP = {".credentials.json"}
 
 
@@ -238,7 +238,7 @@ def manifest(settings: Settings) -> dict:
         "root": str(cd),
         "included": included,
         "excluded": [
-            {"path": ".credentials.json", "why": "live auth token — a backup would be a second copy to steal"},
+            {"path": ".credentials.json", "why": "live auth token: a backup would be a second copy to steal"},
             {
                 "path": "*.jsonl transcripts",
                 "why": "large, and can contain secrets; the distilled memory files are kept instead",
@@ -249,7 +249,7 @@ def manifest(settings: Settings) -> dict:
 
 def _backup_paths(settings: Settings, staging: Path) -> list[str]:
     # history.jsonl is deliberately NOT here: this pass runs with --exclude
-    # '*.jsonl' (transcripts), which would eat it — it gets its own pass
+    # '*.jsonl' (transcripts), which would eat it: it gets its own pass
     cd = settings.claude_dir
     candidates = [cd / name for name, _ in CLAUDE_DIR_ITEMS]
     # loose notes people leave at the top level (README, scratch .md files)
@@ -262,7 +262,7 @@ def _backup_paths(settings: Settings, staging: Path) -> list[str]:
 
 def _restore_test(settings: Settings, snapshot: str = "latest") -> tuple[bool, str]:
     """Restore the primary MEMORY.md from the given snapshot and byte-compare.
-    Callers pass the MAIN snapshot id — 'latest' may be the history-only pass."""
+    Callers pass the MAIN snapshot id: 'latest' may be the history-only pass."""
     from .config import primary_namespace
 
     live = settings.claude_dir / "projects" / primary_namespace() / "memory" / "MEMORY.md"
@@ -280,7 +280,7 @@ def _restore_test(settings: Settings, snapshot: str = "latest") -> tuple[bool, s
             same,
             "restored MEMORY.md matches live byte-for-byte"
             if same
-            else "restored MEMORY.md DIFFERS from live (snapshot may predate an edit — investigate)",
+            else "restored MEMORY.md DIFFERS from live (snapshot may predate an edit: investigate)",
         )
 
 
@@ -353,7 +353,7 @@ def run_backup(settings: Settings) -> dict:
             "bundles": bundles,
         }
         return result
-    except Exception as exc:  # noqa: BLE001 — a crashed backup must be recorded, not lost
+    except Exception as exc:  # noqa: BLE001 - a crashed backup must be recorded, not lost
         detail = f"{type(exc).__name__}: {exc}"[:300]
         try:
             conn.execute(

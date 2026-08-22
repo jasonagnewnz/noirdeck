@@ -3,7 +3,7 @@
 Security shape (see docs/SECURITY.md): the browser NEVER supplies a command. The
 server only spawns fixed argv for a server-owned runner id, in a cwd that must
 resolve under the projects dir. Client input is keystrokes + resize events,
-nothing else. Localhost-only like the rest of the app — this endpoint is
+nothing else. Localhost-only like the rest of the app: this endpoint is
 shell-equivalent access by design.
 
 Auth: sessions inherit the machine's existing CLI auth. There is no separate
@@ -75,7 +75,7 @@ class TermSession:
         self._reader_attached = False
         # Optional observer, filled in by the app layer (see main.py). Kept as a
         # plain callable so this module stays ignorant of what is watching and
-        # why — the PTY has no business knowing about consultants.
+        # why: the PTY has no business knowing about consultants.
         self.watch_hook = None
 
     def start(self) -> None:
@@ -187,14 +187,14 @@ class WorkspaceManager:
     ) -> TermSession:
         self.reap()
         if len(self.sessions) >= MAX_SESSIONS:
-            raise WorkspaceError(f"session cap reached ({MAX_SESSIONS}) — close one first")
+            raise WorkspaceError(f"session cap reached ({MAX_SESSIONS}): close one first")
         cwd = validate_cwd(self.projects_dir, project)
         try:
             runner = ai_runtime.runner_spec(runner_id).id
             chosen_model = ai_runtime.validate_model_id(model)
         except ai_runtime.RuntimeErrorConfig as exc:
             raise WorkspaceError(str(exc)) from exc
-        if argv_override:  # tests only — API callers can never reach this
+        if argv_override:  # tests only: API callers can never reach this
             argv = argv_override
         else:
             try:
@@ -257,7 +257,7 @@ def takeover_prompt(source: TermSession, target_runner: str, target_model: str |
 
 def latest_transcript_session_id(claude_dir: Path, cwd: Path) -> str | None:
     """Most recent transcript session id for a cwd, captured at PAUSE time.
-    Resuming later must target THIS conversation — by resume time the cwd's
+    Resuming later must target THIS conversation: by resume time the cwd's
     'most recent' transcript may belong to an overnight/headless run instead.
     Transcript namespaces flatten the cwd path with '/' → '-'."""
     ns = claude_dir / "projects" / str(cwd).replace("/", "-")

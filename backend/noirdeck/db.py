@@ -1,4 +1,4 @@
-"""SQLite layer. Additive-only migrations: NEVER edit a shipped entry in MIGRATIONS —
+"""SQLite layer. Additive-only migrations: NEVER edit a shipped entry in MIGRATIONS:
 the high-water scheme would silently skip the change on existing databases. Append."""
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ MIGRATIONS: list[str] = [
         apply_summary TEXT,
         created_at TEXT NOT NULL
     )""",
-    # 8: arming contracts — approval as a CONTRACT (expiry + task/token limits),
+    # 8: arming contracts: approval as a CONTRACT (expiry + task/token limits),
     # double-gated with the env master flags; one active contract per subsystem
     """CREATE TABLE arm_contracts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,14 +96,14 @@ MIGRATIONS: list[str] = [
         created_at TEXT NOT NULL,
         revoked_at TEXT
     )""",
-    # 9-13: Guided Build — gated plan approval, intake answers, acceptance
+    # 9-13: Guided Build: gated plan approval, intake answers, acceptance
     # criteria, plain-English plan, deterministic evidence pack
     "ALTER TABLE builds ADD COLUMN gated INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE builds ADD COLUMN intake TEXT",
     "ALTER TABLE builds ADD COLUMN acceptance TEXT",
     "ALTER TABLE builds ADD COLUMN plan_summary TEXT",
     "ALTER TABLE builds ADD COLUMN evidence TEXT",
-    # 14: Vault — encrypted offsite backup runs with verified-restore state
+    # 14: Vault: encrypted offsite backup runs with verified-restore state
     """CREATE TABLE vault_runs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         started_at TEXT NOT NULL,
@@ -112,7 +112,7 @@ MIGRATIONS: list[str] = [
         restore_verified INTEGER NOT NULL DEFAULT 0,
         detail TEXT
     )""",
-    # 15-16: Improve — mapped repos a small LOCAL model quietly improves on
+    # 15-16: Improve: mapped repos a small LOCAL model quietly improves on
     # branches; every change is a proposal, merging is a human act
     """CREATE TABLE improve_repos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,10 +134,10 @@ MIGRATIONS: list[str] = [
         created_at TEXT NOT NULL,
         decided_at TEXT
     )""",
-    # 17: per-repo model override — NULL means the NOIRDECK_LOCAL_MODEL default;
+    # 17: per-repo model override: NULL means the NOIRDECK_LOCAL_MODEL default;
     # only locally-pulled Ollama models are valid (the improver stays zero-egress)
     "ALTER TABLE improve_repos ADD COLUMN model TEXT",
-    # 18: paused workspace sessions — survive a full machine shutdown; the
+    # 18: paused workspace sessions: survive a full machine shutdown; the
     # claude session id is captured AT PAUSE TIME so resume targets that exact
     # conversation, not whatever ran in the cwd afterwards
     """CREATE TABLE paused_sessions (
@@ -148,7 +148,7 @@ MIGRATIONS: list[str] = [
         paused_at TEXT NOT NULL,
         resumed_at TEXT
     )""",
-    # 19: estate improve targets — assets under ~/.claude (skills, memory notes)
+    # 19: estate improve targets: assets under ~/.claude (skills, memory notes)
     # the improver may work on, but ONLY while manually armed (fail-closed
     # per-target expiry); output goes through the proposals spine, never direct
     """CREATE TABLE improve_targets (
@@ -163,13 +163,13 @@ MIGRATIONS: list[str] = [
     # 20: proposals carry a unified diff so review reads as a change, not a
     # wall of full-file text (filled by writers that replace existing files)
     "ALTER TABLE proposals ADD COLUMN diff TEXT",
-    # 21-22: universal undo — approve() snapshots the target's pre-apply content
+    # 21-22: universal undo: approve() snapshots the target's pre-apply content
     # (NULL = the file did not exist) so every applied proposal is reversible;
     # prior_existed disambiguates "no snapshot taken" from "file was absent"
     "ALTER TABLE proposals ADD COLUMN prior_body TEXT",
     "ALTER TABLE proposals ADD COLUMN prior_existed INTEGER",
     "ALTER TABLE proposals ADD COLUMN reverted_at TEXT",
-    # 24: queue task weight — light (one session) vs heavy (staged think→do→check);
+    # 24: queue task weight: light (one session) vs heavy (staged think→do→check);
     # NULL = auto-routed at run time, operator can override at queue time
     "ALTER TABLE queue ADD COLUMN weight TEXT",
     # 25: in-process scheduler due times, for installs with no systemd timers.
@@ -206,11 +206,11 @@ MIGRATIONS: list[str] = [
     # list only ever grew: every pause added a row and nothing could remove one,
     # so a restart-heavy week left a wall of stale sessions nobody would ever
     # resume. Kept distinct from resumed_at so the record still says which
-    # happened — "I finished with it" and "I threw it away" are not the same act.
+    # happened: "I finished with it" and "I threw it away" are not the same act.
     "ALTER TABLE paused_sessions ADD COLUMN discarded_at TEXT",
     # 32: credential findings in the knowledge tree. Added after a generated skill
     # file was found holding a sudo password in cleartext (see secrets_scan.py).
-    # ⛔ There is no column for the secret itself, and there must never be: a
+    # There is no column for the secret itself, and there must never be: a
     # findings table that stores credentials is a credential store. `fingerprint`
     # is a SHA-256 prefix, enough to recognise the same secret in two places;
     # `context` is the source line with the value replaced, not truncated.
@@ -235,7 +235,7 @@ MIGRATIONS: list[str] = [
     # captured WHILE the task runs, not at takeover time: by then the cwd's "most
     # recent transcript" may belong to a different session entirely (the same trap
     # workspace.latest_transcript_session_id was written for). `claimed_at` makes
-    # "a human owns this now" a distinct outcome from done/failed — the worker must
+    # "a human owns this now" a distinct outcome from done/failed: the worker must
     # not mark a claimed task failed just because it killed the child.
     "ALTER TABLE queue ADD COLUMN worker_pid INTEGER",
     "ALTER TABLE queue ADD COLUMN transcript_session_id TEXT",

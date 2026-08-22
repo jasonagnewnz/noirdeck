@@ -123,7 +123,7 @@ def search_grouped(records: list[dict], q: str, limit: int = 400) -> dict:
 
 
 def repeated_prompts(records: list[dict], min_count: int = 3) -> list[dict]:
-    """Non-slash prompts typed near-identically N+ times — skill-gap candidates."""
+    """Non-slash prompts typed near-identically N+ times: skill-gap candidates."""
     buckets: dict[str, list[dict]] = {}
     for r in records:
         d = r["display"]

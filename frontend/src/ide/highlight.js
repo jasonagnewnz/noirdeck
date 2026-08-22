@@ -1,13 +1,13 @@
 // Minimal hand-rolled tokenizer for read-only syntax highlighting.
 // No new runtime dependency (zero-egress: nothing fetched from a CDN, nothing
-// npm-installed) — a handful of per-language regexes, evaluated client-side.
+// npm-installed): a handful of per-language regexes, evaluated client-side.
 //
-// Token types map to CSS classes in styles.css that resolve to the five theme
-// tokens the THEMES contrast contract (themes.js) guarantees >=4.5:1 on every
-// background across all 8 themes: --ink, --ink-dim, --ink-faint, --amber,
-// --red-text. --teal / --red / --green are documented there as UI-only (borders,
-// fills, the live dot) with no small-text guarantee, so they're deliberately
-// not used for token color here.
+// Token types map to CSS classes in styles.css that resolve to the five tokens
+// the contrast contract (ops/check-contrast.mjs) guarantees at 4.5:1 or better
+// on every surface, in every kit: --text, --text-2, --text-3, --accent and
+// --danger-text. --border-strong, --danger and --success are documented there as
+// non-text UI (borders, fills, the live dot) with no small-text guarantee, so
+// they are deliberately not used to colour a token here.
 
 const LANGS = {
   python:
@@ -43,7 +43,7 @@ export function langForPath(path) {
 // Tokenizes the whole file in one pass, then splits into per-line token
 // arrays so the existing line-number gutter rendering doesn't have to change.
 // A token's text can embed newlines (block comments, triple-quoted strings,
-// fenced code) — those are split into per-line pieces here rather than in the
+// fenced code): those are split into per-line pieces here rather than in the
 // regex, so gutter numbering can never drift from the raw content's line count.
 export function tokenizeLines(content, path) {
   const lang = langForPath(path)

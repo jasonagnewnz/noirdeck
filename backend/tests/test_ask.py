@@ -95,7 +95,7 @@ def test_question_validation(settings):
 
 
 def test_readonly_cage_in_argv(settings, monkeypatch):
-    """The real invoker must restrict the session's tool set to read-only tools —
+    """The real invoker must restrict the session's tool set to read-only tools:
     this pins the argv contract so a refactor can't quietly drop the cage."""
     seen = {}
 

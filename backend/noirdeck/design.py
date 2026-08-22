@@ -2,7 +2,7 @@
 
 - Propose: N parallel headless Claude runs, each committed to a DIFFERENT aesthetic
   direction inside one ready-made UI kit, each producing one fast, self-contained
-  single-file HTML mock in a STAGING dir — never the repo.
+  single-file HTML mock in a STAGING dir: never the repo.
 - Apply: the chosen mock's design language is applied to the target repo's real
   frontend by a headless session (local commits, code-ready, never deployed).
 - The design doctrine below is distilled from the estate frontend-design skill;
@@ -29,12 +29,12 @@ DESIGN DOCTRINE (non-negotiable):
 - Commit to ONE bold, coherent aesthetic direction and execute it precisely.
 - Typography: distinctive, characterful pairings. NEVER Arial/Inter/Roboto/system-default look.
 - Color: CSS variables; dominant ground + sharp accent beats timid even palettes.
-- Space: intentional composition — asymmetry, generous negative space OR controlled density.
-- Depth & atmosphere: gradients, grain, layered translucency, decisive shadows — never flat default white.
+- Space: intentional composition: asymmetry, generous negative space OR controlled density.
+- Depth & atmosphere: gradients, grain, layered translucency, decisive shadows: never flat default white.
 - Motion: a few high-impact moments (staggered load reveal, surprising hover) over scattered effects.
 - Enterprise-grade: information-dense where it matters, accessible contrast, real content hierarchy.
 - ABSOLUTELY NO generic AI-slop: no purple-gradient-on-white, no cookie-cutter cards, no lorem-ipsum energy.
-The full skill lives at ~/.claude/skills/frontend-design/SKILL.md — read it if present.
+The full skill lives at ~/.claude/skills/frontend-design/SKILL.md: read it if present.
 """
 
 DIRECTIONS = [
@@ -110,7 +110,7 @@ def _compact(values: list[str], fallback: str) -> str:
 
 
 MOCK_GUARDRAILS = """
-RULES: Write EXACTLY ONE self-contained file at the path given — inline CSS, no external
+RULES: Write EXACTLY ONE self-contained file at the path given: inline CSS, no external
 resources, no build step, realistic example content (never lorem ipsum), desktop-first but
 not broken on mobile. Do not touch ANY other file. End with:
 VERDICT: {"status":"done","summary":"<one line: the direction you executed>"}
@@ -118,7 +118,7 @@ VERDICT: {"status":"done","summary":"<one line: the direction you executed>"}
 
 APPLY_GUARDRAILS = """
 RULES: Work only inside this repository. NEVER git push, deploy, publish, or call external
-services. Local commits at sensible points. Never weaken tests. Preserve all behavior —
+services. Local commits at sensible points. Never weaken tests. Preserve all behavior:
 this is a redesign, not a rewrite. End with:
 VERDICT: {"status":"done"|"blocked","summary":"<2 sentences>","question":"<only if blocked>"}
 """
@@ -427,7 +427,7 @@ class DesignStudio:
         prompt = (
             f"You are one of {3} parallel designers each mocking the SAME surface in a "
             f"DIFFERENT direction. Surface: {brief} (for the project '{project}').\n"
-            f"YOUR aesthetic direction: {v['direction']} — {d_desc}.\n"
+            f"YOUR aesthetic direction: {v['direction']}: {d_desc}.\n"
             f"UI kit: {LIBRARIES[v['library']]}\n"
             f"{DOCTRINE}\n"
             f"Write the mock to exactly this path: {out}\n"
@@ -464,7 +464,7 @@ class DesignStudio:
         threading.Thread(target=self._apply_worker, args=(round_id, project, brief, v), daemon=True).start()
 
     def requeue_stale(self) -> None:
-        """Server restart kills variant threads — mark their rounds honestly."""
+        """Server restart kills variant threads: mark their rounds honestly."""
         conn = self._db()
         try:
             rows = conn.execute(
@@ -475,7 +475,7 @@ class DesignStudio:
                 for v in variants:
                     if v["status"] == "running":
                         v["status"] = "failed"
-                        v["summary"] = "server restarted mid-generation — propose again"
+                        v["summary"] = "server restarted mid-generation: propose again"
                 conn.execute(
                     "UPDATE design_rounds SET variants=?, status='ready' WHERE id=?", (json.dumps(variants), r["id"])
                 )
@@ -488,7 +488,7 @@ class DesignStudio:
         mock = self.staging_root / str(round_id) / f"{v['key']}.html"
         prompt = (
             f"The operator approved a design direction for: {brief}.\n"
-            f"The approved mock is at: {mock} — read it. Apply ITS design language "
+            f"The approved mock is at: {mock}: read it. Apply ITS design language "
             f"(type, palette, spacing, components, atmosphere) to this project's real "
             f"frontend.\n"
             f"UI kit for the real implementation: {LIBRARIES[v['library']]} "

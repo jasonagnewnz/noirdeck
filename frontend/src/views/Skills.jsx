@@ -18,11 +18,11 @@ export default function Skills({ bump }) {
       <ViewHead
         title="Skills"
         helpId="skills"
-        hint="The installed capability surface — what a session can already do without re-prompting. Read-only inventory: new skills arrive through the Proposals view."
+        hint="The installed capability surface: what a session can already do without re-prompting. Read-only inventory: new skills arrive through the Proposals view."
       />
       <div className="panel">
         <h2>Search</h2>
-        <p className="sechint">One filter across both tables below — matches name or description.</p>
+        <p className="sechint">One filter across both tables below: matches name or description.</p>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -32,9 +32,9 @@ export default function Skills({ bump }) {
       </div>
       <div className="panel">
         <h2>
-          Skills — <b>{fSkills.length}</b>
+          Skills: <b>{fSkills.length}</b>
         </h2>
-        <p className="sechint">Reusable procedures a session can invoke as /name — the estate's how-to knowledge.</p>
+        <p className="sechint">Reusable procedures a session can invoke as /name: the estate's how-to knowledge.</p>
         <table>
           <caption className="visually-hidden">Installed skills</caption>
           <thead>
@@ -64,7 +64,7 @@ export default function Skills({ bump }) {
       </div>
       <div className="panel">
         <h2>
-          Agents — <b>{fAgents.length}</b>
+          Agents: <b>{fAgents.length}</b>
         </h2>
         <p className="sechint">Specialist subagents a session can delegate to, each with its own tool allowance.</p>
         <table>

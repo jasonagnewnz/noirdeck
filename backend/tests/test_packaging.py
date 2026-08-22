@@ -136,7 +136,7 @@ def test_a_failing_job_is_audited_not_silently_skipped(tmp_path, claude_dir, mon
 # tree can drift them back into line. Renaming the package once left all five
 # invoking a module that no longer existed: the console stayed down, the hourly
 # job failed in 39ms, and the nightly offsite backup would have failed silently
-# — with CI green throughout, because every test imported noirdeck.* directly.
+#: with CI green throughout, because every test imported noirdeck.* directly.
 def _exec_starts() -> dict[str, str]:
     out = {}
     for unit in sorted((paths.REPO_ROOT / "ops").glob("*.service")):
@@ -172,7 +172,7 @@ def test_the_server_unit_points_at_a_real_asgi_app():
     target = next(p for p in exec_start.split() if ":" in p and "/" not in p)
     module, attr = target.split(":")
     mod = __import__(module, fromlist=[attr])
-    assert hasattr(mod, attr), f"{target} is not importable — uvicorn would fail to boot"
+    assert hasattr(mod, attr), f"{target} is not importable: uvicorn would fail to boot"
 
 
 def test_unit_paths_are_internally_consistent():
@@ -223,9 +223,9 @@ def test_every_scheduled_job_is_runnable_from_the_cli():
 
 
 def test_the_pipeline_guard_ships_inside_the_package():
-    """⛔⛔ THE 2026-08-19 SHIPPING DEFECT. The guard lived in ops/, pyproject
+    """THE 2026-08-19 SHIPPING DEFECT. The guard lived in ops/, pyproject
     packages only backend/noirdeck, so it was absent from every wheel and
-    guard_settings_args() returned [] for every paying customer — unattended
+    guard_settings_args() returned [] for every paying customer: unattended
     sessions ran with acceptEdits and no hook at all. It passed every test,
     because every test ran in a checkout where ops/ exists.
 
@@ -234,11 +234,11 @@ def test_the_pipeline_guard_ships_inside_the_package():
     """
     from noirdeck.guard import GUARD_SCRIPT, guard_available
 
-    assert guard_available(), f"the guard is missing at {GUARD_SCRIPT} — it will not ship"
+    assert guard_available(), f"the guard is missing at {GUARD_SCRIPT}: it will not ship"
     guard_file = GUARD_SCRIPT.resolve()
     packaged = (paths.REPO_ROOT / "backend" / "noirdeck").resolve()
     assert packaged in guard_file.parents or guard_file.parent == packaged, (
-        f"the guard lives at {guard_file}, outside the packaged tree {packaged} — it will not be in the wheel"
+        f"the guard lives at {guard_file}, outside the packaged tree {packaged}: it will not be in the wheel"
     )
 
 
@@ -254,7 +254,7 @@ def test_wheel_packages_the_directory_the_guard_lives_in():
 
 
 def test_guard_fails_closed_when_it_cannot_be_found(monkeypatch):
-    """A missing guard used to warn to stderr and return [] — in a background
+    """A missing guard used to warn to stderr and return []: in a background
     process that is an inert control with a fast path. No boundary, no pipeline."""
     from noirdeck import guard
 
@@ -285,7 +285,7 @@ def test_the_headless_commands_are_reachable():
 
 
 def test_do_reuses_the_queue_task_path_rather_than_reimplementing_it():
-    """⛔ A second task implementation would drift from the console's within a week
+    """A second task implementation would drift from the console's within a week
     and lose the context pack, the guardrails, the guard and the staged plan/check.
     Pin that `do` calls run_task."""
     import inspect
@@ -313,7 +313,7 @@ def test_do_arms_but_never_widens_an_existing_contract():
 
     src = inspect.getsource(cli.do)
     assert 'status(conn).get("overnight"' in src and "live" in src, (
-        "must only arm when nothing is live — silently widening an operator's budget is what arming exists to prevent"
+        "must only arm when nothing is live: silently widening an operator's budget is what arming exists to prevent"
     )
 
 

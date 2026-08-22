@@ -18,7 +18,7 @@ export const FRIENDLY = {
   running: ['Being built', 'running'],
   awaiting_plan: ['Waiting for your approval', 'GAP'],
   blocked: ['Needs your attention', 'blocked'],
-  attention: ['Finished — please take a look', 'GAP'],
+  attention: ['Finished: please take a look', 'GAP'],
   done: ['Done', 'done'],
   cancelled: ['Stopped', 'cancelled'],
 }
@@ -57,7 +57,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
     } catch (ex) {
       // 409 = the build is no longer waiting on the plan; the card refreshes itself.
       setErr(
-        `That didn't go through — ${ex.message}. This page updates itself, ` +
+        `That didn't go through: ${ex.message}. This page updates itself, ` +
           'so the card above should show where the build really is.'
       )
     } finally {
@@ -79,7 +79,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
   return (
     <>
       <h2>
-        #{b.id} — <b>{b.name}</b> <span className={`pill ${pillClass}`}>{statusText}</span>
+        #{b.id}: <b>{b.name}</b> <span className={`pill ${pillClass}`}>{statusText}</span>
       </h2>
 
       {/* narrated progress stepper */}
@@ -87,24 +87,24 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
         {STEPS.map(([key, label]) => {
           if (doneSet.has(key)) {
             return (
-              <span key={key} className="chip" aria-label={`${label} — finished`}>
+              <span key={key} className="chip" aria-label={`${label}: finished`}>
                 ✓ {label}
               </span>
             )
           }
           if (activePhase === key) {
             return b.status === 'blocked' ? (
-              <span key={key} className="pill blocked" aria-label={`${label} — stuck, needs your attention`}>
-                {label} — stuck
+              <span key={key} className="pill blocked" aria-label={`${label}: stuck, needs your attention`}>
+                {label}: stuck
               </span>
             ) : (
-              <span key={key} className="pill running" aria-label={`${label} — happening now`}>
+              <span key={key} className="pill running" aria-label={`${label}: happening now`}>
                 {label}…
               </span>
             )
           }
           return (
-            <span key={key} className="chip pending" aria-label={`${label} — not started yet`}>
+            <span key={key} className="chip pending" aria-label={`${label}: not started yet`}>
               {label}
             </span>
           )
@@ -114,7 +114,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
             Done
           </span>
         ) : (
-          <span className="chip pending" aria-label="Done — not yet">
+          <span className="chip pending" aria-label="Done: not yet">
             Done
           </span>
         )}
@@ -123,13 +123,13 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
       {/* plan approval gate */}
       {b.status === 'awaiting_plan' && (
         <div className="kickoff" style={{ marginTop: 10 }}>
-          <h3 style={h3Style}>Here's the plan — nothing gets built until you approve it</h3>
+          <h3 style={h3Style}>Here's the plan: nothing gets built until you approve it</h3>
           <div style={{ whiteSpace: 'pre-wrap' }}>
-            {b.plan_summary || 'The plan is still being written up — check back in a moment.'}
+            {b.plan_summary || 'The plan is still being written up: check back in a moment.'}
           </div>
           <div className="btnrow">
             <button className="act" disabled={!!busy} onClick={() => decide('approve')}>
-              Approve — start building
+              Approve: start building
             </button>
             <button
               className="act ghost"
@@ -149,7 +149,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
                 id={`plan-fb-${b.id}`}
                 rows={3}
                 value={feedback}
-                placeholder="Tell the planner what to change — plain English is perfect"
+                placeholder="Tell the planner what to change: plain English is perfect"
                 onChange={(e) => setFeedback(e.target.value)}
               />
               <div style={{ marginTop: 6 }}>
@@ -185,7 +185,7 @@ export default function GuidedCard({ b, refresh, openWorkspace }) {
           {operatorChecks.length > 0 && (
             <>
               <p className="faint" style={{ margin: '0 0 4px' }}>
-                Your own success checks — tick them off as you try the software.
+                Your own success checks: tick them off as you try the software.
               </p>
               {operatorChecks.map((c) => {
                 const cid = `b${b.id}-acc-${c.id}`

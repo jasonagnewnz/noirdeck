@@ -1,5 +1,5 @@
 """Credential scanning. The load-bearing tests are (a) it catches the shape that
-actually leaked — a sudo password in prose, which no KEY=value pattern matches —
+actually leaked: a sudo password in prose, which no KEY=value pattern matches:
 and (b) a finding NEVER carries the secret, because a findings table that stores
 credentials is just a credential store with extra steps."""
 
@@ -81,7 +81,7 @@ def test_finding_never_contains_the_secret():
     for f in found:
         blob = f"{f.detector}{f.path}{f.fingerprint}{f.context}"
         assert FAKE_SUDO_PW not in blob, "the secret leaked into the finding"
-        # and not a prefix either — partial redaction is not redaction
+        # and not a prefix either: partial redaction is not redaction
         assert FAKE_SUDO_PW[:4] not in f.context
 
 
@@ -249,7 +249,7 @@ def test_scan_walks_a_tree_and_reports_coverage(tmp_path):
 
 
 # ── bulk move ───────────────────────────────────────────────────────────────
-# ⛔⛔ The estate rule this is built around: irreversible actions are selected by
+# The estate rule this is built around: irreversible actions are selected by
 # EXPLICIT ID, never by a filter, a status or a LIMIT. So there must be no way to
 # ask for "move everything", and a plan must be readable before anything moves.
 
@@ -339,7 +339,7 @@ def test_files_that_load_into_sessions_are_listed_first(tmp_path, conn):
 
 
 def test_there_is_no_move_everything_call(tmp_path, conn):
-    """⛔ THE LANDMINE. An empty id list must refuse, not mean 'all'."""
+    """THE LANDMINE. An empty id list must refuse, not mean 'all'."""
     from noirdeck.secrets_scan import sweep
 
     claude = tmp_path / ".claude"

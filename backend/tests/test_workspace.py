@@ -62,7 +62,7 @@ def test_interactive_write(projects):
                 break
         assert b"hello-pty" in out
         mgr.stop(term.id)
-        for _ in range(20):  # signal delivery is async — poll up to 2s
+        for _ in range(20):  # signal delivery is async: poll up to 2s
             if not term.alive():
                 break
             await asyncio.sleep(0.1)

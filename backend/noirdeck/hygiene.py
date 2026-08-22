@@ -1,4 +1,4 @@
-"""Memory/skill hygiene — dedupe and tidy candidates, optimised for Claude use.
+"""Memory/skill hygiene: dedupe and tidy candidates, optimised for Claude use.
 Zero-egress: pure heuristics over ~/.claude, no LLM calls. Findings are
 read-only; the ONLY write path is a consolidation proposal through the
 existing propose→approve spine (the operator approves, nothing is auto-rewritten,
@@ -15,7 +15,7 @@ from pathlib import Path
 from .config import primary_namespace
 from .db import audit, utcnow
 
-# near-dup pairwise comparison is O(n^2) per namespace — skip monsters
+# near-dup pairwise comparison is O(n^2) per namespace: skip monsters
 MAX_NS_FILES = 500
 NEAR_DUP_RATIO = 0.85
 BIG_FILE_BYTES = 8_000  # token-diet: memory files this size crowd the recall window
@@ -44,7 +44,7 @@ def scan_namespace(mem_dir: Path) -> dict:
     files = sorted(p for p in mem_dir.glob("*.md") if p.name != "MEMORY.md" and p.is_file())
     skipped = None
     if len(files) > MAX_NS_FILES:
-        skipped = f"{len(files)} files > {MAX_NS_FILES} cap — near-dup pass skipped"
+        skipped = f"{len(files)} files > {MAX_NS_FILES} cap: near-dup pass skipped"
         files = files[:MAX_NS_FILES]
 
     texts: dict[str, str] = {}
@@ -68,7 +68,7 @@ def scan_namespace(mem_dir: Path) -> dict:
 
     near_dupes = []
     if skipped is None:
-        # SequenceMatcher over full texts is O(n^2 * len^2) — unusable on a real
+        # SequenceMatcher over full texts is O(n^2 * len^2): unusable on a real
         # namespace. Prefilter with token-set Jaccard (fast set ops), confirm with
         # ratio() on capped text so worst case stays bounded.
         CMP_CAP = 2000
@@ -99,7 +99,7 @@ def scan_namespace(mem_dir: Path) -> dict:
         if missing:
             dangling.append({"file": fname, "links": missing})
 
-    # MEMORY.md index drift — entries pointing nowhere / files never indexed
+    # MEMORY.md index drift: entries pointing nowhere / files never indexed
     index_missing_files, unindexed = [], []
     index = mem_dir / "MEMORY.md"
     if index.is_file():
@@ -149,7 +149,7 @@ def scan_skills(claude_dir: Path) -> list[dict]:
 
 
 _cache: dict[tuple[str, str], tuple[float, dict]] = {}
-_TTL = 120  # near-dup pass is O(n^2) per namespace — never per SSE bump
+_TTL = 120  # near-dup pass is O(n^2) per namespace: never per SSE bump
 
 
 def report(claude_dir: Path, namespace: str | None = None) -> dict:
@@ -158,7 +158,7 @@ def report(claude_dir: Path, namespace: str | None = None) -> dict:
     import time
 
     ns = namespace or primary_namespace()
-    # ns is caller input used as a path component — single segment, direct
+    # ns is caller input used as a path component: single segment, direct
     # child of projects/ only (same escape class as the files API fix)
     if "/" in ns or "\\" in ns or ns in ("", ".", ".."):
         raise ValueError(f"bad namespace {ns!r}")
@@ -197,7 +197,7 @@ def report(claude_dir: Path, namespace: str | None = None) -> dict:
 
 def propose_merge(conn: sqlite3.Connection, claude_dir: Path, namespace: str | None, files: list[str]) -> dict:
     """Draft ONE consolidation proposal from 2+ memory files. The proposal
-    targets a NEW merged file; originals are untouched — the proposal body
+    targets a NEW merged file; originals are untouched: the proposal body
     tells the operator which files it supersedes so deletion stays a human act."""
     if len(files) < 2:
         raise ValueError("need at least two files to merge")
@@ -223,7 +223,7 @@ def propose_merge(conn: sqlite3.Connection, claude_dir: Path, namespace: str | N
         f'description: "Consolidated from {len(files)} overlapping memories: '
         f'{", ".join(slugs)}. TIDY the duplicated sections before/after approving."\n'
         "metadata:\n  type: reference\n---\n\n"
-        "> DRAFT MERGE — sections below are concatenated sources. Deduplicate by hand\n"
+        "> DRAFT MERGE: sections below are concatenated sources. Deduplicate by hand\n"
         f"> or in a session, then delete the superseded originals: {', '.join(files)}\n\n" + "\n---\n\n".join(parts)
     )
     cur = conn.execute(

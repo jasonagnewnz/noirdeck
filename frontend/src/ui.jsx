@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 // Every view opens with the same anatomy: what this page IS (title), what it
 // DOES (one-sentence hint), and a jump to its chapter in the Help manual.
-// The link is a plain hash href — App's hashchange listener switches the view
+// The link is a plain hash href: App's hashchange listener switches the view
 // and the Help view scrolls itself to the matching section.
 export function ViewHead({ title, hint, helpId }) {
   return (
@@ -23,8 +23,8 @@ export function ViewHead({ title, hint, helpId }) {
 /**
  * A destructive action that confirms IN PLACE.
  *
- * ⛔ Replaces window.confirm, of which this app had nine. A browser dialog is
- * unstyleable, blocks the whole page, and — the real problem — invites a wall of
+ *Replaces window.confirm, of which this app had nine. A browser dialog is
+ * unstyleable, blocks the whole page, and: the real problem: invites a wall of
  * explanatory text that nobody reads. One of ours ran to four sentences. A
  * confirmation nobody reads is not a safety control, it is a speed bump with a
  * false conscience.

@@ -22,7 +22,7 @@ _MODEL_DEFAULTS = {"think": "claude-fable-5", "build": "claude-sonnet-5", "revie
 
 def model(role: str) -> str:
     """Pinned model id for a pipeline role (think/build/review). Defaults are the
-    author's routing preferences — override with NOIRDECK_MODEL_THINK/BUILD/REVIEW
+    author's routing preferences: override with NOIRDECK_MODEL_THINK/BUILD/REVIEW
     if your Claude install doesn't resolve these ids."""
     return os.environ.get(f"NOIRDECK_MODEL_{role.upper()}", _MODEL_DEFAULTS[role])
 
@@ -43,16 +43,16 @@ class Settings:
     mining_armed: bool
     overnight_armed: bool
     mine_max_batches: int
-    # Whether the AI workspace actually exists. Not fatal — a first run without
-    # Claude Code is legitimate — but the UI and `doctor` must be able to say so,
+    # Whether the AI workspace actually exists. Not fatal: a first run without
+    # Claude Code is legitimate: but the UI and `doctor` must be able to say so,
     # because "no skills, no memories" and "no workspace" look identical otherwise
     # and silence would read as an empty estate rather than a missing one.
     claude_dir_ready: bool = True
 
     @classmethod
     def load(cls) -> "Settings":
-        # ⛔ This used to raise when ~/.claude was absent, which meant a
-        # brand-new install exited 1 instead of starting — for ANY runner. The
+        # This used to raise when ~/.claude was absent, which meant a
+        # brand-new install exited 1 instead of starting: for ANY runner. The
         # product advertises Codex, Ollama and "bring your own CLI", none of
         # which need a Claude directory, and the error named `doctor` as the
         # remedy when doctor can only diagnose. An EMPTY directory works fine
@@ -63,7 +63,7 @@ class Settings:
         if not claude_dir.is_dir() and not explicitly_set:
             # Only ever create the DEFAULT location. If someone named a directory
             # explicitly and it is not there, that is likely a typo and inventing
-            # it would hide their mistake — so it is surfaced, not fabricated.
+            # it would hide their mistake: so it is surfaced, not fabricated.
             try:
                 claude_dir.mkdir(parents=True, exist_ok=True)
             except OSError:

@@ -1,20 +1,20 @@
-// Claude Code reference — single source of truth for the quick-keys overlay
+// Claude Code reference: single source of truth for the quick-keys overlay
 // tabs and the command palette's shortcut section. CLI flags verified against
 // the installed CLI (claude 2.1.229); REPL keys / slash commands curated.
 
 export const REPL_KEYS = [
   ['Esc', 'interrupt Claude mid-turn'],
-  ['Esc Esc', 'rewind — jump back to an earlier message and edit it'],
+  ['Esc Esc', 'rewind: jump back to an earlier message and edit it'],
   ['Shift+Tab', 'cycle permission modes: manual → auto-accept → plan'],
   ['Tab', 'toggle extended thinking for the next turn'],
   ['Ctrl+B', 'move the running task to the background'],
-  ['Ctrl+C', 'clear input / cancel — twice to exit'],
+  ['Ctrl+C', 'clear input / cancel: twice to exit'],
   ['Ctrl+D', 'exit the session (EOF)'],
   ['Ctrl+L', 'clear the screen (conversation kept)'],
   ['Ctrl+O', 'expand / collapse verbose output'],
   ['Ctrl+R', 'reverse-search prompt history'],
   ['Ctrl+V', 'paste an image from the clipboard'],
-  ['Ctrl+Z', 'suspend to the shell — fg to come back'],
+  ['Ctrl+Z', 'suspend to the shell: fg to come back'],
   ['↑ / ↓', 'walk prompt history'],
   ['Shift+Enter', 'newline without sending (after /terminal-setup)'],
 ]
@@ -67,7 +67,7 @@ export const SLASH_COMMANDS = [
 export const CLI_FLAGS = [
   ['claude', 'interactive session in the current directory'],
   ['claude -c', 'continue the most recent conversation here'],
-  ['claude -r', 'resume — picker, or pass a session id'],
+  ['claude -r', 'resume: picker, or pass a session id'],
   ['claude -p "…"', 'headless: print the response and exit'],
   ['--model <m>', 'pin the model (full id beats an alias)'],
   ['--effort <l>', 'reasoning effort: low → max'],

@@ -75,7 +75,7 @@ function ArmPanel({ bump }) {
       </summary>
       <p className="sechint">
         Nothing runs unattended without a live contract: an expiry plus task and token budgets, double-gated with the
-        env master flags. Contracts expire — re-arm here before tonight's run.
+        env master flags. Contracts expire: re-arm here before tonight's run.
       </p>
       <div className="formrow" style={{ marginBottom: 8 }}>
         <div>
@@ -191,7 +191,7 @@ export default function Queue({ bump, launch }) {
       const out = await api(`/queue/${t.id}/takeover`)
       setNotice(
         out.resumed_conversation
-          ? `Task #${t.id} is yours — its conversation is open in Build Live.`
+          ? `Task #${t.id} is yours: its conversation is open in Build Live.`
           : `Task #${t.id} stopped, but no transcript was found: Build Live opened a FRESH session in the same repo, so its context did not carry over.`
       )
       window.location.hash = '#workspace'
@@ -226,7 +226,7 @@ export default function Queue({ bump, launch }) {
                 onChange={(e) => setForm({ ...form, project: e.target.value })}
                 required
               >
-                <option value="">— choose project —</option>
+                <option value="">choose a project</option>
                 {(fleet || []).map((f) => (
                   <option key={f.path} value={f.name}>
                     {f.name}
@@ -299,9 +299,9 @@ export default function Queue({ bump, launch }) {
             style={{ maxWidth: 420 }}
             onChange={(e) => setForm({ ...form, weight: e.target.value })}
           >
-            <option value="">auto — routed from the task text</option>
-            <option value="light">light — one session, cheapest</option>
-            <option value="heavy">heavy — plan first, then build, then a check pass</option>
+            <option value="">auto: routed from the task text</option>
+            <option value="light">light: one session, cheapest</option>
+            <option value="heavy">heavy: plan first, then build, then a check pass</option>
           </select>
           <div style={{ marginTop: 10 }}>
             <button className="act" type="submit">
@@ -336,7 +336,7 @@ export default function Queue({ bump, launch }) {
       {taskPage.map((t) => (
         <div className="panel" key={t.id}>
           <h2>
-            #{t.id} — <b>{t.title}</b> <span className={`pill ${t.status}`}>{t.status}</span>
+            #{t.id}: <b>{t.title}</b> <span className={`pill ${t.status}`}>{t.status}</span>
           </h2>
           <div className="faint" style={{ marginBottom: 6 }}>
             {t.project.split('/').pop()} · who {t.runner || 'claude'} · model {t.model || 'auto'} · path{' '}
@@ -354,7 +354,7 @@ export default function Queue({ bump, launch }) {
               <div className="kickoff">Q: {t.question}</div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <input
-                  placeholder="your answer — re-queues the task"
+                  placeholder="your answer: re-queues the task"
                   value={answers[t.id] || ''}
                   aria-label={`Answer for task #${t.id}: ${t.title}`}
                   onChange={(e) => setAnswers({ ...answers, [t.id]: e.target.value })}
@@ -396,7 +396,7 @@ export default function Queue({ bump, launch }) {
           )}
           {t.status === 'claimed' && (
             <div className="faint" style={{ marginTop: 8 }}>
-              You took this over{t.claimed_at ? ` at ${t.claimed_at.slice(11, 16)}` : ''} — it is yours now, so the
+              You took this over{t.claimed_at ? ` at ${t.claimed_at.slice(11, 16)}` : ''}: it is yours now, so the
               runner will not touch it again.
             </div>
           )}

@@ -6,7 +6,7 @@ underneath: project-aware briefs, polished live work, multi-runtime coding
 sessions, autonomous pipelines with enforced guardrails, all at
 `http://127.0.0.1:4747` on your own machine.
 
-> Mono Dark by default; nine more themes, including Calm Pro, one switch away.
+> Three interface kits, two modes, two densities and three text sizes, all independent.
 
 ![overview](docs/screenshots/overview.png)
 
@@ -37,6 +37,7 @@ sessions, autonomous pipelines with enforced guardrails, all at
 
 **Works like an IDE**
 - VS Code-style shell: activity bar (pops out to a labelled sidebar, `Ctrl+B`),
+  a resizable terminal panel available from any view (``Ctrl+` ``),
   status bar with live telemetry (stream state, pending approvals, backup age),
   intent-aware command palette (`Ctrl+K`), quick keys (`1`–`0` views, `?` cheat
   sheet with the full Claude Code reference, verified against the installed CLI).
@@ -239,9 +240,20 @@ labels, AA contrast throughout, `prefers-reduced-motion` respected.
 
 ![guided build](docs/screenshots/guided.png)
 
-**Eight built-in themes** — noir (default), instrument, aurora, brutalist,
-editorial, botanical, swiss, neo-material — switchable from the status bar,
-every one verified to WCAG AA contrast.
+**Three interface kits**: Carbon (square corners, eight-pixel grid, the tightest
+density), Fluent (cool greys, layered depth, softly rounded) and Claude (warm
+neutrals, a clay accent). A kit decides type, shape, density and the accent
+family together, so the three of them are structural choices rather than three
+colour schemes.
+
+The kit is one of four independent dials, alongside mode (dark, light, or match
+the system), density and text size. Because they are independent, three kits
+cover six palettes without six lists to maintain. Switch kit from the status
+bar; the rest live in Settings.
+
+Every combination is verified in CI before it ships: each text token clears its
+WCAG ratio on every surface, and the accent must be perceptually distinct from
+the alarm colour, so a kit can never make an alarm look like ordinary UI.
 
 ![workspace](docs/screenshots/workspace.png)
 
@@ -252,6 +264,7 @@ every one verified to WCAG AA contrast.
 | `1` – `0` | jump between views |
 | `Ctrl+K` | command palette — skills, shortcuts, tips |
 | `Ctrl+B` | expand / collapse the sidebar |
+| ``Ctrl+` `` | show / hide the terminal panel |
 | `?` | quick keys + full Claude Code reference |
 | `Esc` | close overlays |
 

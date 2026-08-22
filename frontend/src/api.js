@@ -21,7 +21,7 @@ export async function api(path, opts) {
   return r.json()
 }
 
-// Fetch on mount + refetch when the SSE bus reports a change (bump) — the "live" in live view.
+// Fetch on mount + refetch when the SSE bus reports a change (bump): the "live" in live view.
 export function useData(path, bump = 0) {
   const [state, setState] = useState({ data: null, error: null, loading: true })
   useEffect(() => {

@@ -1,21 +1,21 @@
 """Credential scanner for the operator's AI workspace.
 
 WHY THIS EXISTS (2026-08-19): a generated skill file, `~/.claude/skills/ddonald01/
-SKILL.md`, was found containing a sudo password in cleartext — three times, in the
-frontmatter name, the description and the body — because a keyword generator turned
+SKILL.md`, was found containing a sudo password in cleartext: three times, in the
+frontmatter name, the description and the body: because a keyword generator turned
 the typed prompt "Ddonald01! is sudo" into a "skill". That file loaded into every
 session on the machine and sat in the tree the miner reads and ships to an LLM.
 
 Two design rules follow from the estate's own landmines:
 
-1. ⛔⛔ A FINDING NEVER CARRIES THE SECRET. `fb_secrets_readable_datto_vars_and_
+1. A FINDING NEVER CARRIES THE SECRET. `fb_secrets_readable_datto_vars_and_
    cove_configini` records that PARTIAL REDACTION IS NOT REDACTION: printing
    `Ddonald0…` into a report, an audit row or a UI list just moves the credential
    somewhere new and calls it safe. Findings therefore carry detector name,
-   file, line, and a SHA-256 fingerprint prefix — enough to correlate two copies
+   file, line, and a SHA-256 fingerprint prefix: enough to correlate two copies
    of the same secret and to confirm a fix, and useless to an attacker.
 
-2. ⛔ FILENAME IS NOT EVIDENCE. `quarantine_keys_exposed_2026_08_12` records that
+2. FILENAME IS NOT EVIDENCE. `quarantine_keys_exposed_2026_08_12` records that
    scanning by filename MISSES hardcoded secrets and must be confirmed BY CONTENT.
    This scanner only ever reads content.
 
@@ -52,7 +52,7 @@ _DETECTORS: list[tuple[str, str, str, bool, int]] = [
     ("private_key_block", r"-----BEGIN (?:RSA |EC |OPENSSH |PGP |DSA )?PRIVATE KEY-----", "high", False, 0),
     ("jwt", r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b", "high", False, 0),
     ("connection_string_password", r"\b[a-z][a-z0-9+.-]*://[^\s:/@]+:([^\s@/]{6,})@", "high", False, 0),
-    # SCREAMING_SNAKE_CASE=value — the commonest shape a secret takes in .env
+    # SCREAMING_SNAKE_CASE=value: the commonest shape a secret takes in .env
     # files and pasted terminal output. This is the same shape the miner's own
     # redaction missed until 2026-08-18 (\b does not match at an underscore).
     (
@@ -86,7 +86,7 @@ _DETECTORS: list[tuple[str, str, str, bool, int]] = [
 _COMPILED = [(n, re.compile(p, f), c, e) for n, p, c, e, f in _DETECTORS]
 
 # Values that look like secrets but are not. Placeholders, shell/template
-# indirection, and — importantly — this scanner's own documentation and tests,
+# indirection, and: importantly: this scanner's own documentation and tests,
 # which must be able to name these shapes without tripping the scanner.
 _PLACEHOLDER = re.compile(
     r"^(?:\$|\$\{|\{\{|<|%|x{4,}|\*{4,}|\.{3,}|changeme|example|placeholder|your[_-]?|my[_-]?|some|test|dummy|fake|sample|redacted|\[redacted)",
@@ -141,7 +141,7 @@ class Finding:
     path: str
     line: int
     fingerprint: str
-    # Context with the secret ELIDED — the surrounding words are what make a
+    # Context with the secret ELIDED: the surrounding words are what make a
     # finding actionable ("which setting is this?") and they are not the secret.
     context: str
 
@@ -311,7 +311,7 @@ class SecretScanError(RuntimeError):
 
 
 def acknowledge(conn: sqlite3.Connection, finding_id: int, note: str = "") -> dict:
-    """Mark a finding handled — the credential was rotated, or it was a false
+    """Mark a finding handled: the credential was rotated, or it was a false
     positive. Acknowledging changes no file; it records a human judgement."""
     row = conn.execute("SELECT * FROM secret_findings WHERE id=?", (finding_id,)).fetchone()
     if not row:
@@ -335,7 +335,7 @@ def quarantine(conn: sqlite3.Connection, claude_dir: Path, finding_id: int) -> d
     stops it loading into sessions and stops the miner reading it; the message
     returned says plainly that rotation is still required.
 
-    Never called by a scheduled job — the caller must be a human action.
+    Never called by a scheduled job: the caller must be a human action.
     """
     row = conn.execute("SELECT * FROM secret_findings WHERE id=?", (finding_id,)).fetchone()
     if not row:
@@ -397,8 +397,8 @@ def _movable(claude_dir: Path, entry: dict) -> bool:
 def plan_sweep(conn: sqlite3.Connection, claude_dir: Path, ids: list[int] | None = None) -> dict:
     """What a sweep WOULD move, grouped by file, without moving anything.
 
-    ⛔⛔ THE LANDMINE THIS IS BUILT AROUND: on this estate, irreversible actions must
-    be selected by EXPLICIT ID — never by a time window, a status filter or a LIMIT.
+    THE LANDMINE THIS IS BUILT AROUND: on this estate, irreversible actions must
+    be selected by EXPLICIT ID: never by a time window, a status filter or a LIMIT.
     So there is no "quarantine everything" call. This returns a plan the operator
     reads and then confirms with the exact id list, and `sweep()` refuses any id that
     was not in a plan the caller has seen.
@@ -450,7 +450,7 @@ def plan_sweep(conn: sqlite3.Connection, claude_dir: Path, ids: list[int] | None
         # several files, and summing per-file counts would overstate the exposure.
         "distinct_secrets": len({fp for e in files.values() for fp in e["fingerprints"] if _movable(claude_dir, e)}),
         # The id list the operator must send back. Confirming a plan means confirming
-        # THIS, not "everything that is open right now" — which could have changed.
+        # THIS, not "everything that is open right now": which could have changed.
         "confirm_ids": sorted(i for e in movable for i in e["finding_ids"]),
         "note": (
             "Moving a file takes it out of the workspace so sessions and the miner stop "
@@ -472,7 +472,7 @@ def sweep(conn: sqlite3.Connection, claude_dir: Path, ids: list[int], confirm: b
     if not confirm:
         return {"performed": False, "reason": "confirm=true and an explicit id list are both required"}
     if not ids:
-        return {"performed": False, "reason": "no ids given — there is no 'move everything' call, by design"}
+        return {"performed": False, "reason": "no ids given: there is no 'move everything' call, by design"}
 
     moved, failed = [], []
     seen_paths: set[str] = set()
@@ -502,7 +502,7 @@ def sweep(conn: sqlite3.Connection, claude_dir: Path, ids: list[int], confirm: b
         "failed": failed,
         "next_step": (
             f"{len(moved)} file(s) are out of the workspace. Every credential in them is still "
-            "disclosed — rotate each one, then store the replacements in a secret manager rather "
+            "disclosed: rotate each one, then store the replacements in a secret manager rather "
             "than in a note. See docs/SECRET_HYGIENE.md."
         ),
     }

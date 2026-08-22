@@ -1,5 +1,5 @@
 """pyproject.toml [project].version and noirdeck.version.VERSION are two spellings of
-one fact — this pin keeps them from drifting apart."""
+one fact: this pin keeps them from drifting apart."""
 
 import re
 from pathlib import Path

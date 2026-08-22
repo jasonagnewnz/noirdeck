@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api.js'
 
-// The guided intake — deliberately ONE page, not a wizard: a non-technical
+// The guided intake: deliberately ONE page, not a wizard: a non-technical
 // person can see the whole interview at once, answer in any order, and nothing
 // is hidden behind a "next" button. Questions come from the backend
 // (/api/guided/questions) so the form and the brief compiler can never drift.
@@ -10,7 +10,7 @@ const legendStyle = {
   fontSize: 10,
   textTransform: 'uppercase',
   letterSpacing: '0.13em',
-  color: 'var(--ink-faint)',
+  color: 'var(--text-3)',
   margin: '10px 0 4px',
   padding: 0,
 }
@@ -19,7 +19,7 @@ const helpStyle = { fontSize: 11.5, margin: '0 0 6px', maxWidth: '72ch' }
 const Req = () => (
   <span className="faint" style={{ textTransform: 'none', letterSpacing: 0 }}>
     {' '}
-    — required
+    : required
   </span>
 )
 
@@ -49,7 +49,7 @@ export default function GuidedIntake({ onCreated }) {
     api('/guided/recipes')
       .then((rs) => alive && setRecipes(rs))
       .catch(() => {
-        /* templates are optional sugar — the form works without them */
+        /* templates are optional sugar: the form works without them */
       })
     return () => {
       alive = false
@@ -87,7 +87,7 @@ export default function GuidedIntake({ onCreated }) {
         const ids = m[1].split(',').map((s) => s.trim())
         setMissing(ids)
         const labels = ids.map((qid) => (questions.find((q) => q.id === qid) || { label: qid }).label)
-        setErr(`Almost there — please answer: ${labels.join(' · ')}`)
+        setErr(`Almost there: please answer: ${labels.join(' · ')}`)
       } else {
         setErr(ex.message)
       }
@@ -114,14 +114,14 @@ export default function GuidedIntake({ onCreated }) {
   return (
     <form onSubmit={submit}>
       <p className="dim" style={{ maxWidth: '72ch', margin: '6px 0 2px' }}>
-        Answer in plain English — no technical knowledge needed. We'll turn your answers into a full brief, draft a
-        plan, and show you that plan before anything gets built.
+        Answer in plain English: no technical knowledge needed. We'll turn your answers into a full brief, draft a plan,
+        and show you that plan before anything gets built.
       </p>
 
       {recipes.length > 0 && (
         <div role="group" aria-label="Start from a template">
           <div className="fl" style={{ margin: '12px 0 2px' }}>
-            Start from a template if one fits — every answer stays editable
+            Start from a template if one fits: every answer stays editable
           </div>
           <div className="recipe-grid">
             {recipes.map((r) => (
@@ -216,7 +216,7 @@ export default function GuidedIntake({ onCreated }) {
                 <input
                   key={i}
                   value={v}
-                  aria-label={`${q.label} — item ${i + 1} of ${items.length}`}
+                  aria-label={`${q.label}: item ${i + 1} of ${items.length}`}
                   aria-required={(q.required && i === 0) || undefined}
                   required={(q.required && i === 0) || undefined}
                   aria-invalid={(i === 0 && invalid) || undefined}
@@ -274,7 +274,7 @@ export default function GuidedIntake({ onCreated }) {
       </div>
       {busy && (
         <div role="status" aria-live="polite" className="dim" style={{ marginTop: 8 }}>
-          Sending your answers — the planner will draft a plan for you to approve…
+          Sending your answers: the planner will draft a plan for you to approve…
         </div>
       )}
       {err && (

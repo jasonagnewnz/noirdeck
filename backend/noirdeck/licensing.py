@@ -1,18 +1,18 @@
-"""Licence keys — who may run this copy, decided locally.
+"""Licence keys: who may run this copy, decided locally.
 
 Shape: a key is a signed claim, not a password. The server signs it once at
 signup with an Ed25519 private key; every noirdeck verifies it OFFLINE against
 the public key baked into this file. So a running noirdeck needs no network, no
-licence server and no round trip to do its job — the network is only ever needed
+licence server and no round trip to do its job: the network is only ever needed
 to *obtain* or *refresh* a key, never to use one.
 
-⛔ THE FAILURE MODE IS THE DESIGN. Verification is deliberately ASYMMETRIC:
+THE FAILURE MODE IS THE DESIGN. Verification is deliberately ASYMMETRIC:
 
     transient failure (no network, server down, refresh failed)  -> ALLOW
     definitive failure (bad signature, revoked, expired past grace) -> DENY
 
 A local developer tool that fails closed when its vendor has an outage locks
-people out of their own machine, their own code and their own work — on a plane,
+people out of their own machine, their own code and their own work: on a plane,
 behind a captive portal, or because a DNS record wobbled. Our outage must never
 become their outage. The trade is that blocking the refresh endpoint extends a
 key's life to the end of its grace window; that is the correct thing to lose.
@@ -36,14 +36,14 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 # The issuing key's public half, baked in at release time. EMPTY means this is
-# not a released build — a source checkout or a test run — and in that case
+# not a released build: a source checkout or a test run: and in that case
 # there is no licensing regime at all: every feature is allowed.
 #
 # That is deliberate, not a hole. A developer working on noirdeck itself must
 # not need a key to run it, and a test suite must not need a keypair to exercise
 # a route. The env override exists for that development case.
 #
-# It is also, of course, trivially removable by anyone reading the source — as
+# It is also, of course, trivially removable by anyone reading the source: as
 # stated at the top of this file, a key gate stops casual sharing, not a
 # determined person. Pretending otherwise would mean designing around a
 # guarantee that does not exist.
@@ -62,7 +62,7 @@ GATED_FEATURES = frozenset({"builds", "consult", "mining", "overnight", "improve
 
 # What each gate actually withholds, in the customer's words. Without this the
 # status endpoint reports bare feature names and "mining" reads as "mining does not
-# work" — while the free local pass at POST /api/mine works fine and only the LLM
+# work": while the free local pass at POST /api/mine works fine and only the LLM
 # pass is paid. A gate list nobody can interpret invites support tickets.
 GATED_LABELS = {
     "ask": "asking questions about your estate",
@@ -105,7 +105,7 @@ class License:
 
     @property
     def dead(self) -> bool:
-        """Past expiry AND past grace — the only expiry state that denies."""
+        """Past expiry AND past grace: the only expiry state that denies."""
         return _now() > self.expires_at + timedelta(days=GRACE_DAYS)
 
 
@@ -119,7 +119,7 @@ def _now() -> datetime:
 
 
 def _b64d(raw: str) -> bytes:
-    # urlsafe b64 without padding — keys get pasted into terminals and emails,
+    # urlsafe b64 without padding: keys get pasted into terminals and emails,
     # and '=' has a habit of being eaten on the way.
     return base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
 
@@ -136,7 +136,7 @@ def parse(key: str) -> License:
     """Verify a key's signature and decode its claims.
 
     Raises LicenseError for anything definitively wrong. A caller must treat that
-    as DENY — but must NOT treat an exception from the refresh path the same way.
+    as DENY: but must NOT treat an exception from the refresh path the same way.
     """
     if not ISSUER_PUBLIC_KEY_B64:
         raise LicenseError("no issuer public key configured in this build")
@@ -156,7 +156,7 @@ def parse(key: str) -> License:
         # re-serialised JSON instead would break on any key-order difference.
         pub.verify(signature, payload_raw)
     except InvalidSignature as exc:
-        raise LicenseError("signature does not match — key is not genuine") from exc
+        raise LicenseError("signature does not match: key is not genuine") from exc
     except (ValueError, TypeError) as exc:
         raise LicenseError(f"cannot verify key: {exc}") from exc
 
@@ -188,7 +188,7 @@ def load() -> License | None:
 
 
 def save(key: str) -> License:
-    """Verify before storing. Never persist a key we could not read — otherwise
+    """Verify before storing. Never persist a key we could not read: otherwise
     the failure surfaces later, at startup, detached from the paste that caused it."""
     lic = parse(key)
     path = key_path()
@@ -202,13 +202,13 @@ def save(key: str) -> License:
 
 
 def status() -> dict:
-    """What the UI shows. Never raises — a status call must not be the thing
+    """What the UI shows. Never raises: a status call must not be the thing
     that breaks the screen someone opened to fix their licence."""
     if not active():
         return {
             "licensed": True,
             "state": "inactive",
-            "detail": "Development build — no licence required.",
+            "detail": "Development build: no licence required.",
         }
     try:
         lic = load()
@@ -226,7 +226,7 @@ def status() -> dict:
         return {
             "licensed": False,
             "state": "unlicensed",
-            "detail": "No key yet. Keys are not being issued yet — request one at noirdeck.dev.",
+            "detail": "No key yet. Keys are not being issued yet: request one at noirdeck.dev.",
             "gated": sorted(GATED_FEATURES),
             "gated_detail": {k: GATED_LABELS[k] for k in sorted(GATED_FEATURES)},
         }
@@ -257,14 +257,14 @@ def status() -> dict:
 
 
 def allows(feature: str) -> tuple[bool, str]:
-    """(allowed, reason) — the gate every AI feature calls.
+    """(allowed, reason): the gate every AI feature calls.
 
     Ungated features always pass. Gated ones need a key that is not dead. A key
     inside its grace window PASSES: grace exists precisely so a refresh problem
     does not stop someone working.
     """
     if not active():
-        return True, "unreleased build — licensing inactive"
+        return True, "unreleased build: licensing inactive"
     if feature not in GATED_FEATURES:
         return True, "not gated"
     try:
@@ -274,16 +274,16 @@ def allows(feature: str) -> tuple[bool, str]:
         # a failed *refresh* must never reach here.
         return False, f"key is not valid: {exc}"
     if lic is None:
-        # ⛔ B3c (2026-08-19): this used to say "sign up at noirdeck.dev to get one".
-        # Signup is a WAITLIST — it returns "we will email your key the day noirdeck
-        # is published" — so the instruction was a dead end for anyone who followed
+        # B3c (2026-08-19): this used to say "sign up at noirdeck.dev to get one".
+        # Signup is a WAITLIST: it returns "we will email your key the day noirdeck
+        # is published": so the instruction was a dead end for anyone who followed
         # it. Say what is actually true. When issuance ships (B3a/B3b in
         # PROJECT_PLAN.md) this message changes back, and not before.
         return False, (
-            "noirdeck needs a key for this. Keys are not being issued yet — "
+            "noirdeck needs a key for this. Keys are not being issued yet: "
             "request one at noirdeck.dev and it arrives when noirdeck is published. "
             "Everything else keeps working without a key."
         )
     if lic.dead:
-        return False, f"key expired {lic.expires_at.date()} and grace has passed — refresh it to continue"
+        return False, f"key expired {lic.expires_at.date()} and grace has passed: refresh it to continue"
     return True, "licensed"

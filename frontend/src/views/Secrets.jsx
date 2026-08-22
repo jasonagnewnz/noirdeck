@@ -106,15 +106,15 @@ export default function Secrets({ bump }) {
           </h2>
           <p className="sechint">
             A credential in this tree is readable by every session on this machine, and the miner reads the same files
-            before sending excerpts to a model. Rotation is the only real fix — moving or deleting the file does not
-            undo a disclosure.
+            before sending excerpts to a model. Rotation is the only real fix: moving or deleting the file does not undo
+            a disclosure.
           </p>
         </div>
       )}
 
       <div className="panel">
         <h2>
-          Scan — <b>look for credentials now</b>
+          Scan: <b>look for credentials now</b>
         </h2>
         <p className="sechint">
           Runs automatically each night at 02:00, ahead of mining. Markdown, settings and config files are always
@@ -135,7 +135,7 @@ export default function Secrets({ bump }) {
             ) : (
               <>
                 Scanned <b>{scanResult.files_scanned}</b> files
-                {scanResult.transcripts_included ? ' (transcripts included)' : ' (transcripts skipped)'} —{' '}
+                {scanResult.transcripts_included ? ' (transcripts included)' : ' (transcripts skipped)'}:{' '}
                 <b>{scanResult.findings}</b> findings, <b>{scanResult.new_findings}</b> new,{' '}
                 <b>{scanResult.open_findings}</b> still open.
                 {scanResult.truncated && ' ⚠ File cap reached: coverage is incomplete.'}
@@ -165,17 +165,17 @@ export default function Secrets({ bump }) {
           </div>
         </div>
         <p className="sechint">
-          No row shows the credential. You get the detector, the location, and the line with the value replaced — enough
+          No row shows the credential. You get the detector, the location, and the line with the value replaced: enough
           to find it and fix it, useless to anyone else. Two findings showing the same short code are the same secret in
-          both places. <b>Moving a file</b> takes it out of your workspace so sessions stop reading it — it does not
-          undo the leak, so rotate the credential either way.
+          both places. <b>Moving a file</b> takes it out of your workspace so sessions stop reading it: it does not undo
+          the leak, so rotate the credential either way.
         </p>
 
         {loading && <div className="loading">scanning findings</div>}
         {!loading && findings.length === 0 && (
           <div className="faint">
             {status === 'open'
-              ? 'No open findings. If you have never run a scan, that means "not looked" rather than "clean" — use Scan workspace above.'
+              ? 'No open findings. If you have never run a scan, that means "not looked" rather than "clean": use Scan workspace above.'
               : `Nothing ${status}.`}
           </div>
         )}
@@ -185,7 +185,7 @@ export default function Secrets({ bump }) {
             <summary>
               <span className={f.confidence === 'high' ? 'chip hot' : 'chip'}>{f.confidence}</span> {label(f.detector)}{' '}
               <span className="dim">
-                — {f.path}:{f.line}
+                : {f.path}:{f.line}
               </span>
             </summary>
             <div style={{ padding: '8px 0 10px 14px' }}>

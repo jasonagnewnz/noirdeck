@@ -3,7 +3,7 @@ import { api, useData } from '../api.js'
 import { usePager } from '../pager.jsx'
 import { ViewHead } from '../ui.jsx'
 
-// Hygiene panel — auto-dedupe/tidy findings, optimised-for-Claude memory upkeep.
+// Hygiene panel: auto-dedupe/tidy findings, optimised-for-Claude memory upkeep.
 // Strictly read-only except "propose merge", which drafts a proposal for the
 // Proposals view: nothing is rewritten or deleted without the operator approving.
 function Hygiene({ bump }) {
@@ -40,11 +40,11 @@ function Hygiene({ bump }) {
   return (
     <div className="panel">
       <h2>
-        Hygiene — <b>{h?.finding_count ?? 0} findings</b>
+        Hygiene: <b>{h?.finding_count ?? 0} findings</b>
       </h2>
       <p className="sechint">
         Read-only upkeep scan: duplicates, near-empty and oversized files, dangling [[links]], index drift. "propose
-        merge" drafts a consolidation through the Proposals view — nothing here rewrites or deletes anything directly.
+        merge" drafts a consolidation through the Proposals view: nothing here rewrites or deletes anything directly.
       </p>
       <div className="ctlrow" style={{ marginBottom: 10 }}>
         <select
@@ -59,9 +59,7 @@ function Hygiene({ bump }) {
             </option>
           ))}
         </select>
-        {!canPropose && h && (
-          <span className="faint">read-only scan — proposals only target {h.primary_namespace}</span>
-        )}
+        {!canPropose && h && <span className="faint">read-only scan: proposals only target {h.primary_namespace}</span>}
         {msg && <span className="chip hot">{msg}</span>}
       </div>
       {!r && <div className="faint">this project has no memories yet</div>}
@@ -98,7 +96,7 @@ function Hygiene({ bump }) {
             <details>
               <summary>
                 <span className="chip">oversized</span> ×{r.oversized.length}{' '}
-                <span className="faint">— token diet: split or trim</span>
+                <span className="faint">· token diet: split or trim</span>
               </summary>
               <div style={{ padding: '6px 0 10px 14px' }}>
                 {r.oversized.map((f) => (
@@ -127,7 +125,7 @@ function Hygiene({ bump }) {
             <details>
               <summary>
                 <span className="chip">dangling [[links]]</span> ×{r.dangling_links.length}{' '}
-                <span className="faint">— memories worth writing, or typos</span>
+                <span className="faint">· memories worth writing, or typos</span>
               </summary>
               <div style={{ padding: '6px 0 10px 14px' }}>
                 {r.dangling_links.map((d) => (
@@ -141,7 +139,7 @@ function Hygiene({ bump }) {
           {(r.index_missing_files.length > 0 || r.unindexed.length > 0) && (
             <details>
               <summary>
-                <span className="chip">index drift</span> — {r.index_missing_files.length} broken, {r.unindexed.length}{' '}
+                <span className="chip">index drift</span>: {r.index_missing_files.length} broken, {r.unindexed.length}{' '}
                 unindexed
               </summary>
               <div style={{ padding: '6px 0 10px 14px' }}>
@@ -172,7 +170,7 @@ function Hygiene({ bump }) {
               </div>
             </details>
           )}
-          {h?.finding_count === 0 && <div className="faint">clean — nothing to tidy</div>}
+          {h?.finding_count === 0 && <div className="faint">clean: nothing to tidy</div>}
         </>
       )}
     </div>
@@ -193,7 +191,7 @@ export default function Memories({ bump }) {
       <ViewHead
         title="Memories"
         helpId="memories"
-        hint={`Everything your sessions remember — ${data.stats.total} files across ${data.stats.namespaces} namespaces — with the upkeep tooling to keep that knowledge base lean.`}
+        hint={`Everything your sessions remember: ${data.stats.total} files across ${data.stats.namespaces} namespaces: with the upkeep tooling to keep that knowledge base lean.`}
       />
 
       <div className="listhead">By type</div>
@@ -212,7 +210,7 @@ export default function Memories({ bump }) {
 
       <div className="panel">
         <h2>All memories</h2>
-        <p className="sechint">The raw inventory — filter by name or description.</p>
+        <p className="sechint">The raw inventory: filter by name or description.</p>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}

@@ -1,6 +1,6 @@
 """Git fleet board across ~/projects: dirty trees, unpushed commits, local-only branches.
 
-Guard (estate landmine): only treat <dir> as a repo if <dir>/.git exists — `git -C`
+Guard (estate landmine): only treat <dir> as a repo if <dir>/.git exists: `git -C`
 walks UP to an enclosing repo otherwise and reports the wrong project.
 """
 

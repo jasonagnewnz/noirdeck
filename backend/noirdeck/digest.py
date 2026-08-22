@@ -1,4 +1,4 @@
-"""The morning digest — what happened while you were away, in plain English.
+"""The morning digest: what happened while you were away, in plain English.
 
 Deterministic by design: every sentence is assembled from database state, no
 model involvement, so the operator can trust it the way they trust the evidence

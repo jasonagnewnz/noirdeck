@@ -8,7 +8,7 @@ const STATUS_PILL = { proposed: 'queued', merged: 'done', discarded: 'dismissed'
 const CAP = 10 // changes shown before the "older" fold
 
 export default function ImprovePanel({ bump }) {
-  const [ver, setVer] = useState(0) // local refetch counter — bumped after every action
+  const [ver, setVer] = useState(0) // local refetch counter: bumped after every action
   const { data, error, loading } = useData('/improve', bump + ver)
   const { data: fleet } = useData('/fleet', bump)
   const [pick, setPick] = useState('')
@@ -39,7 +39,7 @@ export default function ImprovePanel({ bump }) {
     setPick('')
   }
 
-  // The merge TARGET is the repo's current branch, which is not always main — so it
+  // The merge TARGET is the repo's current branch, which is not always main: so it
   // is named on the button itself (see mergeTarget below) instead of inside a dialog.
   const mergeTarget = (c) => (fleet || []).find((f) => f.name === c.project)?.branch || 'the current branch'
 
@@ -52,7 +52,7 @@ export default function ImprovePanel({ bump }) {
   }
 
   const renderChange = (c) => (
-    <div key={c.id} style={{ borderTop: '1px solid var(--line-soft)', padding: '8px 0' }}>
+    <div key={c.id} style={{ borderTop: '1px solid var(--border-subtle)', padding: '8px 0' }}>
       <div className="ctlrow" style={{ gap: 8 }}>
         <b>{c.project}</b>
         <span className="chip">{c.kind}</span>
@@ -106,17 +106,17 @@ export default function ImprovePanel({ bump }) {
   const rest = changes.slice(CAP)
   const pending = changes.filter((c) => c.status === 'proposed').length
   const runBlocked = !data?.armed
-    ? 'improver is disarmed (NOIRDECK_IMPROVER_ARMED) — fail-closed'
+    ? 'improver is disarmed (NOIRDECK_IMPROVER_ARMED): fail-closed'
     : !data?.model_available
-      ? 'local model offline — start Ollama first'
+      ? 'local model offline: start Ollama first'
       : null
 
   return (
     <>
       <div className="panel">
-        <h2>Local improver — scope & controls</h2>
+        <h2>Local improver: scope & controls</h2>
         <p className="sechint">
-          A local model (via Ollama — zero cloud calls) quietly proposes small, safe improvements: docstrings, comment
+          A local model (via Ollama: zero cloud calls) quietly proposes small, safe improvements: docstrings, comment
           tidy, READMEs. It only ever works on what you map or arm here, on isolated branches, and nothing merges
           without your click.
         </p>
@@ -141,7 +141,7 @@ export default function ImprovePanel({ bump }) {
                 className="act"
                 disabled={busy || !!runBlocked}
                 title={runBlocked || 'propose one small change per enabled repo, on isolated branches'}
-                onClick={() => call('/improve/run', {}, 'run started — proposals appear below as they land')}
+                onClick={() => call('/improve/run', {}, 'run started: proposals appear below as they land')}
               >
                 run now
               </button>
@@ -154,7 +154,7 @@ export default function ImprovePanel({ bump }) {
                   Map a repo
                 </label>
                 <select id="improve-repo" value={pick} disabled={busy} onChange={(e) => setPick(e.target.value)}>
-                  <option value="">— choose a repo —</option>
+                  <option value="">choose a repo</option>
                   {unmapped.map((n) => (
                     <option key={n} value={n}>
                       {n}
@@ -169,7 +169,7 @@ export default function ImprovePanel({ bump }) {
             <div style={{ marginTop: 8 }}>
               {repos.length === 0 && (
                 <div className="dim">
-                  no repos mapped — map one above and the local model will start proposing small improvements.
+                  no repos mapped: map one above and the local model will start proposing small improvements.
                 </div>
               )}
               {repos.map((r) => (
@@ -212,7 +212,7 @@ export default function ImprovePanel({ bump }) {
                 through the Proposals view (never written directly) */}
             {data.targets && data.assets && (
               <>
-                <div className="subsec">What it may touch — skills and memories you have allowed</div>
+                <div className="subsec">What it may touch: skills and memories you have allowed</div>
                 <div className="formrow" style={{ maxWidth: 620 }}>
                   <div>
                     <label className="fl" htmlFor="imp-tkind">
@@ -236,7 +236,7 @@ export default function ImprovePanel({ bump }) {
                       Add a target
                     </label>
                     <select id="imp-tpick" value={tPick} disabled={busy} onChange={(e) => setTPick(e.target.value)}>
-                      <option value="">— choose a {tKind} —</option>
+                      <option value="">choose a {tKind}</option>
                       {(data.assets[tKind] || [])
                         .filter((a) => !data.targets.some((t) => t.target_path === a.target_path))
                         .map((a) => (
@@ -254,7 +254,7 @@ export default function ImprovePanel({ bump }) {
                       call(
                         '/improve/targets',
                         { kind: tKind, target_path: tPick },
-                        'added disarmed — arm it to let the improver work on it'
+                        'added disarmed: arm it to let the improver work on it'
                       )
                       setTPick('')
                     }}
@@ -265,7 +265,7 @@ export default function ImprovePanel({ bump }) {
                 <div style={{ marginTop: 8 }}>
                   {data.targets.length === 0 && (
                     <div className="dim">
-                      no estate targets — the improver only ever touches what you add AND arm here; results appear as
+                      no estate targets: the improver only ever touches what you add AND arm here; results appear as
                       proposals.
                     </div>
                   )}
@@ -324,7 +324,7 @@ export default function ImprovePanel({ bump }) {
               </>
             )}
 
-            {/* what the improver has learned from merge/discard decisions —
+            {/* what the improver has learned from merge/discard decisions:
                 deterministic tallies that re-rank and mute future candidates */}
             {data.learning && Object.keys(data.learning.kinds).length > 0 && (
               <>
@@ -336,7 +336,7 @@ export default function ImprovePanel({ bump }) {
                   {Object.keys(data.learning.models).length > 0 && (
                     <>
                       {' '}
-                      — by model:{' '}
+                      : by model:{' '}
                       {Object.entries(data.learning.models)
                         .map(([m, s]) => `${m} ${s.merged}✓/${s.discarded}✗`)
                         .join(' · ')}
@@ -345,7 +345,7 @@ export default function ImprovePanel({ bump }) {
                   {data.learning.muted.length > 0 && (
                     <span>
                       {' '}
-                      — muted: <b>{data.learning.muted.join(', ')}</b> (merge one to un-mute)
+                      : muted: <b>{data.learning.muted.join(', ')}</b> (merge one to un-mute)
                     </span>
                   )}
                 </div>
@@ -366,13 +366,13 @@ export default function ImprovePanel({ bump }) {
 
       {data && (
         <div className="panel">
-          <h2>Improver output — {pending > 0 ? <b>{pending} awaiting your decision</b> : 'proposed changes'}</h2>
+          <h2>Improver output: {pending > 0 ? <b>{pending} awaiting your decision</b> : 'proposed changes'}</h2>
           <p className="sechint">
             Each change is a branch diff with its test result. Merge lands it on the repo's current branch; discard
             teaches the ranker what not to suggest again.
           </p>
           {changes.length === 0 && (
-            <div className="faint">nothing proposed yet — the improver runs nightly while armed.</div>
+            <div className="faint">nothing proposed yet: the improver runs nightly while armed.</div>
           )}
           {/* changes, newest first (API order) */}
           {head.map(renderChange)}

@@ -1,6 +1,6 @@
 import { ChevronIcon, ICONS } from './icons.jsx'
 
-// Left activity bar — compact product navigation, expandable into a labelled
+// Left activity bar: compact product navigation, expandable into a labelled
 // sidebar. Tooltip via native title attr when collapsed; active state = the
 // single signal color.
 export default function ActivityBar({ views, active, badges, onSelect, expanded, onToggleExpanded }) {
@@ -48,7 +48,7 @@ export default function ActivityBar({ views, active, badges, onSelect, expanded,
           )
         })}
       </nav>
-      {/* Settings sits below the rail, not in it — everything the daily loop
+      {/* Settings sits below the rail, not in it: everything the daily loop
           doesn't need lives behind here, one click away rather than competing
           for a slot. Digit 0 opens it. */}
       <nav className="actbar-nav actbar-foot" aria-label="Settings">

@@ -1,22 +1,22 @@
-"""Consult — a second model looks at what you are doing and offers advice.
+"""Consult: a second model looks at what you are doing and offers advice.
 
 Two entry points, one spine:
-  * "Ask for help" — you press the button, it consults now.
-  * Watch mode     — it consults itself when the session shows a signal
+  * "Ask for help": you press the button, it consults now.
+  * Watch mode: it consults itself when the session shows a signal
                      (a traceback, a failing test, a non-zero exit).
 
 Three properties hold for both, and none of them are optional:
 
 1. ADVISORY ONLY. The consultant is spawned read-only and its answer is rendered
    as text you can read, copy or dismiss. It has no write path, no proposals
-   spine, and nothing to approve — a watcher that could act would be precisely
+   spine, and nothing to approve: a watcher that could act would be precisely
    the thing noirdeck promises never to do.
 
 2. REDACTED FIRST, ALWAYS. Terminal scrollback is the most secret-bearing text
    on this machine; it is why the vault deliberately excludes transcripts. Every
    character handed to a consultant passes through the miner's secret-shape
    redaction, whether that consultant is a local model or a hosted one. Local is
-   not an excuse to skip it — the model is not the only thing that sees a prompt.
+   not an excuse to skip it: the model is not the only thing that sees a prompt.
 
 3. LOCAL BY DEFAULT. The default consultant is the local Ollama runner: zero
    egress, zero cost. Hosted runners are selectable but never the default, so
@@ -85,7 +85,7 @@ def cooled_down(session_id: str) -> bool:
 
 def _context(raw: str) -> tuple[str, dict[str, int]]:
     """Redact, then take the tail. Redaction runs on the WHOLE text before the
-    tail is cut — trimming first could slice a secret in half and leave a
+    tail is cut: trimming first could slice a secret in half and leave a
     fragment that no longer matches its own pattern."""
     clean, counts = redact(raw)
     return clean[-CONTEXT_CHARS:], counts
@@ -110,7 +110,7 @@ def _prompt(project: str, question: str, context: str, signal: str | None) -> st
         "- Ground advice in what you can actually read. Say plainly when you are guessing.\n"
         "- Suggest; never instruct the other assistant, and never claim you changed anything.\n"
         "- Secrets in the transcript are already redacted; treat a redaction marker as opaque.\n"
-        "- Keep it short — a few sentences, or a handful of bullets at most.\n\n"
+        "- Keep it short: a few sentences, or a handful of bullets at most.\n\n"
         f"Recent terminal output (redacted, tail):\n---\n{context}\n---"
         f"{asked}"
     )

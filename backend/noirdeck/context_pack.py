@@ -1,8 +1,8 @@
-"""Deterministic context pack — the harness does the research, in code, for free.
+"""Deterministic context pack: the harness does the research, in code, for free.
 
 Every headless session historically spent its opening turns rediscovering the
 same facts: what's in the repo, how to run the tests, what changed recently.
-This module computes that once, deterministically, and the runners prepend it —
+This module computes that once, deterministically, and the runners prepend it:
 input tokens instead of exploration turns, and zero model spend to produce.
 
 Hard-capped: a context pack that bloats the prompt would defeat its purpose."""
@@ -68,7 +68,7 @@ def _memory_hooks(repo: Path, settings: Settings) -> str:
 
 
 def context_pack(repo: Path, settings: Settings) -> str:
-    """Plain-text pack. Empty string for an unreadable/empty target — callers
+    """Plain-text pack. Empty string for an unreadable/empty target: callers
     prepend it verbatim, so absence must cost nothing."""
     sections: list[tuple[str, str]] = []
     layout = _layout(repo)
@@ -98,7 +98,7 @@ def context_pack(repo: Path, settings: Settings) -> str:
         return ""
     body = "\n\n".join(f"## {title}\n{text[:_SECTION_CAP]}" for title, text in sections)
     pack = (
-        "PROJECT CONTEXT PACK (computed by the harness from the live repo — "
+        "PROJECT CONTEXT PACK (computed by the harness from the live repo: "
         "use it instead of re-discovering these facts; verify only what you rely on):\n\n" + body
     )
     return pack[:PACK_CAP_CHARS]

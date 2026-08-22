@@ -2,7 +2,7 @@
 
 Two jobs:
 - a cross-repo commit feed (what changed lately, everywhere)
-- follow-on detection: changes whose customary companion change is missing —
+- follow-on detection: changes whose customary companion change is missing:
   the "pre-empt what comes next" signal for briefings.
 """
 
@@ -67,7 +67,7 @@ def follow_on_flags(repo: Path, depth: int = 10) -> list[dict]:
         if touched_schema and not touched_tests:
             flag("schema-no-tests", f"schema/migration files changed with no test change ({touched_schema[0]}…)")
         if any(f.endswith(".env.example") for f in files):
-            flag("env-contract", "env contract changed — server .env and docs need the same change")
+            flag("env-contract", "env contract changed: server .env and docs need the same change")
     return flags
 
 

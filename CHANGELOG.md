@@ -4,6 +4,68 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses semantic-style `0.x` versioning while pre-1.0.
 
+## [0.28.0] - 2026-08-22
+### Added
+- **Three interface kits: Carbon, Fluent and Claude.** A kit sets type, corner
+  radius, density and the accent family together, so they are structural choices
+  rather than three colour schemes. Carbon is square-cornered on an eight-pixel
+  grid; Fluent is cool, layered and softly rounded; Claude is warm neutrals and a
+  clay accent. Carbon dark is the new default.
+- **Four independent dials instead of a list of skins**: kit, mode (dark, light
+  or match the system), density and text size. Because they are independent,
+  three kits cover six palettes without six lists to keep in step. Density and
+  text size are accessibility rather than taste, and neither was adjustable
+  before. Kit switches from the status bar; all four live in Settings.
+- **A terminal panel that belongs to the shell**, opened with Ctrl+` from any
+  view, resizable by drag or keyboard and remembered between visits. Until now
+  the only terminal lived inside Build Live, so checking a running session meant
+  leaving whatever you were reading. Build Live still owns the full viewport, and
+  the panel stays out of its way there rather than running a second emulator.
+
+### Changed
+- **Design tokens are named for their role, not their colour.** `--amber` held
+  crimson and `--teal` held dark red, which is how two earlier themes came to set
+  the accent to red and make an alarm panel look like ordinary UI. The vocabulary
+  is now `--surface-*`, `--text-*`, `--accent`, `--danger`, `--warning`,
+  `--success`, plus `--radius`, `--row-h` and `--space` so a kit can change shape
+  and density and not only hue. 548 references rewritten.
+- **CI now enforces that the accent is perceptually distinct from the alarm
+  colour**, measured as CIE76 distance in Lab, alongside the existing WCAG ratios
+  for all six palettes. This is the rule that makes adding a kit safe, and it
+  rejected two candidate palettes while these three were being built.
+- **Appearance is applied before the first paint.** Palettes moved out of
+  JavaScript into the stylesheet, and a small inline script in `index.html`
+  stamps the stored dials. Light mode used to flash dark on every load while the
+  bundle parsed, because the tokens only landed once React had mounted.
+- Seven views are now loaded on demand. Initial JavaScript falls from 369 KB to
+  298 KB, 111 KB to 92 KB compressed, and the terminal emulator moved into a
+  shared chunk that loads when a terminal is actually opened.
+
+### Fixed
+- Three design tokens were referenced but never defined, so each silently fell
+  back to a colour hardcoded at the call site, including a stray red border. A
+  further 22 `var()` fallbacks named colours from themes deleted in August, which
+  meant a stylesheet that failed to load painted a palette the product no longer
+  had.
+- The README described eight themes, and a tagline promised nine more plus one
+  named Calm Pro. All of them were deleted on 19 August.
+
+## [0.27.6] - 2026-08-19
+### Added
+- **Share what happened in a session, without sharing the session.** A Share button in
+  the terminal exports a readable Markdown transcript you can send however you already
+  send things. Stage 0 of session sharing, and deliberately all of it for now: no socket
+  is opened, nothing binds beyond loopback, no invite exists and no second identity is
+  introduced — so the auth layer `docs/SECURITY.md` requires before the workspace is
+  exposed is not bypassed.
+- ⛔ **The export redacts first, says what it removed, and then re-scans its own output.**
+  A transcript is a disclosure channel: this estate found a sudo password in a generated
+  skill file and 125 distinct secrets across its workspace, all from text that was "just"
+  printed once. If the scanner still matches something after redaction, the document says
+  **CHECK BEFORE SENDING** and the UI warns before the file is saved — because redaction
+  matches known secret shapes, and a password that looks like an ordinary word survives it.
+- Exports are audited. "Who shared what, when" only has an answer if it was recorded then.
+
 ## [0.27.5] - 2026-08-19
 ### Added
 - **Move many leaking files at once, safely.** `GET /api/secrets/sweep` returns a plan

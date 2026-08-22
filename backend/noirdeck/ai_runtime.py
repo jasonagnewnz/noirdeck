@@ -151,7 +151,7 @@ def default_model(runner_id: str | None) -> str:
 
 # The Claude line as it ships today, most capable first. The picker offers all of
 # them; the pipeline roles (think/build/review) pin three of them by default.
-# Update this list at each model release — an id that has been retired 404s at
+# Update this list at each model release: an id that has been retired 404s at
 # spawn time, which surfaces as a dead session rather than a clear error.
 CLAUDE_MODELS = [
     "claude-fable-5",

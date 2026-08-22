@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { ViewHead } from '../ui.jsx'
 
-// The manual. Deep-linkable: #help:queue jumps straight to the Run later chapter —
+// The manual. Deep-linkable: #help:queue jumps straight to the Run later chapter:
 // every view's "how this works →" header link lands here on its own section.
 const SECTIONS = [
   ['about', 'What noirdeck is'],
@@ -53,7 +53,7 @@ export default function Help() {
     <>
       <ViewHead
         title="Guide"
-        hint="The full manual — what each view does, how the safety model works, and what runs while you sleep."
+        hint="The full manual: what each view does, how the safety model works, and what runs while you sleep."
       />
 
       <nav className="help-toc" aria-label="Help sections">
@@ -68,18 +68,18 @@ export default function Help() {
         <p className="help">
           noirdeck.dev is a local build studio for people who want great software without managing a pile of AI tools by
           hand. It watches your projects, remembers useful ways of working, runs carefully-caged automation on your
-          behalf, and turns risky changes into <b>decisions you approve</b> — it never rewrites your work on its own.
+          behalf, and turns risky changes into <b>decisions you approve</b>: it never rewrites your work on its own.
         </p>
         <ul className="helplist">
           <li>
-            <b>Local only</b> — the server binds 127.0.0.1; nothing is exposed to the network.
+            <b>Local only</b>: the server binds 127.0.0.1; nothing is exposed to the network.
           </li>
           <li>
-            <b>Approve-first</b> — the single write path into your AI workspace knowledge is you approving a change in
+            <b>Approve-first</b>: the single write path into your AI workspace knowledge is you approving a change in
             Review. Applied changes keep a pre-apply snapshot and can be reverted.
           </li>
           <li>
-            <b>Fail-closed</b> — every autonomous capability sits behind an env master flag AND an expiring arming
+            <b>Fail-closed</b>: every autonomous capability sits behind an env master flag AND an expiring arming
             contract; if either is missing, it does not run.
           </li>
         </ul>
@@ -89,31 +89,31 @@ export default function Help() {
         <h3>Status pills</h3>
         <ul className="helplist">
           <li>
-            <span className="pill BLOCKER">BLOCKER</span> — red border: broken, failing, or genuinely stuck. Needs
+            <span className="pill BLOCKER">BLOCKER</span>: red border: broken, failing, or genuinely stuck. Needs
             action.
           </li>
           <li>
-            <span className="pill GAP">GAP</span> / <span className="pill queued">queued</span> — accent border:
-            waiting, incomplete, or worth attention soon.
+            <span className="pill GAP">GAP</span> / <span className="pill queued">queued</span>: accent border: waiting,
+            incomplete, or worth attention soon.
           </li>
           <li>
-            <span className="pill running">running</span> — something is actively in flight.
+            <span className="pill running">running</span>: something is actively in flight.
           </li>
           <li>
-            <span className="pill PASS">PASS</span> / <span className="pill done">done</span> — deliberately quiet, no
+            <span className="pill PASS">PASS</span> / <span className="pill done">done</span>: deliberately quiet, no
             signal color: resolved states should not compete for your eye.
           </li>
         </ul>
         <h3>Everything else</h3>
         <ul className="helplist">
           <li>
-            <b>Build studio</b> — Home starts with a project picker and one outcome box. Type what you want built and
+            <b>Build studio</b>: Home starts with a project picker and one outcome box. Type what you want built and
             noirdeck routes it to live work, design, background tasks or a read-only answer.
           </li>
           <li>
-            <b>Add essentials</b> — click a common product need, answer targeted questions, then send the generated
-            brief to live work or background tasks. Turn on memories + preferences to reuse a method Noirdeck has seen
-            work for that project.
+            <b>Add essentials</b>: click a common product need, answer targeted questions, then send the generated brief
+            to live work or background tasks. Turn on memories + preferences to reuse a method Noirdeck has seen work
+            for that project.
           </li>
           <li>
             <span className="chip">chips</span> label and categorise; <span className="chip hot">accent chips</span>{' '}
@@ -173,7 +173,7 @@ export default function Help() {
             old session instead of keeping both.
           </li>
           <li>Run-later tasks can be created from Work without opening a terminal tab.</li>
-          <li>The file viewer is read-only — editing happens through the session itself.</li>
+          <li>The file viewer is read-only: editing happens through the session itself.</li>
           <li>
             Codex may ask whether you trust a repo. That prompt comes from Codex; choose yes only for repos you trust.
           </li>
@@ -187,7 +187,7 @@ export default function Help() {
       <Sec id="builds" title="Builds">
         <p className="help">
           Describe software; a staged pipeline builds it: <b>plan → build → test → review → finish</b>, with quality
-          gates run between phases by ordinary code, not by the model grading itself. Nothing is pushed or deployed — a
+          gates run between phases by ordinary code, not by the model grading itself. Nothing is pushed or deployed: a
           finished build stops at code-ready in a local repo.
         </p>
         <ul className="helplist">
@@ -199,11 +199,11 @@ export default function Help() {
             <b>Expert</b> intake takes a full written brief and runs the same pipeline without the plan gate.
           </li>
           <li>
-            Builds are <b>resumable</b> — phases commit as they go, so a failure only loses bookkeeping, never work.
+            Builds are <b>resumable</b>: phases commit as they go, so a failure only loses bookkeeping, never work.
           </li>
           <li>If it can't decide something, it parks as a question on the card rather than guessing.</li>
           <li>
-            <b>Try it</b> appears on finished builds with a static web entry point — the preview iframe is sandboxed, so
+            <b>Try it</b> appears on finished builds with a static web entry point: the preview iframe is sandboxed, so
             previewed code has no authority over this app.
           </li>
           <li>The card list is attention-sorted: things waiting on you first, then things moving.</li>
@@ -226,7 +226,7 @@ export default function Help() {
       <Sec id="settings" title="Settings">
         <p className="help">
           The sidebar carries the handful of things you touch in a normal session. Everything else lives in{' '}
-          <b>Settings</b> — reachable from the gear at the bottom of the sidebar, or by pressing <kbd>0</kbd>.
+          <b>Settings</b>: reachable from the gear at the bottom of the sidebar, or by pressing <kbd>0</kbd>.
         </p>
         <p className="help">
           Nothing was taken away. <b>Design</b>, <b>Helpers</b>, <b>Knowledge</b> and <b>Checks</b> are the same views
@@ -237,11 +237,11 @@ export default function Help() {
 
       <Sec id="sessions" title="History">
         <p className="help">
-          Every recorded Claude Code session across the estate, plus full-text search over your entire prompt history —
+          Every recorded Claude Code session across the estate, plus full-text search over your entire prompt history:
           the "have I asked this before?" button. <b>resume</b> reopens a past session in Work with its context intact.
         </p>
         <p className="help">
-          An <span className="pill GAP">open loop</span> marks a session that looks unfinished — worth resuming or
+          An <span className="pill GAP">open loop</span> marks a session that looks unfinished: worth resuming or
           closing out.
         </p>
       </Sec>
@@ -249,7 +249,7 @@ export default function Help() {
       <Sec id="skills" title="Skills + Agents">
         <p className="help">
           The installed capability surface: every skill and subagent your sessions can already use without re-prompting.
-          Read-only inventory — skills are created or refined through the Proposals spine, never edited here.
+          Read-only inventory: skills are created or refined through the Proposals spine, never edited here.
         </p>
       </Sec>
 
@@ -261,11 +261,11 @@ export default function Help() {
         <ul className="helplist">
           <li>
             <b>Hygiene</b> scans a namespace for duplicates, near-empty and oversized files, dangling [[links]], and
-            index drift. It is read-only — "propose merge" drafts a consolidation through Proposals; nothing is
-            rewritten or deleted directly.
+            index drift. It is read-only: "propose merge" drafts a consolidation through Proposals; nothing is rewritten
+            or deleted directly.
           </li>
           <li>
-            <b>Grouped themes</b> are clusters the miner spotted — repeated memory topics that may deserve one canonical
+            <b>Grouped themes</b> are clusters the miner spotted: repeated memory topics that may deserve one canonical
             file.
           </li>
           <li>
@@ -277,8 +277,8 @@ export default function Help() {
       <Sec id="proposals" title="Review">
         <p className="help">
           The single gate between noirdeck and your estate. Everything any subsystem wants to write into{' '}
-          <b>~/.claude</b> — mined skills, memory merges, improver output — lands here as a diff and waits. Approve
-          writes it; dismiss discards it.
+          <b>~/.claude</b>: mined skills, memory merges, improver output: lands here as a diff and waits. Approve writes
+          it; dismiss discards it.
         </p>
         <ul className="helplist">
           <li>
@@ -286,10 +286,10 @@ export default function Help() {
             memories. The heuristic pass is instant and local; the LLM pass runs only while armed.
           </li>
           <li>
-            Review the <b>diff</b>, not the wall of text — the full proposed content is folded underneath.
+            Review the <b>diff</b>, not the wall of text: the full proposed content is folded underneath.
           </li>
           <li>
-            <b>Applied — still reversible</b>: every applied proposal keeps a pre-apply snapshot; one click reverts it.
+            <b>Applied: still reversible</b>: every applied proposal keeps a pre-apply snapshot; one click reverts it.
             If the file was hand-edited afterwards, the revert asks before clobbering your edits.
           </li>
         </ul>
@@ -298,7 +298,7 @@ export default function Help() {
       <Sec id="queue" title="Tasks">
         <p className="help">
           Send work off without opening a live terminal. Pick where it should happen, who should do it, and how deep it
-          should go. Write the outcome like a good ticket — the more specific the brief, the fewer assumptions get
+          should go. Write the outcome like a good ticket: the more specific the brief, the fewer assumptions get
           logged.
         </p>
         <ul className="helplist">
@@ -338,7 +338,7 @@ export default function Help() {
         <h3>The local improver</h3>
         <ul className="helplist">
           <li>
-            A <b>local model via Ollama</b> — zero cloud calls, zero cost — quietly proposes small improvements
+            A <b>local model via Ollama</b>: zero cloud calls, zero cost: quietly proposes small improvements
             (docstrings, comment tidy, READMEs) to repos you map here.
           </li>
           <li>
@@ -346,7 +346,7 @@ export default function Help() {
             untouched, diff-capped, and test-gated. <b>Merging is always your click.</b>
           </li>
           <li>
-            <b>Estate targets</b> extend it to skills and memory notes — each target must be individually armed
+            <b>Estate targets</b> extend it to skills and memory notes: each target must be individually armed
             (expiring, 7 days), and output goes through Proposals, never written directly.
           </li>
           <li>
@@ -363,7 +363,7 @@ export default function Help() {
           session you run. This view finds those and tells you where they are.
         </p>
         <p>
-          It runs nightly at 02:00, deliberately ahead of mining at 02:30 — mining reads the same files and sends
+          It runs nightly at 02:00, deliberately ahead of mining at 02:30: mining reads the same files and sends
           excerpts to a model, so anything leaking should be flagged before that happens. You can also scan on demand.
           Markdown, settings and config are always covered; transcripts are opt-in because there are tens of thousands
           of them, and the result always tells you what was actually scanned so &ldquo;nothing found&rdquo; can never be
@@ -371,7 +371,7 @@ export default function Help() {
         </p>
         <p>
           <b>No finding ever shows you the secret.</b> You get the kind of credential, the file and line, the source
-          line with the value replaced, and a fingerprint — a hash, so the same fingerprint appearing in two files tells
+          line with the value replaced, and a fingerprint: a hash, so the same fingerprint appearing in two files tells
           you it is one secret in both places. Showing a &ldquo;safe&rdquo; few characters of a password would simply
           move the password somewhere new.
         </p>
@@ -379,13 +379,13 @@ export default function Help() {
           Two actions, both yours: <b>Acknowledge</b> records that you have dealt with it or that it is a false
           positive, and changes no file. <b>Move file out of workspace</b> relocates the whole file to{' '}
           <code>~/noirdeck-quarantine</code> so it stops loading into sessions. Neither is a fix. A credential that has
-          been sitting in a file readable by every session, and copied into transcripts and backups, is disclosed —{' '}
+          been sitting in a file readable by every session, and copied into transcripts and backups, is disclosed.{' '}
           <b>rotate it</b>.
         </p>
       </Sec>
 
       <Sec id="safety" title="The safety model">
-        <p className="help">Independent layers — any one failing still leaves the others standing:</p>
+        <p className="help">Independent layers: any one failing still leaves the others standing:</p>
         <ul className="helplist">
           <li>
             <b>Local-only server</b>: binds 127.0.0.1, with host/origin allowlist middleware against DNS-rebinding.
@@ -401,14 +401,14 @@ export default function Help() {
           </li>
           <li>
             <b>Harness-level guard</b>: pipeline sessions launch with a pre-execution hook that denies push, publish,
-            deploy and remote-access commands — enforcement below the model, not a polite instruction.
+            deploy and remote-access commands: enforcement below the model, not a polite instruction.
           </li>
           <li>
             <b>Cages and sandboxes</b>: mock and build previews render in sandboxed iframes; the improver works in temp
             worktrees with AST verification; the ask endpoint runs with read-only tools.
           </li>
           <li>
-            <b>Audit trail</b>: arming, approvals, reverts, skips and failures are recorded — silent failure is treated
+            <b>Audit trail</b>: arming, approvals, reverts, skips and failures are recorded: silent failure is treated
             as a defect.
           </li>
         </ul>
@@ -418,18 +418,18 @@ export default function Help() {
         <p className="help">Four recurring jobs run on user-level systemd timers while their gates are open:</p>
         <ul className="helplist">
           <li>
-            <b>Run later</b> — runs queued tasks without a live terminal (needs a live arming contract).
+            <b>Run later</b>: runs queued tasks without a live terminal (needs a live arming contract).
           </li>
           <li>
-            <b>Miner</b> — scans new session history for skill/memory candidates; drafts land in Proposals.
+            <b>Miner</b>: scans new session history for skill/memory candidates; drafts land in Proposals.
           </li>
           <li>
-            <b>Vault</b> — encrypted, restore-verified offsite backup of memories, skills, agents, config and
+            <b>Vault</b>: encrypted, restore-verified offsite backup of memories, skills, agents, config and
             unpushed-work bundles. The status bar shows time since the last <b>verified restore</b>, not just the last
             run. Keep the vault passphrase escrowed somewhere that survives this machine.
           </li>
           <li>
-            <b>Improver</b> — hourly pass proposing small changes to mapped repos and armed estate targets.
+            <b>Improver</b>: hourly pass proposing small changes to mapped repos and armed estate targets.
           </li>
         </ul>
         <p className="help">
@@ -444,7 +444,7 @@ export default function Help() {
             <kbd>Esc</kbd> closes overlays.
           </li>
           <li>
-            <kbd>Ctrl+K</kbd> opens the command palette — type an outcome to launch it, or search skills, shortcuts and
+            <kbd>Ctrl+K</kbd> opens the command palette: type an outcome to launch it, or search skills, shortcuts and
             tips.
           </li>
           <li>
@@ -460,40 +460,40 @@ export default function Help() {
       <Sec id="trouble" title="Troubleshooting">
         <ul className="helplist">
           <li>
-            <b>Status dot is red</b> — the server is down or restarting; the page reconnects automatically when it
+            <b>Status dot is red</b>: the server is down or restarting; the page reconnects automatically when it
             returns.
           </li>
           <li>
-            <b>"local model offline"</b> in the improver — start Ollama, then re-check; the first generation after a
-            cold start can take minutes while the model loads.
+            <b>"local model offline"</b> in the improver: start Ollama, then re-check; the first generation after a cold
+            start can take minutes while the model loads.
           </li>
           <li>
-            <b>Only Claude appears in Workspace</b> — the browser is probably talking to an old backend, or the runner
+            <b>Only Claude appears in Workspace</b>: the browser is probably talking to an old backend, or the runner
             binary is missing. Restart the current noirdeck backend and check <b>/api/workspace/runtimes</b>.
           </li>
           <li>
-            <b>Codex opens and waits</b> — Codex may ask whether you trust that repo. Choose yes only for repos you
+            <b>Codex opens and waits</b>: Codex may ask whether you trust that repo. Choose yes only for repos you
             trust; after that the session continues normally.
           </li>
           <li>
-            <b>Helper marked "not found"</b> — install the CLI or set its binary env var, for example{' '}
+            <b>Helper marked "not found"</b>: install the CLI or set its binary env var, for example{' '}
             <b>NOIRDECK_CODEX_BIN</b>, <b>NOIRDECK_OLLAMA_BIN</b> or <b>NOIRDECK_GROK_BIN</b>.
           </li>
           <li>
-            <b>"run blocked / disarmed"</b> — an env master flag is off or the arming contract expired. Re-arm in the
-            Run later view (overnight, mining) or arm the specific target (improver).
+            <b>"run blocked / disarmed"</b>: an env master flag is off or the arming contract expired. Re-arm in the Run
+            later view (overnight, mining) or arm the specific target (improver).
           </li>
           <li>
-            <b>Overnight tasks didn't run</b> — check the arming contract wasn't expired or its budget spent, and that
+            <b>Overnight tasks didn't run</b>: check the arming contract wasn't expired or its budget spent, and that
             the machine was awake in the window; the timers are deliberately not catch-up-on-boot for token-burning
             jobs.
           </li>
           <li>
-            <b>A queue task is blocked with a question</b> — that's by design: answer it on the card and it re-queues,
-            or cancel it.
+            <b>A queue task is blocked with a question</b>: that's by design: answer it on the card and it re-queues, or
+            cancel it.
           </li>
           <li>
-            <b>An applied proposal was wrong</b> — Proposals → "Applied — still reversible" → revert. Hand-edits after
+            <b>An applied proposal was wrong</b>: Proposals → "Applied: still reversible" → revert. Hand-edits after
             apply are detected and confirmed before being overwritten.
           </li>
         </ul>

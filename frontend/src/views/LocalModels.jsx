@@ -9,7 +9,7 @@ import { ConfirmButton } from '../ui.jsx'
 // decides this feature is not for them. The backend decides which step is next
 // (local_models._next_step); this just renders it and gets out of the way.
 //
-// Nothing destructive or expensive happens on a click alone — install downloads an
+// Nothing destructive or expensive happens on a click alone: install downloads an
 // executable and a pull is multiple gigabytes, so both confirm first and both say
 // what they will cost before they do it.
 
@@ -29,8 +29,7 @@ export default function LocalModels({ bump }) {
       const out = await api(path, { body })
       if (out.performed === false && out.reason) setMsg(out.reason)
       else if (out.started === false && out.reason) setMsg(out.reason)
-      else if (out.started)
-        setMsg('Download started. It runs in the background — this page will show it when it lands.')
+      else if (out.started) setMsg('Download started. It runs in the background: this page will show it when it lands.')
       else if (out.performed) setMsg(`Installed ${out.version ? `version ${out.version}` : 'successfully'}.`)
       else setMsg('Done.')
     } catch (e) {
@@ -45,7 +44,7 @@ export default function LocalModels({ bump }) {
 
   const { state: st, recommendations: recs, install_plan: plan, next_step: step } = data
 
-  // ⛔ These were two multi-sentence window.confirm dialogs — mine, written the day
+  //These were two multi-sentence window.confirm dialogs: mine, written the day
   // before. The cost of each action (a download size, "no admin rights needed") now
   // sits in the panel where it is read BEFORE the click; the click itself is an
   // inline Yes/No. A paragraph inside a modal is not informed consent, it is a
@@ -66,7 +65,7 @@ export default function LocalModels({ bump }) {
       <h2>Local models</h2>
       <p className="sechint">
         A model that runs on this machine instead of a service. Slower and less capable than the hosted ones, and
-        nothing you send it leaves your computer — which is the point. Used for the background improvement pass and
+        nothing you send it leaves your computer: which is the point. Used for the background improvement pass and
         available as a helper in Build Live.
       </p>
 
@@ -136,7 +135,7 @@ export default function LocalModels({ bump }) {
         <>
           <div className="listhead">
             Suggested for your work
-            <span className="dim"> — you mostly work on {recs.work_kind === 'code' ? 'code' : 'a mix of things'}</span>
+            <span className="dim">: you mostly work on {recs.work_kind === 'code' ? 'code' : 'a mix of things'}</span>
           </div>
           {(showAll ? recs.fits : recs.fits.slice(0, 3)).map((e) => (
             <div key={e.tag} className="localmodel-card">
@@ -171,7 +170,7 @@ export default function LocalModels({ bump }) {
           {recs.out_of_reach.length > 0 && (
             <details className="work-advanced">
               <summary>
-                Too big for this machine<span className="dim"> — {recs.out_of_reach.length} not offered</span>
+                Too big for this machine<span className="dim">: {recs.out_of_reach.length} not offered</span>
               </summary>
               {recs.out_of_reach.map((e) => (
                 <div key={e.tag} className="localmodel-row">
@@ -189,7 +188,7 @@ export default function LocalModels({ bump }) {
       {!st.installed && plan.supported && (
         <details className="work-advanced">
           <summary>
-            What &ldquo;set it up&rdquo; will do<span className="dim"> — no admin rights needed</span>
+            What &ldquo;set it up&rdquo; will do<span className="dim">: no admin rights needed</span>
           </summary>
           <ol className="localmodel-steps">
             {plan.steps.map((s) => (
@@ -199,7 +198,7 @@ export default function LocalModels({ bump }) {
           <p className="faint">{plan.why_not_the_official_script}</p>
           {plan.manual_command && (
             <>
-              <p className="faint">Or run this yourself in a terminal — it does exactly the same thing:</p>
+              <p className="faint">Or run this yourself in a terminal: it does exactly the same thing:</p>
               <pre className="finding-context">{plan.manual_command}</pre>
             </>
           )}

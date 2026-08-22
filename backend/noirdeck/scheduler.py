@@ -1,7 +1,7 @@
 """In-process scheduler for the recurring jobs.
 
 A source checkout drives these from systemd user timers (ops/*.timer). An
-installed copy has no systemd — and may not be on Linux at all — so the server
+installed copy has no systemd: and may not be on Linux at all: so the server
 runs them itself. Both modes must never be active at once or every job fires
 twice, which is why the default follows the install mode and the env var
 NOIRDECK_SCHEDULER can force either way.
@@ -103,7 +103,7 @@ class Scheduler:
     """Wakes once a minute, runs whatever came due, records the outcome.
 
     Due times are persisted so a restart neither re-runs a job it already did
-    nor silently swallows one — the same property Persistent=true gives a timer.
+    nor silently swallows one: the same property Persistent=true gives a timer.
     """
 
     def __init__(self, settings: Settings):
@@ -159,7 +159,7 @@ class Scheduler:
                 try:
                     result = _run_job(name, self.settings)
                     audit(conn, "scheduler", f"ran:{name}", str(result)[:400])
-                except Exception as exc:  # noqa: BLE001 — one bad job must not stop the rest
+                except Exception as exc:  # noqa: BLE001 - one bad job must not stop the rest
                     # A silent skip in a background thread is how the improver's
                     # first two defects stayed hidden; always leave a record,
                     # and name the exception class (a bare message is not triage-able).
@@ -179,7 +179,7 @@ class Scheduler:
         while not self._stop.wait(TICK_SECONDS):
             try:
                 self.tick()
-            except Exception:  # noqa: BLE001 — the loop itself must survive anything
+            except Exception:  # noqa: BLE001 - the loop itself must survive anything
                 pass
 
     def start(self) -> None:

@@ -78,7 +78,7 @@ def test_guard_settings_args_wire():
     # sys.executable, not a bare "python3", which may not be on a service PATH
     assert hook["hooks"][0]["command"].startswith(sys.executable)
 
-    # ⛔ The matcher decides which calls the harness even shows the hook. It was
+    # The matcher decides which calls the harness even shows the hook. It was
     # "Bash" alone until 2026-08-19, so every Write/Edit went unexamined while
     # pipelines ran with --permission-mode acceptEdits. Pin the file-writing
     # tools explicitly: this assertion is what makes narrowing it a test failure
@@ -170,8 +170,8 @@ def test_run_queue_halts_without_contract(tmp_path, monkeypatch, claude_dir):
 
 
 # ── "Run later" must actually run later ─────────────────────────────────────
-# ⛔ Queuing a task used to require arming first, on a different screen, with three
-# numbers to invent — ~11 interactions before anything happened. Worse, queuing
+# Queuing a task used to require arming first, on a different screen, with three
+# numbers to invent: ~11 interactions before anything happened. Worse, queuing
 # while unarmed ACCEPTED the task and then silently never ran it. A button labelled
 # "run later" that does not run later is worse than a refusal.
 
@@ -202,10 +202,10 @@ def test_the_defaults_are_a_real_budget_not_an_absent_one(conn):
 
 
 def test_an_existing_contract_is_never_widened(conn):
-    """⛔ Auto-arming must not top up a live contract. The operator chose that budget;
+    """Auto-arming must not top up a live contract. The operator chose that budget;
     silently extending it is precisely what arming exists to prevent."""
     arm(conn, "overnight", hours=1, max_tasks=2, max_tokens=5000)
     before = status(conn)["overnight"]
-    # the queue route only arms when nothing is live — assert the precondition it uses
+    # the queue route only arms when nothing is live: assert the precondition it uses
     assert before["live"] is True
     assert before["max_tasks"] == 2 and before["max_tokens"] == 5000

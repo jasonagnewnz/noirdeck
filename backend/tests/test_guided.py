@@ -5,7 +5,7 @@ import pytest
 from noirdeck.builds import PHASES, BuildRunner
 from noirdeck.db import connect
 from noirdeck.guided import INTAKE_QUESTIONS, acceptance_criteria, compose_brief, read_plain_plan, validate_answers
-from tests.test_builds import _wait_status, settings  # noqa: F401 — fixture reuse
+from tests.test_builds import _wait_status, settings  # noqa: F401 - fixture reuse
 
 ANSWERS = {
     "purpose": "A booking page for my salon",
@@ -83,7 +83,7 @@ def test_gated_build_revise_reruns_plan(settings):  # noqa: F811
     runner.decide_plan(build_id, "approve")
     row = _wait_status(settings.db_path, build_id, {"done", "attention"})
     phases_run = [e["phase"] for e in json.loads(row["log"])]
-    # two plan entries then each later phase exactly once — no phase skipped
+    # two plan entries then each later phase exactly once: no phase skipped
     assert phases_run == ["plan", "plan"] + [p[0] for p in PHASES[1:]]
 
 

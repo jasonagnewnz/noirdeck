@@ -1,7 +1,7 @@
 """Session transcripts: bounded head/tail sampling, never full loads.
 
 A transcript can be hundreds of MB across the estate; the dashboard only needs
-"what was the task, when, and did it finish" — head 64KB + tail 64KB answers all three.
+"what was the task, when, and did it finish": head 64KB + tail 64KB answers all three.
 """
 
 from __future__ import annotations

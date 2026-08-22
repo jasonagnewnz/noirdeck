@@ -5,7 +5,7 @@ Two problems this solves at once.
 
 1. **Headless chromium hangs against the live app.** The SPA opens a persistent
    `EventSource('/api/events')`, so the page never reaches network idle and
-   `--virtual-time-budget` never settles — every screenshot attempt times out.
+   `--virtual-time-budget` never settles: every screenshot attempt times out.
    Here `EventSource` is stubbed out before the app bundle runs.
 
 2. **Screenshots must not contain real data.** The live console shows real
@@ -583,7 +583,7 @@ def serve(port: int) -> socketserver.TCPServer:
     """Bind, falling back to a kernel-assigned free port.
 
     ⛔ A stale http.server from an earlier session may already own the requested
-    port and would then serve a DIFFERENT project's files — screenshots of the
+    port and would then serve a DIFFERENT project's files: screenshots of the
     wrong site, with no error. So: never reuse a busy port, take a fresh one.
     """
     handler = functools.partial(Handler, directory=str(DIST))
@@ -592,7 +592,7 @@ def serve(port: int) -> socketserver.TCPServer:
         try:
             httpd = socketserver.TCPServer(("127.0.0.1", candidate), handler)
         except OSError:
-            print(f"port {candidate} busy (a stale server owns it) — taking a free one")
+            print(f"port {candidate} busy (a stale server owns it): taking a free one")
             continue
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         return httpd
@@ -628,7 +628,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if not (DIST / "index.html").is_file():
-        print(f"no build at {DIST} — run `make frontend` first")
+        print(f"no build at {DIST}: run `make frontend` first")
         return 1
     # snap confinement: chromium can only write under $HOME
     out = Path(args.out).expanduser()

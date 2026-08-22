@@ -42,7 +42,7 @@ def test_a_big_machine_is_offered_the_biggest():
 
 
 def test_unmeasurable_capacity_never_claims_a_fit():
-    """⛔ 'Could not measure' must not be reported as 'fits'. A model sized past the
+    """'Could not measure' must not be reported as 'fits'. A model sized past the
     machine's memory swaps, and swapping is indistinguishable from broken."""
     r = lm.recommend("code", cap(None, ram=None))
     assert r["fits"] == []
@@ -215,7 +215,7 @@ def test_next_step_is_honest_when_nothing_fits():
 
 
 def test_models_empty_is_distinguishable_from_server_down(monkeypatch):
-    """⛔ [] must never mean both 'nothing pulled' and 'could not ask'."""
+    """[] must never mean both 'nothing pulled' and 'could not ask'."""
     monkeypatch.setattr(lm, "_binary", lambda: "/x/ollama")
     monkeypatch.setattr(lm, "_version", lambda e: "0.0.0")
     monkeypatch.setattr(lm, "server_running", lambda: False)

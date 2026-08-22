@@ -25,8 +25,8 @@ export default function Proposals({ bump }) {
       // ONE 409 is really a question: the file was hand-edited after the proposal
       // was applied. Rather than a blocking dialog, surface it as a pending choice
       // the user can read and then act on. A create-only collision is NOT
-      // confirmable — there is no overwrite to offer, by design (see
-      // backend/noirdeck/proposals.py) — so only the drift case offers a follow-up.
+      // confirmable: there is no overwrite to offer, by design (see
+      // backend/noirdeck/proposals.py): so only the drift case offers a follow-up.
       if (/changed since/.test(e.message)) {
         setDrift({ path, body, message: e.message })
       } else setErr(e.message)
@@ -45,7 +45,7 @@ export default function Proposals({ bump }) {
 
       <div className="panel">
         <h2>
-          Mining — <b>find useful knowledge</b>
+          Mining: <b>find useful knowledge</b>
         </h2>
         <p className="sechint">
           Scans your session history for repeated prompts and patterns worth turning into skills or memories. Heuristic
@@ -106,7 +106,7 @@ export default function Proposals({ bump }) {
       {propPage.map((p) => (
         <div className="panel" key={p.id}>
           <h2>
-            #{p.id} · {p.kind} — <b>{p.title}</b>
+            #{p.id} · {p.kind}: <b>{p.title}</b>
           </h2>
           {p.target_path && (
             <div className="faint" style={{ marginBottom: 8 }}>
@@ -144,17 +144,17 @@ export default function Proposals({ bump }) {
       ))}
       {(proposals || []).length === 0 && (
         <div className="panel">
-          <div className="faint">no pending proposals — run mining</div>
+          <div className="faint">no pending proposals: run mining</div>
         </div>
       )}
 
       {revertible.length > 0 && (
         <div className="panel">
           <h2>
-            Applied — <b>still reversible</b>
+            Applied: <b>still reversible</b>
           </h2>
           <p className="sechint">
-            Everything here was written to your estate with a pre-apply snapshot kept — one click undoes it. Files
+            Everything here was written to your estate with a pre-apply snapshot kept: one click undoes it. Files
             hand-edited after apply are detected and confirmed before reverting.
           </p>
           <table>
@@ -163,7 +163,7 @@ export default function Proposals({ bump }) {
               {revertible.slice(0, 15).map((p) => (
                 <tr key={p.id}>
                   <td className="clip">
-                    #{p.id} · {p.kind} — {p.title}
+                    #{p.id} · {p.kind}: {p.title}
                   </td>
                   <td className="dim clip">~/.claude/{p.target_path}</td>
                   <td className="num">
@@ -185,10 +185,10 @@ export default function Proposals({ bump }) {
 
       <div className="panel">
         <h2>
-          Miner insights — <b>LLM pass</b>
+          Miner insights: <b>LLM pass</b>
         </h2>
         <p className="sechint">
-          Observations from the nightly LLM mining pass that aren't concrete proposals yet — patterns in how you work
+          Observations from the nightly LLM mining pass that aren't concrete proposals yet: patterns in how you work
           that may deserve a skill or memory later.
         </p>
         {insPage.map((i) => (
@@ -196,7 +196,7 @@ export default function Proposals({ bump }) {
             <span className="chip">{i.kind}</span> <span className="dim">{i.body}</span>
           </div>
         ))}
-        {(insights || []).length === 0 && <div className="faint">none yet — arm and run the nightly LLM pass</div>}
+        {(insights || []).length === 0 && <div className="faint">none yet: arm and run the nightly LLM pass</div>}
         {insPager}
       </div>
     </>

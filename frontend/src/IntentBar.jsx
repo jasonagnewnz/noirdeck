@@ -61,13 +61,13 @@ export default function IntentBar({ fleet = [], onIntent }) {
         {/* Optional, and the placeholder says so: submit only needs a project. The
             old copy read as a requirement ("Try ...") which is why a second, simpler
             front door got built beside it. A `//` comment does not belong inside a JSX
-            opening tag — it is not comment syntax there, and it only survived the
+            opening tag: it is not comment syntax there, and it only survived the
             build by luck. */}
         <input
           id="intent-query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Optional — say what you want, or just pick a project and go"
+          placeholder="Optional: say what you want, or just pick a project and go"
         />
 
         <button className="act intent-submit" type="submit" disabled={!canRun}>
@@ -96,7 +96,7 @@ export default function IntentBar({ fleet = [], onIntent }) {
 
       {/* ⛔ FOUR MODE CARDS DELETED 2026-08-19. They offered the same four
           destinations as the bar directly above, which already routes by what you
-          type — five front doors on one page is zero front doors. An earlier pass
+          type: five front doors on one page is zero front doors. An earlier pass
           deleted a duplicate row of these and kept this one; keeping either was
           the error. The palette (⌘K) still reaches every mode for anyone who wants
           a menu. Do not add them back: if the bar cannot get someone started, fix

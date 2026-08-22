@@ -28,7 +28,7 @@ class FilesError(RuntimeError):
 
 def _resolve(projects_dir: Path, project: str, rel: str) -> Path:
     # `project` must be a single path segment naming a direct child of the
-    # projects dir — ~ is itself a git repo, so ".." would pass the .git check
+    # projects dir: ~ is itself a git repo, so ".." would pass the .git check
     # and expose the whole home directory.
     if "/" in project or "\\" in project or project in ("", ".", ".."):
         raise FilesError(f"unknown project {project}")

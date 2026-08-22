@@ -1,9 +1,9 @@
-"""Arming contracts — approval as a contract, not a switch.
+"""Arming contracts: approval as a contract, not a switch.
 
 The env flags (NOIRDECK_*_ARMED) stay as fail-closed master enables; a
 subsystem additionally needs an ACTIVE contract: not revoked, not expired,
 task/token budget not exhausted. So autonomous runs require BOTH a deploy-time
-capability (env) and a session-scoped, expiring consent (contract) — and an
+capability (env) and a session-scoped, expiring consent (contract): and an
 armed system disarms ITSELF when the window closes or the budget is spent."""
 
 from __future__ import annotations
@@ -43,8 +43,8 @@ def _is_live(row: sqlite3.Row | None) -> bool:
     return True
 
 
-# ⛔ Sensible defaults, not an absent limit. Queuing one task used to require filling
-# in hours, max_tasks and max_tokens first — ~11 interactions before the product did
+# Sensible defaults, not an absent limit. Queuing one task used to require filling
+# in hours, max_tasks and max_tokens first: ~11 interactions before the product did
 # anything, and the numbers are ones a new operator has no basis to choose. These are
 # deliberately modest: an overnight window, a handful of tasks, a bounded spend. The
 # contract is still expiring, still budgeted, still re-checked before every task; the
@@ -94,7 +94,7 @@ def revoke(conn: sqlite3.Connection, subsystem: str, quiet: bool = False) -> boo
 
 
 def check(conn: sqlite3.Connection, subsystem: str) -> tuple[bool, str]:
-    """(allowed, reason). The runner gate — call before every task."""
+    """(allowed, reason). The runner gate: call before every task."""
     row = _active_row(conn, subsystem)
     if row is None:
         return False, f"not armed: {subsystem} has no live contract, so nothing will run unattended"

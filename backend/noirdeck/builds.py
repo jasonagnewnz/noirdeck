@@ -2,9 +2,9 @@
 
 Pipeline: plan → build → test-until-green → adversarial review → docs & finish.
 - Model per phase follows the estate routing table (thinking on Fable, building on
-  Sonnet, review on Opus 4.8) — pinned explicit IDs, never family aliases.
+  Sonnet, review on Opus 4.8): pinned explicit IDs, never family aliases.
 - Between phases the deterministic QA gates (qa.py) run OUTSIDE the LLM and their
-  failures are fed into the next phase — a phase never grades its own homework.
+  failures are fed into the next phase: a phase never grades its own homework.
 - Hard boundary: the pipeline ends at CODE-READY. It commits locally but NEVER
   pushes, deploys, publishes, or calls external services. Shipping stays a human act.
 - Each headless phase inherits the machine's Claude auth and the global CLAUDE.md,
@@ -39,7 +39,7 @@ GUARDRAILS = """
    VERDICT: {"status":"done"|"blocked","summary":"<2-3 sentences>","question":"<only if blocked>"}
 """
 
-# (key, pinned model id, max_turns, phase instruction) — ids via config.model()
+# (key, pinned model id, max_turns, phase instruction): ids via config.model()
 from .config import model as _model  # noqa: E402
 
 PHASES: list[tuple[str, str, int, str]] = [
@@ -47,7 +47,7 @@ PHASES: list[tuple[str, str, int, str]] = [
         "plan",
         _model("think"),
         25,
-        "PHASE 1 — PLAN. Design this software before any product code: write MASTER_PLAN.md "
+        "PHASE 1: PLAN. Design this software before any product code: write MASTER_PLAN.md "
         "(problem, decisions, data model, security model, assumptions, definition of done), "
         "docs/ARCHITECTURE.md, and scaffold the repo skeleton (.gitignore covering .env*, "
         ".env.example if config is needed, test harness wiring). Choose boring, operable "
@@ -57,19 +57,19 @@ PHASES: list[tuple[str, str, int, str]] = [
         "build",
         _model("build"),
         80,
-        "PHASE 2 — BUILD. Implement the software per MASTER_PLAN.md, small verifiable "
+        "PHASE 2: BUILD. Implement the software per MASTER_PLAN.md, small verifiable "
         "increments, tests alongside code. Fail-closed on missing config. If the software "
         "has ANY user interface, it must lead with design: read "
         "~/.claude/skills/frontend-design/SKILL.md if present and commit to one bold, "
         "coherent, enterprise-grade aesthetic (distinctive typography, committed palette "
-        "via CSS variables, intentional composition, a few high-impact motion moments) — "
+        "via CSS variables, intentional composition, a few high-impact motion moments): "
         "never default-looking, never purple-gradient-on-white AI slop. Commit when done.",
     ),
     (
         "test",
         _model("build"),
         50,
-        "PHASE 3 — TEST. Run the full test suite and make it genuinely green: fix the code, "
+        "PHASE 3: TEST. Run the full test suite and make it genuinely green: fix the code, "
         "never weaken or delete tests. Add missing tests for error handling, edge cases, and "
         "any security boundary. Actually execute the software once end-to-end and fix what "
         "breaks. Commit when done.",
@@ -78,9 +78,9 @@ PHASES: list[tuple[str, str, int, str]] = [
         "review",
         _model("review"),
         90,
-        "PHASE 4 — ADVERSARIAL REVIEW. Review the whole repo as a hostile senior reviewer: "
+        "PHASE 4: ADVERSARIAL REVIEW. Review the whole repo as a hostile senior reviewer: "
         "security (input validation, secrets, injection, authz), correctness, data handling, "
-        "operability — and design: if there is a UI, judge it as a demanding design director "
+        "operability: and design: if there is a UI, judge it as a demanding design director "
         "(would this pass as a polished enterprise product, or does it look generated?). "
         "FIX everything you find; re-run tests after fixes. Commit when done.",
     ),
@@ -88,11 +88,11 @@ PHASES: list[tuple[str, str, int, str]] = [
         "finish",
         _model("build"),
         60,
-        "PHASE 5 — FINISH. Complete README.md (what it is, how to run it, how to verify it "
+        "PHASE 5: FINISH. Complete README.md (what it is, how to run it, how to verify it "
         "works), docs/RUNBOOK.md, and a final MASTER_PLAN.md status section listing all "
         "assumptions made and anything the owner should decide before shipping. Then verify "
         "BOUNDED: run the test suite once and one real end-to-end invocation; do NOT build "
-        "fresh venvs/clean checkouts — that verification belongs to the owner's go-live. "
+        "fresh venvs/clean checkouts: that verification belongs to the owner's go-live. "
         "If deliverables already exist from a prior attempt, confirm rather than redo. "
         "Commit when done.",
     ),
@@ -193,7 +193,7 @@ class BuildRunner:
     def cancel(self, build_id: int) -> None:
         row = self._row(build_id)
         if row and row["status"] == "awaiting_plan":
-            # parked at the plan gate — no thread is polling cancel_requested,
+            # parked at the plan gate: no thread is polling cancel_requested,
             # so the decline is applied directly
             self._update(build_id, status="cancelled", finished_at=utcnow())
             conn = self._db()
@@ -249,7 +249,7 @@ class BuildRunner:
             return {
                 "status": "blocked",
                 "summary": "phase exceeded 40-minute cap",
-                "question": "Phase timed out — resume the build or split the brief?",
+                "question": "Phase timed out: resume the build or split the brief?",
             }, 0
         finally:
             self.procs.pop(build_id, None)
@@ -258,7 +258,7 @@ class BuildRunner:
         except json.JSONDecodeError:
             result_text, tokens = None, 0
         if proc.returncode != 0:
-            # the CLI exits nonzero on max-turns/limits but still emits its JSON —
+            # the CLI exits nonzero on max-turns/limits but still emits its JSON:
             # salvage the session's own account instead of discarding the phase.
             # On error_max_turns the result field is None, so inspect the subtype too.
             subtype = None
@@ -274,12 +274,12 @@ class BuildRunner:
                     "status": "blocked",
                     "summary": f"phase ended early ({subtype or f'exit {proc.returncode}'}): "
                     f"{(result_text or '')[-300:]}",
-                    "question": "Phase hit a session limit — resume the build to continue.",
+                    "question": "Phase hit a session limit: resume the build to continue.",
                 }, tokens or 0
             return {
                 "status": "blocked",
                 "summary": (err or "claude exited nonzero")[-400:],
-                "question": "Phase failed to run — see summary.",
+                "question": "Phase failed to run: see summary.",
             }, 0
         if result_text is not None:
             return _parse_verdict(result_text), tokens or 0
@@ -287,7 +287,7 @@ class BuildRunner:
         return _parse_verdict(out), 0
 
     def _run(self, build_id: int, start_idx: int = 0) -> None:
-        # any escape marks the build blocked — a silently dead thread loses the build
+        # any escape marks the build blocked: a silently dead thread loses the build
         # (happened live: build stuck 'running' with no process and no trace)
         try:
             self._run_inner(build_id, start_idx)
@@ -304,7 +304,7 @@ class BuildRunner:
         if not row or row["status"] not in ("blocked", "cancelled", "attention"):
             raise ValueError(f"build {build_id} is not resumable ({row['status'] if row else 'missing'})")
         log = json.loads(row["log"] or "[]")
-        # DISTINCT phases: a revised plan logs 'plan' done twice — counting entries
+        # DISTINCT phases: a revised plan logs 'plan' done twice: counting entries
         # would skip a real phase on resume
         done_phases = {e["phase"] for e in log if e.get("status") == "done"}
         start_idx = len(done_phases)
@@ -328,7 +328,7 @@ class BuildRunner:
         log = json.loads(row["log"] or "[]")
         prior_summary = log[-1]["summary"] if log else ""
         total_tokens = row["tokens_out"] or 0
-        # head before the build phase writes code — the review phase measures its
+        # head before the build phase writes code: the review phase measures its
         # change against this. Unknown (fresh repo, resume-into-review) → review
         # runs, never skips: the policy fails safe.
         baseline_head: str | None = None
@@ -351,7 +351,7 @@ class BuildRunner:
                         stats["lines"], stats["files"], qa_before["overall"], stats["untracked"]
                     )
                     if not needed:
-                        # the deterministic gates already judged this change —
+                        # the deterministic gates already judged this change:
                         # a paid review pass can't earn its tokens here
                         self._append_log(
                             build_id,
@@ -376,7 +376,7 @@ class BuildRunner:
             phase_prompt = (
                 f"You are one phase of an unattended build pipeline.\n\n"
                 f"THE FULL BUILD BRIEF:\n{full_prompt}\n\n" + (f"{pack}\n\n" if pack else "") + f"{instruction}\n\n"
-                f"Previous phase summary: {prior_summary or 'none — this is the first phase'}\n"
+                f"Previous phase summary: {prior_summary or 'none: this is the first phase'}\n"
                 f"Objective QA gate state before this phase: {gate_feedback}\n"
                 f"{GUARDRAILS}"
             )
@@ -436,11 +436,11 @@ class BuildRunner:
             conn.close()
 
     def requeue_stale(self) -> None:
-        """Builds left 'running' by a server crash can't be resumed — mark them blocked."""
+        """Builds left 'running' by a server crash can't be resumed: mark them blocked."""
         conn = self._db()
         try:
             conn.execute(
-                "UPDATE builds SET status='blocked', question='Server restarted mid-build — "
+                "UPDATE builds SET status='blocked', question='Server restarted mid-build: "
                 "review the repo state and start a new build or finish in the Workspace.' "
                 "WHERE status IN ('queued','running')"
             )

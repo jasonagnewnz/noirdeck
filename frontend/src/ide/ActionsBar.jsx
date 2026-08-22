@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ACTIONS } from './prompts.js'
 
-// Actions strip for the currently open project — a "live" run (opens a fresh
+// Actions strip for the currently open project: a "live" run (opens a fresh
 // terminal session and pastes the prompt in) and a ghost "later" run
 // (queues it for unattended work). onLive/onOvernight are wired by the
 // parent Workspace view to the real POST /api/workspace and POST /api/queue.

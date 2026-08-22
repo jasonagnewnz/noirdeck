@@ -122,8 +122,8 @@ def test_the_index_makes_a_second_walk_cheap_without_changing_the_answer(tmp_pat
 
 
 def test_an_edited_file_is_re_read_not_served_stale(tmp_path, monkeypatch):
-    """⛔ The whole hazard of the index. Keyed on (mtime, size), so an edit must
-    invalidate — otherwise the console shows a description the file no longer has."""
+    """The whole hazard of the index. Keyed on (mtime, size), so an edit must
+    invalidate: otherwise the console shows a description the file no longer has."""
     import os
 
     import noirdeck.readers.memories as M

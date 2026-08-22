@@ -40,11 +40,11 @@ export default function Workspace({ launch }) {
   const [methodBusy, setMethodBusy] = useState(false)
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
   // Focus mode hides the two setup panels so the terminal takes the whole page.
-  // The panels are hidden in CSS, never unmounted — unmounting would throw away
+  // The panels are hidden in CSS, never unmounted: unmounting would throw away
   // whatever the user has already typed into the start and background forms.
   // Collapsed by DEFAULT. The setup panels are a wall of controls you need once
   // to start a session and never again; the terminal is what you came for.
-  // Only an explicit '0' expands them — an absent preference means collapsed.
+  // Only an explicit '0' expands them: an absent preference means collapsed.
   const [focusMode, setFocusMode] = useState(() => {
     try {
       return localStorage.getItem(FOCUS_KEY) !== '0'
@@ -58,7 +58,7 @@ export default function Workspace({ launch }) {
       try {
         localStorage.setItem(FOCUS_KEY, next ? '1' : '0')
       } catch (_e) {
-        /* private mode — the preference just does not persist */
+        /* private mode: the preference just does not persist */
       }
       return next
     })
@@ -193,7 +193,7 @@ export default function Workspace({ launch }) {
     if (active === sid) setActive(null)
   }
 
-  // pause records the claude conversation id then stops the PTY — the machine
+  // pause records the claude conversation id then stops the PTY: the machine
   // can be fully shut down and the conversation resumed later from this view
   const pause = async (sid) => {
     setErr(null)
@@ -449,7 +449,7 @@ export default function Workspace({ launch }) {
         {/* ⛔ This block used to be ONE row carrying eight controls at equal visual
             weight: project, helper, model, two checkboxes, "build with me",
             "remember", a new-project field and its button. The effect was that
-            "pick a repo and start working" had no obvious single answer — the
+            "pick a repo and start working" had no obvious single answer: the
             primary action looked like just another option. Primary path is now one
             field and one button; everything else is a closed disclosure. */}
         <div className="work-primary">
@@ -458,7 +458,7 @@ export default function Workspace({ launch }) {
               Project
             </label>
             <select id="ws-project" value={project} onChange={(e) => setProject(e.target.value)}>
-              <option value="">— choose project —</option>
+              <option value="">choose project</option>
               {(fleet || []).map((f) => (
                 <option key={f.path} value={f.name}>
                   {f.name}
@@ -490,7 +490,7 @@ export default function Workspace({ launch }) {
           <summary>
             Options
             <span className="dim">
-              {' — '}
+              {': '}
               {selectedRunner?.ide_label || selectedRunner?.label || 'Claude'}
               {model ? `, ${model}` : ''}
               {briefing ? ', brief first' : ''}
@@ -556,7 +556,7 @@ export default function Workspace({ launch }) {
 
         <details className="work-advanced">
           <summary>
-            Start a brand-new project<span className="dim"> — creates the folder and git-inits it</span>
+            Start a brand-new project<span className="dim">: creates the folder and git-inits it</span>
           </summary>
           <div className="formrow">
             <div style={{ minWidth: 200 }}>
@@ -680,7 +680,7 @@ export default function Workspace({ launch }) {
         )}
         {paused.length > 0 && (
           <div style={{ marginTop: 8 }}>
-            <span className="dim">paused — survives shutdowns, resume any time: </span>
+            <span className="dim">paused: survives shutdowns, resume any time: </span>
             {paused.map((p) => (
               <span key={p.id} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', marginRight: 10 }}>
                 <span className="chip">{p.project}</span>
@@ -695,7 +695,7 @@ export default function Workspace({ launch }) {
                 <ConfirmButton
                   className="act ghost sm"
                   confirmLabel="Discard? cannot be resumed after"
-                  title={`Remove this paused ${p.project} session from the list. Nothing is killed — the process ended when it was paused — but its transcript can no longer be resumed.`}
+                  title={`Remove this paused ${p.project} session from the list. Nothing is killed: the process ended when it was paused: but its transcript can no longer be resumed.`}
                   onConfirm={() => discardPaused(p)}
                 >
                   discard
@@ -852,7 +852,7 @@ export default function Workspace({ launch }) {
             {(sessions.length > 0 || fileTabs.length > 0) && (
               <div className="tabstrip">
                 {sessions.map((s) => (
-                  // two sibling buttons, not a clickable span wrapping a nested button —
+                  // two sibling buttons, not a clickable span wrapping a nested button:
                   // <button> cannot contain another interactive element
                   <span key={s.id} className={`termtab ${active === s.id ? 'on' : ''}`}>
                     <button
@@ -872,7 +872,7 @@ export default function Workspace({ launch }) {
                     <button
                       type="button"
                       className="x"
-                      title="pause — safe to shut down, resume later"
+                      title="pause: safe to shut down, resume later"
                       aria-label={`Pause session: ${s.project} (survives shutdown)`}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -936,7 +936,7 @@ export default function Workspace({ launch }) {
               {!activeSession && !activeFile && (
                 <div className="tabbody-empty">
                   <div className="faint">
-                    no tab open — launch a session above, run an action, or open a file from the explorer
+                    no tab open: launch a session above, run an action, or open a file from the explorer
                   </div>
                 </div>
               )}

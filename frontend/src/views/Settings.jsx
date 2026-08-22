@@ -1,9 +1,9 @@
 import { useData } from '../api.js'
-import { THEMES } from '../ide/themes.js'
+import { DENSITIES, KITS, MODES, SCALES } from '../ide/appearance.js'
 import { ViewHead } from '../ui.jsx'
 import LocalModels from './LocalModels.jsx'
 
-// Everything the daily loop doesn't need. These are not lesser features — they
+// Everything the daily loop doesn't need. These are not lesser features: they
 // are lower-frequency ones, and putting them here keeps the rail honest about
 // what you actually reach for. Each still has its own #hash and works as a
 // direct link or bookmark.
@@ -33,15 +33,15 @@ const ADVANCED = [
 function BackgroundWork({ bump }) {
   const { data } = useData('/scheduler', bump)
   if (!data) return null
-  // ⛔ Nothing in the UI reported this before. Arming expires silently BY DESIGN,
+  //Nothing in the UI reported this before. Arming expires silently BY DESIGN,
   // so "no tasks ran last night" and "the scheduler is not running at all" look
-  // identical from the outside — and the second one is a fault, not a quiet night.
+  // identical from the outside: and the second one is a fault, not a quiet night.
   return (
     <div className="panel">
       <h2>Background work</h2>
       <p className="sechint">
         Whether the recurring jobs are actually being run, and when each is next due. Arming contracts expire on
-        purpose, so a job being due is not a promise it will do anything — but a scheduler that is off will never even
+        purpose, so a job being due is not a promise it will do anything: but a scheduler that is off will never even
         try.
       </p>
       {/* The whole answer, first: a running scheduler with nothing armed runs
@@ -51,7 +51,7 @@ function BackgroundWork({ bump }) {
         {data.will_run ? (
           <span className="pill PASS">unattended work will run</span>
         ) : (
-          <span className="pill GAP">nothing will run — {data.blocked_by}</span>
+          <span className="pill GAP">nothing will run: {data.blocked_by}</span>
         )}
       </div>
       <div style={{ marginBottom: 8 }}>
@@ -61,7 +61,7 @@ function BackgroundWork({ bump }) {
         ) : (
           <span className="pill GAP">not running here</span>
         )}{' '}
-        <span className="dim">— {data.mode}</span>
+        <span className="dim">· {data.mode}</span>
       </div>
       <div style={{ marginBottom: 8 }}>
         <span className="faint">armed: </span>
@@ -103,7 +103,14 @@ function BackgroundWork({ bump }) {
   )
 }
 
-export default function Settings({ bump, theme, onSetTheme }) {
+const DIALS = [
+  { dial: 'kit', label: 'Kit', options: KITS },
+  { dial: 'mode', label: 'Mode', options: MODES },
+  { dial: 'density', label: 'Density', options: DENSITIES, hint: 'row height and spacing' },
+  { dial: 'scale', label: 'Text size', options: SCALES },
+]
+
+export default function Settings({ bump, appearance, onSetDial }) {
   const { data: health } = useData('/health', bump)
   const { data: runtimes } = useData('/workspace/runtimes', bump)
   const claude = runtimes?.runners?.find((r) => r.id === 'claude')
@@ -135,19 +142,30 @@ export default function Settings({ bump, theme, onSetTheme }) {
       <div className="panel">
         <h2>Appearance</h2>
         <p className="sechint">
-          Applies instantly and is remembered on this machine. Every theme is checked for readable contrast.
+          Four dials rather than a list of skins, because they are independent: any kit works in either mode, at either
+          density, at any text size. Applies instantly, remembered on this machine, and every combination is checked for
+          readable contrast before it ships.
         </p>
-        <label className="settings-row" htmlFor="theme-select">
-          <span>Theme</span>
-          <select id="theme-select" value={theme} onChange={(e) => onSetTheme(e.target.value)}>
-            {THEMES.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="faint">{THEMES.find((t) => t.key === theme)?.blurb}</p>
+        {DIALS.map(({ dial, label, options, hint }) => (
+          <label className="settings-row" key={dial} htmlFor={`appearance-${dial}`}>
+            <span>
+              {label}
+              {hint && <small className="faint"> {hint}</small>}
+            </span>
+            <select
+              id={`appearance-${dial}`}
+              value={appearance?.[dial] ?? options[0].key}
+              onChange={(e) => onSetDial(dial, e.target.value)}
+            >
+              {options.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+        <p className="faint">{KITS.find((k) => k.key === appearance?.kit)?.blurb}</p>
       </div>
 
       <div className="panel">
@@ -187,9 +205,9 @@ export default function Settings({ bump, theme, onSetTheme }) {
             <li key={r.id}>
               <b>{r.label}</b>{' '}
               {r.available ? (
-                <span className="dim">— {(r.models || []).join(', ') || 'no models listed'}</span>
+                <span className="dim">· {(r.models || []).join(', ') || 'no models listed'}</span>
               ) : (
-                <span className="faint">— not installed</span>
+                <span className="faint">· not installed</span>
               )}
             </li>
           ))}

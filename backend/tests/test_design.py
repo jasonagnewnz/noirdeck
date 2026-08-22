@@ -17,7 +17,7 @@ SUCCESS_STUB = [
     'echo \'VERDICT: {"status":"done","summary":"stub direction"}\'; #',
 ]
 
-# Prints a done verdict but never touches $DESIGN_OUT — used both to simulate a
+# Prints a done verdict but never touches $DESIGN_OUT: used both to simulate a
 # mock-writing failure (propose) and as a harmless stand-in for the apply session
 # (apply never checks for a file, only the verdict).
 VERDICT_ONLY_STUB = ["bash", "-c", 'echo \'VERDICT: {"status":"done","summary":"stub direction"}\'; #']
@@ -39,7 +39,7 @@ def settings(tmp_path, monkeypatch, claude_dir):
 
 
 # The variant-thread race this suite originally found is now fixed in app/design.py
-# itself (DesignStudio._variants_lock) — these tests run against the real locking.
+# itself (DesignStudio._variants_lock): these tests run against the real locking.
 
 
 def _wait_round(db_path, round_id, want, timeout=15):

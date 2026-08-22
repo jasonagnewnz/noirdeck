@@ -57,7 +57,7 @@ function AskBox({ launch }) {
           value={q}
           maxLength={500}
           style={{ flex: 1, minWidth: 260 }}
-          placeholder='e.g. "which projects need attention?" — answered read-only from your actual files'
+          placeholder='e.g. "which projects need attention?": answered read-only from your actual files'
           onChange={(e) => setQ(e.target.value)}
         />
         <button className="act" type="submit" disabled={job?.status === 'running' || !q.trim()}>
@@ -66,7 +66,7 @@ function AskBox({ launch }) {
       </form>
       {job?.status === 'running' && (
         <div role="status" aria-live="polite" className="dim" style={{ marginTop: 8 }}>
-          Reading your files to answer — usually under a minute…
+          Reading your files to answer: usually under a minute…
         </div>
       )}
       {job && job.status !== 'running' && (
@@ -83,8 +83,8 @@ function AskBox({ launch }) {
   )
 }
 
-// ⛔ StartWorking DELETED 2026-08-19, one day after I added it. It was a project
-// picker plus a Start button — which is exactly what IntentBar already is, since
+//StartWorking DELETED 2026-08-19, one day after I added it. It was a project
+// picker plus a Start button: which is exactly what IntentBar already is, since
 // its submit only requires a project and not a typed prompt. I added a fifth front
 // door to fix an unclear front door instead of deleting the other four. Optimising
 // something that should have been deleted is the specific error the method warns
@@ -113,19 +113,19 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
           <h2>Your AI workspace was not found</h2>
           <p className="sechint">
             Nothing was found at <code>{health.claude_dir}</code>, so skills, memories and history will stay empty.
-            Everything else works — live sessions, local models and background tasks are all fine without it. If Claude
+            Everything else works: live sessions, local models and background tasks are all fine without it. If Claude
             Code lives somewhere else on this machine, point <code>NOIRDECK_CLAUDE_DIR</code> at it.
           </p>
         </div>
       )}
 
-      {/* Demoted, not deleted. The essentials builder is genuinely useful — it is
-          the ten questions that turn "add payments" into a brief — but it is 289
+      {/* Demoted, not deleted. The essentials builder is genuinely useful: it is
+          the ten questions that turn "add payments" into a brief: but it is 289
           lines of form that dominated the page a first-time user lands on, and it
           is not how you START, it is what you reach for once you know what you
           want. Closed by default; one click away. */}
       <details className="home-extra">
-        <summary>Add something specific — payments, auth, hosting, email and seven more</summary>
+        <summary>Add something specific: payments, auth, hosting, email and seven more</summary>
         <ToolPrompter fleet={fleet || []} onIntent={onIntent} />
       </details>
 
@@ -136,7 +136,7 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
             {dg.attention > 0 && (
               <>
                 {' '}
-                —{' '}
+                ·{' '}
                 <b>
                   {dg.attention} thing{dg.attention === 1 ? '' : 's'} need{dg.attention === 1 ? 's' : ''} you
                 </b>
@@ -188,7 +188,7 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
           </h2>
           <p className="sechint">
             Passwords or keys are sitting in cleartext where every session can read them, and where mining reads before
-            sending excerpts to a model. Open Credentials to see what and where — then rotate.
+            sending excerpts to a model. Open Credentials to see what and where: then rotate.
           </p>
         </a>
       )}
@@ -196,7 +196,7 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
       <div className="grid cols-2" style={{ marginTop: 14 }}>
         <div className="panel reveal d2">
           <h2>
-            Open loops — <b>sessions that ended unfinished</b>
+            Open loops: <b>sessions that ended unfinished</b>
           </h2>
           {ov.open_loops.length === 0 && <div className="faint">none detected in recent sessions</div>}
           <table>
@@ -214,7 +214,7 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
 
         <div className="panel reveal d2">
           <h2>
-            Fleet attention — <b>work at risk</b>
+            Fleet attention: <b>work at risk</b>
           </h2>
           {ov.fleet_attention.length === 0 && <div className="faint">every project clean and pushed</div>}
           <table>
@@ -251,7 +251,7 @@ export default function Overview({ overview: ov, bump, launch, onIntent }) {
 
         <div className="panel reveal d3">
           <h2>
-            Follow-on radar — <b>changes missing their companion</b>
+            Follow-on radar: <b>changes missing their companion</b>
           </h2>
           {(commits?.follow_on || []).length === 0 && <div className="faint">nothing flagged</div>}
           <table>
@@ -346,7 +346,7 @@ function BackupDisclosure({ bump }) {
           : /* The backend already knows WHICH prerequisite is missing (repo unset,
                passphrase file absent, or restic not installed). Naming only one of
                them sends a fresh install to fix the wrong thing. */
-            `Backups are OFF — nothing is being copied anywhere.${v.reason ? ` Reason: ${v.reason}.` : ''} Backups need restic installed and NOIRDECK_VAULT_REPO pointed at a destination.`}
+            `Backups are OFF: nothing is being copied anywhere.${v.reason ? ` Reason: ${v.reason}.` : ''} Backups need restic installed and NOIRDECK_VAULT_REPO pointed at a destination.`}
       </p>
       <div style={{ marginBottom: 8 }}>
         <span className="faint">restore verified: </span>
@@ -361,7 +361,7 @@ function BackupDisclosure({ bump }) {
           <ul className="tight">
             {man.included.map((i) => (
               <li key={i.path}>
-                <code>{i.path}</code> <span className="dim">— {i.what}</span>
+                <code>{i.path}</code> <span className="dim">· {i.what}</span>
                 {!i.present && <span className="faint"> (not present)</span>}
               </li>
             ))}
@@ -370,7 +370,7 @@ function BackupDisclosure({ bump }) {
           <ul className="tight">
             {man.excluded.map((e) => (
               <li key={e.path}>
-                <code>{e.path}</code> <span className="dim">— {e.why}</span>
+                <code>{e.path}</code> <span className="dim">· {e.why}</span>
               </li>
             ))}
           </ul>

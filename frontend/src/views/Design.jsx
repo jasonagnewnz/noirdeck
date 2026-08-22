@@ -61,7 +61,7 @@ export default function Design({ launch }) {
     }))
   }, [launch])
 
-  // Poll only while something is in flight — proposing (mocks rendering) or applying (writing to the repo).
+  // Poll only while something is in flight: proposing (mocks rendering) or applying (writing to the repo).
   useEffect(() => {
     const active = (rounds || []).some((r) => r.status === 'proposing' || r.status === 'applying')
     if (!active) return
@@ -114,7 +114,7 @@ export default function Design({ launch }) {
   }
 
   const dismiss = async (round) => {
-    if (!confirm(`Dismiss round #${round.id} — ${round.project}?`)) return
+    if (!confirm(`Dismiss round #${round.id}: ${round.project}?`)) return
     setErr(null)
     try {
       const r = await fetch(`/api/design/${round.id}`, { method: 'DELETE' })
@@ -149,7 +149,7 @@ export default function Design({ launch }) {
             required
             onChange={(e) => setForm({ ...form, project: e.target.value })}
           >
-            <option value="">— choose project —</option>
+            <option value="">choose project</option>
             {(fleet || []).map((f) => (
               <option key={f.path} value={f.name}>
                 {f.name}
@@ -169,7 +169,7 @@ export default function Design({ launch }) {
                 setCapture(null)
               }}
             >
-              <option value="">— source project —</option>
+              <option value="">source project</option>
               {(fleet || []).map((f) => (
                 <option key={f.path} value={f.name}>
                   {f.name}
@@ -250,7 +250,7 @@ export default function Design({ launch }) {
         <div className="panel" key={r.id}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
             <h2 style={{ marginBottom: 0 }}>
-              #{r.id} <b>{r.project}</b> — {r.brief} ({KIT_LABEL[r.library] || r.library}){' '}
+              #{r.id} <b>{r.project}</b>: {r.brief} ({KIT_LABEL[r.library] || r.library}){' '}
               <span className={`pill ${ROUND_PILL[r.status] || ''}`}>{r.status}</span>
             </h2>
             <button
@@ -335,7 +335,7 @@ export default function Design({ launch }) {
           )}
           {r.status === 'apply-blocked' && (
             <div className="err" role="alert" style={{ marginTop: 10 }}>
-              apply blocked — {r.apply_summary || 'see logs'}
+              apply blocked: {r.apply_summary || 'see logs'}
             </div>
           )}
         </div>

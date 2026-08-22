@@ -39,7 +39,7 @@ def test_context_is_redacted_before_the_model_sees_it():
 
 def test_redaction_runs_before_the_tail_is_cut():
     """Trimming first could slice a secret in half and leave a fragment that no
-    longer matches its own pattern — so the whole text is scrubbed, then cut."""
+    longer matches its own pattern: so the whole text is scrubbed, then cut."""
     secret = "DB_PASSWORD=supersecretvalue123"
     padding = "x" * (consult.CONTEXT_CHARS * 2)
     ctx, _ = consult._context(secret + "\n" + padding)
@@ -106,7 +106,7 @@ def test_unknown_runner_is_rejected():
 
 def test_answer_survives_a_message_list_response():
     """A CLI returning a message LIST rather than an object has burned this
-    codebase before — the answer must not be lost to a shape change."""
+    codebase before: the answer must not be lost to a shape change."""
     assert consult._answer_text('[{"type":"result","result":"use a worktree"}]') == "use a worktree"
     assert consult._answer_text('{"result":"check the logs"}') == "check the logs"
     assert consult._answer_text("plain text answer") == "plain text answer"

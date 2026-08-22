@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "noirdeck"
-version = "0.27.5"
+version = "0.28.0"
 description = "Local-first companion console for a Claude Code estate"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -2,25 +2,31 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Terminal } from '@xterm/xterm'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { api } from '../api.js'
 import '@xterm/xterm/css/xterm.css'
 
 function cssVar(name, fallback) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 }
 
-// The terminal tracks the active noirdeck theme. ANSI red/green stay functional
-// colors for diffs and test output; cursor, yellow, blue and cyan use the app's
-// single signal color so the PTY feels native inside every skin.
+// The terminal follows the active kit. ANSI red and green stay functional
+// colours for diffs and test output; cursor, yellow, blue and cyan take the
+// app's single signal colour so the PTY looks native in every kit.
+//
+// Fallbacks are the carbon dark values, matching the :root defaults in
+// styles.css. They are reachable only if the stylesheet has not loaded, and an
+// earlier set of them held colours from a palette that had been deleted, so a
+// terminal in that state painted itself teal.
 function readTermTheme() {
-  const bg = cssVar('--bg-deep', '#090b0e')
-  const panel = cssVar('--panel-2', '#171c22')
-  const ink = cssVar('--ink', '#edf1f5')
-  const inkFaint = cssVar('--ink-faint', '#8d98a3')
-  const accent = cssVar('--amber', '#63d7b0')
-  const accentSoft = cssVar('--amber-soft', 'rgba(99, 215, 176, 0.2)')
-  const red = cssVar('--red', '#d84a58')
-  const redText = cssVar('--red-text', '#ff8d98')
-  const green = cssVar('--green', '#72d184')
+  const bg = cssVar('--surface-sunken', '#0d0d0d')
+  const panel = cssVar('--surface-2', '#333333')
+  const ink = cssVar('--text', '#f4f4f4')
+  const inkFaint = cssVar('--text-3', '#a8a8a8')
+  const accent = cssVar('--accent', '#78a9ff')
+  const accentSoft = cssVar('--accent-soft', 'rgba(120, 169, 255, 0.16)')
+  const red = cssVar('--danger', '#da1e28')
+  const redText = cssVar('--danger-text', '#ff8389')
+  const green = cssVar('--success', '#42be65')
 
   return {
     background: bg,
@@ -50,7 +56,7 @@ function readTermTheme() {
 // translateToString(true) trims trailing whitespace per row; we then strip
 // trailing blank lines so an export doesn't carry a screenful of padding.
 // NOTE: a full-screen TUI (Claude Code, vim) runs in xterm's ALTERNATE buffer,
-// which by design has NO scrollback — there "whole session" and "current
+// which by design has NO scrollback: there "whole session" and "current
 // screen" both return just the visible screen. That is inherent to alt-screen
 // mode, not a bug: the history simply does not exist to copy.
 function readBufferText(term, start, count) {
@@ -66,7 +72,7 @@ function readBufferText(term, start, count) {
 // A live PTY-over-WebSocket terminal. Behavior unchanged from the original
 // Workspace.jsx implementation, plus an optional injectPrompt: once the socket
 // is open, paste the given text into the PTY after a short settle delay (the
-// remote Claude Code session needs a moment to be ready for input) — used by
+// remote Claude Code session needs a moment to be ready for input): used by
 // the project action strip to kick off a live "review structure" / "tidy"
 // session without the backend needing a bespoke initial-prompt field.
 export default function TermPane({ sid, injectPrompt }) {
@@ -75,7 +81,7 @@ export default function TermPane({ sid, injectPrompt }) {
   const [copied, setCopied] = useState(null) // 'screen' | 'session' | null
   // Scroll state drives the Top/Bottom controls. `alt` matters: a full-screen
   // TUI (Claude Code, vim) runs in xterm's ALTERNATE buffer, which has no
-  // scrollback at all — so jumping is genuinely impossible there, and the
+  // scrollback at all: so jumping is genuinely impossible there, and the
   // buttons say so rather than looking broken when a click does nothing.
   const [scroll, setScroll] = useState({ atTop: true, atBottom: true, alt: false, lines: 0 })
 
@@ -88,7 +94,7 @@ export default function TermPane({ sid, injectPrompt }) {
       cursorBlink: true,
       scrollback: 10000,
       // Snap to the bottom when the user types, but leave the view put while
-      // they read scrollback and the PTY keeps writing — standard terminal feel.
+      // they read scrollback and the PTY keeps writing: standard terminal feel.
       scrollOnUserInput: true,
     })
     termRef.current = term
@@ -97,7 +103,7 @@ export default function TermPane({ sid, injectPrompt }) {
     })
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['style', 'data-theme', 'data-theme-mode'],
+      attributeFilter: ['style', 'data-kit', 'data-theme-mode'],
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
@@ -105,7 +111,7 @@ export default function TermPane({ sid, injectPrompt }) {
 
     // Keep the scroll controls honest about where we actually are. viewportY is
     // the absolute buffer line at the top of the screen; baseY is that value
-    // when scrolled fully down — so equality means "at the bottom".
+    // when scrolled fully down: so equality means "at the bottom".
     const syncScroll = () => {
       const buf = term.buffer.active
       setScroll({
@@ -123,7 +129,7 @@ export default function TermPane({ sid, injectPrompt }) {
     // GPU renderer: the default DOM renderer ghosts and tears rows during fast
     // scroll. WebGL composites the whole grid per frame, so scrolling stays
     // clean. It can lose its GL context (tab backgrounded, driver reset, or
-    // running headless) — when that happens we dispose the addon and xterm
+    // running headless): when that happens we dispose the addon and xterm
     // silently falls back to the DOM renderer, which is slower but always
     // correct. Construction itself can throw where WebGL is unavailable, so the
     // whole thing is guarded: no renderer addon simply means the DOM path.
@@ -234,6 +240,36 @@ export default function TermPane({ sid, injectPrompt }) {
     copyText(readBufferText(term, term.buffer.active.viewportY, term.rows), 'screen')
   }, [copyText])
 
+  // Share what happened, not the session. Redacted server-side, and the response says
+  // what was removed AND what a re-scan still found: so if something got through, the
+  // warning appears BEFORE the file is in someone's inbox.
+  const [sharing, setSharing] = useState(false)
+  const shareSession = useCallback(async () => {
+    setSharing(true)
+    try {
+      const out = await api(`/workspace/${sid}/share`, { body: { note: '' } })
+      if (!out.safe_to_send) {
+        window.alert(
+          `Exported, but read it before sending:\n\nafter redaction the scanner still matched ` +
+            `${out.residual_findings} possible credential(s) (${out.residual_detectors.join(', ')}).\n\n` +
+            `Redaction matches known secret shapes: a password that looks like an ordinary word is not removed.`
+        )
+      }
+      const blob = new Blob([out.markdown], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = out.filename
+      a.click()
+      URL.revokeObjectURL(url)
+      setCopied(out.secrets_removed ? `shared − ${out.secrets_removed} secret(s) removed` : 'shared')
+      setTimeout(() => setCopied(null), 2600)
+    } catch (e) {
+      window.alert(`Could not export: ${e.message}`)
+    }
+    setSharing(false)
+  }, [sid])
+
   const copySession = useCallback(() => {
     const term = termRef.current
     if (!term) return
@@ -258,7 +294,7 @@ export default function TermPane({ sid, injectPrompt }) {
   // only when already at the top, and Bottom only when already at the bottom.
   const noHistory = scroll.alt || scroll.lines === 0
   const jumpHint = scroll.alt
-    ? 'The running program owns the full screen (alternate buffer), which keeps no scrollback — there is no history to jump through'
+    ? 'The running program owns the full screen (alternate buffer), which keeps no scrollback: there is no history to jump through'
     : scroll.lines === 0
       ? 'Nothing has scrolled off screen yet'
       : null
@@ -310,9 +346,20 @@ export default function TermPane({ sid, injectPrompt }) {
         >
           {copied === 'session' ? 'Copied ✓' : 'Copy session'}
         </button>
+        {/* Share what happened, not the session: a redacted transcript file. Nothing is
+            uploaded, no socket is opened and nobody is invited: see share.py. */}
+        <button
+          type="button"
+          className="term-copy-btn"
+          disabled={sharing}
+          onClick={shareSession}
+          title="Download a readable transcript of this session, with credentials redacted first. Nothing is uploaded and no session is opened to anyone."
+        >
+          {sharing ? 'Preparing…' : 'Share'}
+        </button>
       </div>
       {/* role="application": this region owns raw keyboard input (it's a live
-          PTY) — tell assistive tech not to intercept keys the way it would in a
+          PTY): tell assistive tech not to intercept keys the way it would in a
           normal document, same convention VS Code's own integrated terminal uses. */}
       <div className="termpane" ref={holder} role="application" aria-label="Terminal session" />
     </div>

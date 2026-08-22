@@ -1,15 +1,15 @@
 """Local models made approachable: get Ollama running, pull something sensible,
 and say in plain words which model suits the work this person actually does.
 
-Design stance — this is the "I don't want to learn any of this" path:
+Design stance: this is the "I don't want to learn any of this" path:
 - Nothing here assumes the reader knows what a quant, a context window or a GGUF
   is. Every recommendation says what the model is FOR and whether it fits.
 - Recommendations are gated on MEASURED capacity, never on hope. A model that
   needs more memory than the machine has is shown as out of reach with the reason,
   because a local model that swaps is indistinguishable from a broken one.
-- ⛔ Install is USER-LOCAL and needs no root. Ollama's own install script wants
+- Install is USER-LOCAL and needs no root. Ollama's own install script wants
   sudo (it writes /usr/local/bin and a system service), and on this estate local
-  sudo cannot work at all — no tty for askpass (fb_wsl_sudo_askpass_no_tty). So we
+  sudo cannot work at all: no tty for askpass (fb_wsl_sudo_askpass_no_tty). So we
   unpack the official tarball into ~/.local and run the server as the user. Same
   binary, no privilege, and it matches how the existing install on this box was
   actually done.
@@ -116,7 +116,7 @@ def _version(exe: str) -> str | None:
 
 def installed_models() -> list[dict]:
     """Models already on this machine, with human sizes. [] can mean 'none pulled'
-    OR 'server not running' — the caller must use `server_running` to tell those
+    OR 'server not running': the caller must use `server_running` to tell those
     apart, never treat the empty list as evidence of a clean state."""
     try:
         with urllib.request.urlopen(f"{OLLAMA_API}/api/tags", timeout=5) as r:
@@ -154,7 +154,7 @@ def state() -> dict:
         "version": _version(exe) if exe else None,
         "user_local": bool(exe and str(INSTALL_ROOT) in exe),
         "server_running": running,
-        # ⛔ Only meaningful when the server is up; see installed_models().
+        # Only meaningful when the server is up; see installed_models().
         "models": installed_models() if running else [],
         "models_known": running,
         "capacity": asdict(cap),
@@ -166,7 +166,7 @@ def state() -> dict:
 
 # ── the catalogue ────────────────────────────────────────────────────────────
 # Plain-language, purpose-first. `needs_gb` is the memory a comfortable run wants,
-# not the download size — the download is smaller and it is the resident footprint
+# not the download size: the download is smaller and it is the resident footprint
 # that decides whether this feels instant or unusable.
 
 
@@ -278,7 +278,7 @@ def recommend(work_kind: str = "code", cap: Capacity | None = None, already: lis
             "already_pulled": c.tag in pulled or (":" not in c.tag and f"{c.tag}:latest" in pulled),
         }
         if usable is None:
-            entry["note"] = "Cannot tell whether this fits — memory could not be measured."
+            entry["note"] = "Cannot tell whether this fits: memory could not be measured."
             too_big.append(entry)
         elif c.needs_gb <= usable:
             entry["note"] = f"Fits: wants about {c.needs_gb:g} GB, you have {usable:g} GB to play with."
@@ -290,7 +290,7 @@ def recommend(work_kind: str = "code", cap: Capacity | None = None, already: lis
     preferred = "code" if work_kind == "code" else "general"
 
     def rank(e: dict) -> tuple:
-        # matching purpose first, then the largest that still fits — bigger is
+        # matching purpose first, then the largest that still fits: bigger is
         # better locally right up to the memory line, and worthless past it
         return (0 if preferred in e["kinds"] else 1, -e["needs_gb"])
 
@@ -330,7 +330,7 @@ def install_plan() -> dict:
         "needs_root": False,
         "steps": [
             f"Download the official Ollama build for {arch}" + (f" from {url}" if url else ""),
-            f"Unpack it into {INSTALL_ROOT} (your own folder — no admin rights needed)",
+            f"Unpack it into {INSTALL_ROOT} (your own folder: no admin rights needed)",
             "Start the model server in the background",
         ]
         if url
@@ -390,7 +390,7 @@ def serve() -> dict:
         raise LocalModelError("Ollama is not installed yet")
     if server_running():
         return {"started": False, "reason": "already running"}
-    # Detached: it must outlive this request. Output goes nowhere on purpose —
+    # Detached: it must outlive this request. Output goes nowhere on purpose:
     # the server is chatty and its log is not this app's to own.
     subprocess.Popen(
         [exe, "serve"],
@@ -419,7 +419,7 @@ def pull(tag: str, confirm: bool = False) -> dict:
     if not _TAG_RE.match(tag or ""):
         raise LocalModelError(f"not a valid model name: {tag!r}")
     if tag not in {c.tag for c in CATALOGUE}:
-        raise LocalModelError(f"{tag} is not in the recommended catalogue — pull it with the ollama CLI if you want it")
+        raise LocalModelError(f"{tag} is not in the recommended catalogue: pull it with the ollama CLI if you want it")
     if not confirm:
         entry = next(c for c in CATALOGUE if c.tag == tag)
         return {
@@ -462,7 +462,7 @@ def _next_step(st: dict, recs: dict) -> dict:
         return {
             "action": "install",
             "headline": "Set up local models",
-            "detail": "Nothing is installed yet. This downloads Ollama into your home folder — no admin rights, "
+            "detail": "Nothing is installed yet. This downloads Ollama into your home folder: no admin rights, "
             "and nothing leaves your machine once it is running.",
         }
     if not st["server_running"]:

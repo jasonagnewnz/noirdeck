@@ -9,7 +9,7 @@ rather than echoing whatever string happened to be in the prompt.
 This module is deliberately a set of REJECTION rules with named reasons, so a
 rejected candidate is auditable ("why did nothing get proposed?") instead of
 silently absent. Every rule here exists because the previous keyword generator
-produced a specific piece of junk that reached ~/.claude — the test suite feeds
+produced a specific piece of junk that reached ~/.claude: the test suite feeds
 those exact ten historical slugs back in and requires each to be rejected.
 """
 
@@ -47,7 +47,7 @@ _DEICTIC = re.compile(r"(^|-)(this|that|these|those|it|its|them|here|there|my|ou
 # A procedure name begins with what it DOES. This is naming hygiene applied to
 # model output, not a detector: whether the procedure exists is decided by the
 # evidence fields, never by matching words. It is the rule that rejects
-# "projects-autocontract" — two nouns lifted from a path, describing no action.
+# "projects-autocontract": two nouns lifted from a path, describing no action.
 _VERBS = frozenset(
     """add apply archive audit back backup build bump capture check clean clear close collect
     commit compare configure connect convert copy create deploy diagnose disable discover drain
@@ -109,7 +109,7 @@ def reject_reason(cand: dict, existing_slugs: set[str] | None = None) -> str | N
     if len(evidence) < MIN_EVIDENCE_CHARS:
         return f"evidence too thin to judge ({len(evidence)} chars, need {MIN_EVIDENCE_CHARS})"
     if not str(cand.get("source") or "").strip():
-        return "no source cited — a claim with no transcript behind it is not evidence"
+        return "no source cited: a claim with no transcript behind it is not evidence"
     if len(description) < MIN_DESCRIPTION_CHARS:
         return f"draft description too thin ({len(description)} chars, need {MIN_DESCRIPTION_CHARS})"
     if not re.search(r"\b(use when|when you|when the|after |before )\b", description, re.I):

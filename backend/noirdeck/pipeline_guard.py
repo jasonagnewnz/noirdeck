@@ -3,9 +3,9 @@
 design / miner). Enforces two boundaries at the HARNESS level instead of
 trusting prompt guardrails:
 
-1. CODE-READY — a pipeline session cannot push, publish, deploy, or reach into
+1. CODE-READY: a pipeline session cannot push, publish, deploy, or reach into
    remote infrastructure even if its prompt goes sideways.
-2. KNOWLEDGE IS READ-ONLY — a pipeline session cannot modify the operator's AI
+2. KNOWLEDGE IS READ-ONLY: a pipeline session cannot modify the operator's AI
    workspace (~/.claude): CLAUDE.md, memory files, skills, agents, rules,
    settings, commands. It may READ all of it. The only way anything is written
    there is a human clicking Approve on a noirdeck proposal.
@@ -17,7 +17,7 @@ rewrite the instructions the whole estate obeys with nothing in the way.
 
 Contract (Claude Code hooks): JSON on stdin {tool_name, tool_input}; exit 0
 allows the call, exit 2 blocks it and feeds stderr back to the model.
-Fail-closed: if input cannot be parsed, the call is denied LOUDLY — a silently
+Fail-closed: if input cannot be parsed, the call is denied LOUDLY: a silently
 inert guard is worse than a broken pipeline."""
 
 import json
@@ -29,8 +29,8 @@ from pathlib import Path
 # --- boundary 1: outward-mutating Bash -------------------------------------
 # each entry: (pattern, reason shown to the model)
 DENY = [
-    (r"\bgit\b[^|;&]*\bpush\b", "git push — pipelines stop at code-ready; the operator pushes"),
-    (r"\bgh\s+(pr|release|repo)\s+(create|merge|edit|delete)", "gh publishing — outward actions are the operator's"),
+    (r"\bgit\b[^|;&]*\bpush\b", "git push: pipelines stop at code-ready; the operator pushes"),
+    (r"\bgh\s+(pr|release|repo)\s+(create|merge|edit|delete)", "gh publishing: outward actions are the operator's"),
     (r"\bnpm\s+publish\b|\byarn\s+publish\b|\bpnpm\s+publish\b", "package publish"),
     (r"\btwine\s+upload\b|\bpython[0-9.]*\s+-m\s+twine\b", "PyPI upload"),
     (r"\bdocker\s+push\b|\bpodman\s+push\b", "container registry push"),
@@ -116,10 +116,10 @@ def _is_protected(raw: str) -> Path | None:
 def _looks_like_a_protected_path(expanded: str) -> bool:
     """Cheap prefilter deciding which tokens are worth resolving.
 
-    ⛔ This MUST be derived from the actual protected roots, not from the literal
+    This MUST be derived from the actual protected roots, not from the literal
     string ".claude". An earlier version hardcoded that substring, so when
-    CLAUDE_CONFIG_DIR pointed the workspace somewhere else — a relocated config
-    dir, which the guard otherwise honours — every Bash write into it was skipped
+    CLAUDE_CONFIG_DIR pointed the workspace somewhere else: a relocated config
+    dir, which the guard otherwise honours: every Bash write into it was skipped
     before it was ever checked. A prefilter that does not know what it is
     protecting is a hole with a fast path.
 
@@ -172,17 +172,17 @@ def main() -> int:
         if not isinstance(tool_input, dict):
             tool_input = {}
     except Exception:
-        print("pipeline-guard: could not parse hook input — denying (fail-closed)", file=sys.stderr)
+        print("pipeline-guard: could not parse hook input: denying (fail-closed)", file=sys.stderr)
         return 2
 
-    # boundary 2 — file-writing tools may not touch the knowledge tree
+    # boundary 2: file-writing tools may not touch the knowledge tree
     if tool in WRITE_TOOLS:
         for key in PATH_KEYS:
             hit = _is_protected(tool_input.get(key, ""))
             if hit:
                 return _deny(
                     f"{tool} targets the operator's AI workspace ({hit}). Pipeline sessions "
-                    "read that tree and never modify it — memory, skills, CLAUDE.md, agents "
+                    "read that tree and never modify it: memory, skills, CLAUDE.md, agents "
                     "and settings change only when a human approves a noirdeck proposal. "
                     "Report what you would have changed instead."
                 )
@@ -195,7 +195,7 @@ def main() -> int:
     if not command:
         return 0
 
-    # boundary 2 — same tree, reached through the shell
+    # boundary 2: same tree, reached through the shell
     hit = _bash_protected_hit(command)
     if hit:
         return _deny(
@@ -204,12 +204,12 @@ def main() -> int:
             "changed instead."
         )
 
-    # boundary 1 — outward-mutating commands
+    # boundary 1: outward-mutating commands
     for pat, reason in _COMPILED:
         if pat.search(command):
             return _deny(
                 f"{reason}. This session is a noirdeck pipeline and stops at "
-                "code-ready — commit locally and report instead."
+                "code-ready: commit locally and report instead."
             )
     return 0
 

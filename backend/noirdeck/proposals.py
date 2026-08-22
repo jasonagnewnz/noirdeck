@@ -1,9 +1,9 @@
 """Propose → approve → execute. Approval is the ONLY path that writes into ~/.claude.
 Targets are allowlisted, traversal-checked, CREATE-ONLY, and audited.
 
-⛔ CREATE-ONLY is the operator's standing rule (2026-08-19): noirdeck may READ the
+CREATE-ONLY is the operator's standing rule (2026-08-19): noirdeck may READ the
 knowledge tree and ADD its own files to it, and may never modify a file it did not
-create — not autonomously, and not with approval either. There is deliberately no
+create: not autonomously, and not with approval either. There is deliberately no
 overwrite escape hatch on approve(): a proposal whose target already exists is
 refused outright. The reason is that an approval is a click, and a click is a poor
 record of intent when what it silently replaced was a governance file that every
@@ -88,7 +88,7 @@ def approve(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int) -> dic
 def revert(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int, overwrite: bool = False) -> dict:
     """Undo an applied proposal: restore the pre-apply snapshot, or remove the
     file if the approval created it. Refuses when the file has drifted from what
-    the approval wrote (someone edited it since) unless overwrite is explicit —
+    the approval wrote (someone edited it since) unless overwrite is explicit:
     a revert must never silently destroy work it didn't do."""
     row = conn.execute("SELECT * FROM proposals WHERE id=?", (proposal_id,)).fetchone()
     if not row:
@@ -100,7 +100,7 @@ def revert(conn: sqlite3.Connection, claude_dir: Path, proposal_id: int, overwri
     if not row["target_path"]:
         raise ProposalError(f"proposal {proposal_id} wrote no file, nothing to revert")
     if row["prior_existed"] is None:
-        raise ProposalError(f"proposal {proposal_id} predates undo support — no pre-apply snapshot exists")
+        raise ProposalError(f"proposal {proposal_id} predates undo support: no pre-apply snapshot exists")
 
     target = _resolve_target(claude_dir, row["target_path"])
     if target.exists() and target.read_text() != row["body"] and not overwrite:

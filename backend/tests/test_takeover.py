@@ -85,7 +85,7 @@ def test_execute_reports_the_child_pid_and_still_parses_output(tmp_path):
 
 def test_execute_runs_the_child_in_its_own_process_group(tmp_path):
     """Grandchildren must die with the task. Signalling only the direct child
-    leaves them holding the stdout pipe open — a real hang already hit in builds."""
+    leaves them holding the stdout pipe open: a real hang already hit in builds."""
     pids = []
     argv = [sys.executable, "-c", "import os;print(os.getpid(), os.getpgid(0))"]
     ok, text, *_ = overnight._execute(argv, tmp_path, on_start=pids.append)

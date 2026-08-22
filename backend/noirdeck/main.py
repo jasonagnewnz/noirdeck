@@ -29,6 +29,9 @@ from . import (
     secrets_scan,
     vault,
 )
+from . import (
+    share as share_mod,
+)
 from .builds import BuildRunner
 from .config import Settings, primary_namespace
 from .db import audit, connect, init_db, utcnow
@@ -58,7 +61,7 @@ app = FastAPI(title="noirdeck", version=VERSION)
 # ── browser-boundary hardening ────────────────────────────────────────────────
 # Loopback binding alone does not stop the user's own BROWSER being used against
 # the API: DNS rebinding defeats "it's only on 127.0.0.1" (attacker domain resolves
-# to 127.0.0.1 → same-origin), and WebSockets have no same-origin policy at all —
+# to 127.0.0.1 → same-origin), and WebSockets have no same-origin policy at all:
 # and this app exposes a shell-equivalent WS. Host allowlist kills rebinding;
 # Origin allowlist kills cross-origin WS/CSRF. A per-session token adds nothing
 # against a non-browser local attacker (same user, already has a shell).
@@ -74,7 +77,7 @@ def _hostname_ok(value: str | None) -> bool:
 
 def _origin_ok(origin: str | None) -> bool:
     if not origin:
-        return True  # non-browser client (curl, tests) — host check still applies
+        return True  # non-browser client (curl, tests): host check still applies
     from urllib.parse import urlparse
 
     return urlparse(origin).hostname in _ALLOWED_HOSTS
@@ -101,7 +104,7 @@ def _prewarm():
     try:
         list_memories(settings.claude_dir)
         fleet(settings.projects_dir)
-    except Exception:  # noqa: BLE001 — warming must never block or kill startup
+    except Exception:  # noqa: BLE001 - warming must never block or kill startup
         pass
 
 
@@ -110,7 +113,7 @@ import threading  # noqa: E402
 threading.Thread(target=_prewarm, daemon=True).start()
 
 # Recurring jobs. Off in a checkout (systemd timers own them there), on when
-# installed — see scheduler.enabled(). Every job is still fail-closed behind
+# installed: see scheduler.enabled(). Every job is still fail-closed behind
 # its own arming contract, so an enabled scheduler grants no new authority.
 _scheduler = scheduler.Scheduler(settings)
 if scheduler.enabled():
@@ -121,10 +124,10 @@ if scheduler.enabled():
 def scheduler_status():
     """Will unattended work actually run? Both halves of the answer, in one place.
 
-    ⛔ This used to report only whether the scheduler process was alive, while the
+    This used to report only whether the scheduler process was alive, while the
     arming contracts lived on a different screen. Each half is useless alone: a
     running scheduler with no contract runs nothing, and a live contract with no
-    scheduler runs nothing — and both look identical to "it was a quiet night".
+    scheduler runs nothing: and both look identical to "it was a quiet night".
     Answering half a question in two places is how a user concludes the product is
     broken when it is merely off.
     """
@@ -222,7 +225,7 @@ def memories():
 
 
 def _improve_assets() -> dict:
-    """Addable estate targets for the UI dropdowns — every path offered here
+    """Addable estate targets for the UI dropdowns: every path offered here
     already satisfies the proposals write allowlist (skills + the primary
     memory namespace), so 'addable' and 'approvable' can never disagree."""
     ns = primary_namespace()
@@ -247,7 +250,7 @@ class ImproveRepoBody(BaseModel):
 
 @app.get("/api/improve")
 def improve_status():
-    # one tags fetch serves both fields — two sequential calls stalled the
+    # one tags fetch serves both fields: two sequential calls stalled the
     # panel ~10s when ollama was down (each timing out separately)
     avail = improve.available_models()
     conn = db()
@@ -280,11 +283,11 @@ def improve_map(body: ImproveRepoBody):
     if model is not None:
         avail = improve.available_models()
         if not avail:
-            # can't validate against a dead ollama — refuse honestly rather
+            # can't validate against a dead ollama: refuse honestly rather
             # than claiming the model isn't pulled
-            raise HTTPException(503, "Ollama is unreachable — cannot validate the model")
+            raise HTTPException(503, "Ollama is unreachable: cannot validate the model")
         if model not in avail:
-            # only locally-pulled Ollama tags are assignable — never a free-form
+            # only locally-pulled Ollama tags are assignable: never a free-form
             # string that would reach the generate call, never a cloud model
             raise HTTPException(400, f"model {model!r} is not pulled locally")
     conn = db()
@@ -330,12 +333,12 @@ def improve_target_add(body: ImproveTargetBody):
     if model is not None:
         avail = improve.available_models()
         if not avail:
-            raise HTTPException(503, "Ollama is unreachable — cannot validate the model")
+            raise HTTPException(503, "Ollama is unreachable: cannot validate the model")
         if model not in avail:
             raise HTTPException(400, f"model {model!r} is not pulled locally")
     conn = db()
     try:
-        # added DISARMED — arming is a separate, deliberate act
+        # added DISARMED: arming is a separate, deliberate act
         conn.execute(
             "INSERT INTO improve_targets (kind, target_path, model, created_at) "
             "VALUES (?,?,?,?) ON CONFLICT(target_path) DO UPDATE SET model=excluded.model",
@@ -524,13 +527,13 @@ def commits_route():
 
 def build_kickoff(project: str, repo, state: dict, sess: list[dict]) -> str:
     return (
-        f"/operate — orient from the {project} project memory index first. "
+        f"/operate: orient from the {project} project memory index first. "
         f"Branch '{state['branch']}'"
         + (f" has {state['dirty_files']} uncommitted file(s)" if state["dirty_files"] else "")
         + (f" and {state['unpushed_commits']} unpushed commit(s)" if state["unpushed_commits"] else "")
         + ". "
         + (
-            f'Last session ended unfinished: "{sess[0]["last_assistant"][-200:]}" — pick that up first.'
+            f'Last session ended unfinished: "{sess[0]["last_assistant"][-200:]}": pick that up first.'
             if sess and sess[0]["open_loop"]
             else "No open loop detected in the last session."
         )
@@ -569,7 +572,7 @@ def briefing(project: str):
 
 class SecretScanBody(BaseModel):
     # Transcripts are tens of thousands of files, so they are opt-in per run
-    # rather than silently skipped — "did not look" must not read as "clean".
+    # rather than silently skipped: "did not look" must not read as "clean".
     include_transcripts: bool = False
 
 
@@ -615,8 +618,8 @@ def secrets_ack_route(fid: int, body: SecretDecisionBody):
 
 
 class SecretSweepBody(BaseModel):
-    # ⛔ EXPLICIT ids, always. The estate rule is that irreversible actions are selected
-    # by id and never by a filter, a time window or a LIMIT — so there is deliberately
+    # EXPLICIT ids, always. The estate rule is that irreversible actions are selected
+    # by id and never by a filter, a time window or a LIMIT: so there is deliberately
     # no "sweep everything" shape here, and the plan endpoint is what produces the list.
     ids: list[int]
     confirm: bool = False
@@ -825,12 +828,12 @@ def queue_list():
 def queue_add(body: TaskBody):
     """Queue a task for unattended work.
 
-    ⛔ Pressing this used to accept the task and then never run it, because the
+    Pressing this used to accept the task and then never run it, because the
     runner needs an arming contract and creating one was a separate screen with
     three numbers to invent. "Run later" that does not run later is worse than a
     refusal. Queuing IS the intent, so it arms with a default budget when nothing
-    is armed. The contract is unchanged in kind — expiring, task- and token-capped,
-    re-checked before every task — and the response says what was armed, so the
+    is armed. The contract is unchanged in kind: expiring, task- and token-capped,
+    re-checked before every task: and the response says what was armed, so the
     operator can see and revoke it.
     """
     require_license("overnight")
@@ -940,7 +943,7 @@ def queue_takeover(tid: int):
     done and not failed.
 
     Why adopt-and-resume rather than attaching to the live process: an autonomous
-    task runs `claude -p`, which has no input loop — there is nothing to type into.
+    task runs `claude -p`, which has no input loop: there is nothing to type into.
     Handing it over therefore means ending the headless run and resuming its
     transcript interactively. The cost is a brief gap and the loss of any turn in
     flight; the gain is that the work so far, and its conversation, carry over.
@@ -952,7 +955,7 @@ def queue_takeover(tid: int):
             raise HTTPException(404, f"no task {tid}")
         if row["status"] != "running":
             raise HTTPException(
-                409, f"task {tid} is {row['status']}, not running — only a running task can be taken over"
+                409, f"task {tid} is {row['status']}, not running: only a running task can be taken over"
             )
 
         project_dir = Path(row["project"]).expanduser()
@@ -997,7 +1000,7 @@ def queue_takeover(tid: int):
             "note": (
                 "Resuming the task's own conversation."
                 if sid
-                else "No transcript was found for this task, so this is a fresh session in the same repo — "
+                else "No transcript was found for this task, so this is a fresh session in the same repo: "
                 "the task's context did not carry over."
             ),
         }
@@ -1150,7 +1153,7 @@ async def workspace_list():
     return workspace.listing()
 
 
-# async so TermSession.start() runs ON the event loop — add_reader needs it;
+# async so TermSession.start() runs ON the event loop: add_reader needs it;
 # a sync endpoint lands in the threadpool where get_running_loop() raises
 @app.post("/api/workspace")
 async def workspace_start(body: WorkspaceStart):
@@ -1258,6 +1261,46 @@ async def workspace_takeover(sid: str, body: WorkspaceTakeoverBody):
     }
 
 
+class ShareBody(BaseModel):
+    note: str = ""
+
+
+@app.post("/api/workspace/{sid}/share")
+def workspace_share(sid: str, body: ShareBody):
+    """Export what happened, redacted: not a live invite.
+
+    Stage 0 of session sharing: no socket is opened, nothing binds beyond loopback and
+    no second identity exists, so the auth layer docs/SECURITY.md requires before any
+    exposure is not bypassed. The response includes what redaction removed AND what a
+    re-scan still found, because the operator is about to send this to a person.
+    """
+    try:
+        term = workspace.get(sid)
+    except WorkspaceError as e:
+        raise HTTPException(404, str(e))
+    out = share_mod.build_export(
+        scrollback=term.transcript_tail(max_chars=share_mod.MAX_CHARS),
+        project=term.project,
+        runner=term.runner,
+        model=term.model,
+        note=body.note,
+    )
+    conn = db()
+    try:
+        # Audited: exporting a transcript is a disclosure event, and "who shared what,
+        # when" is a question that only has an answer if it was recorded at the time.
+        audit(
+            conn,
+            "operator",
+            "session_shared",
+            f"session={sid} project={term.project} chars={out['chars']} "
+            f"secrets_removed={out['secrets_removed']} residual={out['residual_findings']}",
+        )
+    finally:
+        conn.close()
+    return out
+
+
 class PauseBody(BaseModel):
     label: str | None = None
 
@@ -1281,7 +1324,7 @@ async def workspace_paused_list():
 async def workspace_discard_paused(pid: int):
     """Drop a paused session without resuming it.
 
-    Discarding removes it from the list but does NOT kill anything — the process
+    Discarding removes it from the list but does NOT kill anything: the process
     died at pause time. What is lost is the ability to resume that transcript,
     which is why it is an explicit act by id rather than a bulk clear.
     """
@@ -1386,7 +1429,7 @@ def workspace_repo(body: RepoBody):
 
 @app.websocket("/api/workspace/ws/{sid}")
 async def workspace_ws(ws: WebSocket, sid: str):
-    # WebSockets bypass same-origin policy — enforce the same boundary by hand
+    # WebSockets bypass same-origin policy: enforce the same boundary by hand
     if not _hostname_ok(ws.headers.get("host")) or not _origin_ok(ws.headers.get("origin")):
         await ws.close(code=4403)
         return
@@ -1460,7 +1503,7 @@ def builds_list():
 def builds_start(body: BuildStart):
     if len(body.prompt.strip()) < 40:
         raise HTTPException(
-            400, "give the FULL brief — a build prompt under 40 chars will not produce production-quality software"
+            400, "give the FULL brief: a build prompt under 40 chars will not produce production-quality software"
         )
     try:
         build_id = builds_runner.start(body.name.strip(), body.prompt)
@@ -1582,7 +1625,7 @@ def ask_get(job_id: str):
 
 # --- licensing: who may use the model-backed features ---
 # The console itself is never gated. Someone who installed noirdeck can always
-# look around and reach the screen where a key is entered — gating the front
+# look around and reach the screen where a key is entered: gating the front
 # door would mean a licence problem hides its own fix.
 
 
@@ -1603,7 +1646,7 @@ def license_save(body: LicenseBody):
         raise HTTPException(400, str(e))
     conn = db()
     try:
-        # The key itself is never logged — only that one was accepted, for whom.
+        # The key itself is never logged: only that one was accepted, for whom.
         audit(conn, "operator", "license_saved", f"email={lic.email} plan={lic.plan} exp={lic.expires_at.date()}")
     finally:
         conn.close()
@@ -1646,7 +1689,7 @@ def consult_submit(body: ConsultBody):
         raise HTTPException(400, str(e))
     conn = db()
     try:
-        # Log that a consultation happened and how much was scrubbed — never the
+        # Log that a consultation happened and how much was scrubbed: never the
         # context itself, which is exactly the secret-bearing text in question.
         audit(
             conn,
@@ -1802,7 +1845,7 @@ def design_list():
 @app.post("/api/design")
 def design_start(body: DesignStart):
     if len(body.brief.strip()) < 10:
-        raise HTTPException(400, "describe the surface — a few words minimum")
+        raise HTTPException(400, "describe the surface: a few words minimum")
     try:
         rid = studio.propose(body.project, body.brief.strip(), body.library)
     except (ValueError, WorkspaceError) as e:
@@ -1884,7 +1927,7 @@ async def events():
 
         async def watcher():
             # Dangling symlinks (several live in skills/ + agents/) are re-reported as
-            # "changed" on EVERY poll cycle — filter to paths that exist, and rate-limit,
+            # "changed" on EVERY poll cycle: filter to paths that exist, and rate-limit,
             # or the SPA is driven into a permanent refetch loop.
             last_emit = 0.0
             async for changes in awatch(*watch_paths):

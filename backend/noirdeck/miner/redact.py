@@ -1,6 +1,6 @@
 """Secret-shape redaction. Applied to ALL transcript text before it reaches an LLM
 prompt. Matches by VALUE shape, not filename (estate rule: filename scans miss
-hardcoded secrets). Raw matches are never logged — only counts."""
+hardcoded secrets). Raw matches are never logged: only counts."""
 
 from __future__ import annotations
 
@@ -23,8 +23,8 @@ PATTERNS: list[tuple[str, re.Pattern]] = [
     ("stripe_key", re.compile(r"\bsk_(live|test)_[A-Za-z0-9]{16,}\b")),
     (
         "kv_secret",
-        # ⛔ The keyword is NOT anchored with \b. `_` is a word character, so
-        # \bpassword\b cannot match the PASSWORD inside DB_PASSWORD — which meant
+        # The keyword is NOT anchored with \b. `_` is a word character, so
+        # \bpassword\b cannot match the PASSWORD inside DB_PASSWORD: which meant
         # SCREAMING_SNAKE_CASE=value, the commonest shape a secret takes in
         # terminal output and .env files, went through completely unredacted
         # (PASSWORD= was caught, DB_PASSWORD= was not). The surrounding

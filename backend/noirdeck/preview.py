@@ -1,9 +1,9 @@
-"""Try-it preview — serve a build's static web output read-only so the operator
+"""Try-it preview: serve a build's static web output read-only so the operator
 can USE the thing, not just read that it exists.
 
 Same trust boundary as the file APIs: the project must be a single path segment
 naming a direct child of the projects dir (~ is itself a git repo, so any
-multi-segment or dot form could escape — 4th instance of that class), and every
+multi-segment or dot form could escape: 4th instance of that class), and every
 served file must resolve inside the discovered preview root. The frontend
 embeds this in a sandboxed iframe (no same-origin), so previewed code can't
 reach the noirdeck API with page authority."""

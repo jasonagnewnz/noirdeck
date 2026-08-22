@@ -1,6 +1,6 @@
 // The hash router is hand-rolled (no library): the part of the hash before the
-// colon names the view, unknown hashes fall back to overview, and hashchange —
-// not component state — is the source of truth for back/forward.
+// colon names the view, unknown hashes fall back to overview, and hashchange:
+// not component state: is the source of truth for back/forward.
 import { act, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App.jsx'
@@ -51,7 +51,7 @@ describe('hash routing', () => {
 })
 
 // The rail was trimmed to the daily loop. The risk in hiding a view is hiding
-// it *away* — these pin that the moved views are still fully reachable.
+// it *away*: these pin that the moved views are still fully reachable.
 describe('primary rail vs settings', () => {
   // exact match, not a prefix regex
   const railButton = (name) => screen.queryByRole('button', { name })
@@ -93,8 +93,8 @@ describe('primary rail vs settings', () => {
   })
 })
 
-// ⛔ THE INVARIANT THAT WAS MISSING. Six of twelve nav items used to call the same
-// thing two different names — click "Knowledge", land on "Memories"; click "Tasks",
+//THE INVARIANT THAT WAS MISSING. Six of twelve nav items used to call the same
+// thing two different names: click "Knowledge", land on "Memories"; click "Tasks",
 // land on "Run later". Nothing caught it because each half was individually
 // correct. Pin the RELATIONSHIP, not the strings: whatever the rail says, the page
 // it opens must say the same word.
@@ -114,7 +114,7 @@ describe('one word per concept', () => {
 })
 
 // Deleting from the rail must not delete the destination. The Guide left the daily
-// loop because a manual in primary navigation is the UI admitting it needs one —
+// loop because a manual in primary navigation is the UI admitting it needs one:
 // but it is still a first-class view and must stay reachable by hash, or "demoted"
 // silently became "removed".
 describe('demoted, not deleted', () => {

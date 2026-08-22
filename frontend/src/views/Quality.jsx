@@ -17,13 +17,13 @@ export default function Quality({ bump }) {
     } catch (e) {
       setBrief({ error: e.message, project })
     }
-    // the briefing panel renders above the board — bring it into view
+    // the briefing panel renders above the board: bring it into view
     requestAnimationFrame(() => {
       document.getElementById('qa-briefing')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
-  // never blank the whole view while the fleet sweep runs — the heading and
+  // never blank the whole view while the fleet sweep runs: the heading and
   // improver must render immediately; only the board table waits on /qa
   return (
     <>
@@ -36,7 +36,7 @@ export default function Quality({ bump }) {
       {brief && (
         <div className="panel" id="qa-briefing">
           <h2>
-            Briefing — <b>{brief.project}</b>
+            Briefing: <b>{brief.project}</b>
           </h2>
           <p className="sechint">
             A start-here card for picking this repo up: git state, recent sessions and follow-ons.
@@ -61,7 +61,7 @@ export default function Quality({ bump }) {
                     <div key={i}>
                       <span className="chip hot">{f.kind}</span>{' '}
                       <span className="dim">
-                        {f.detail} — {f.subject}
+                        {f.detail}: {f.subject}
                       </span>
                     </div>
                   ))}
@@ -116,7 +116,7 @@ export default function Quality({ bump }) {
                   const gaps = p.gates.filter((g) => g.verdict === 'GAP')
                   return (
                     <React.Fragment key={p.path}>
-                      {/* tabIndex+onKeyDown, not role="button" — this stays a real table row so
+                      {/* tabIndex+onKeyDown, not role="button": this stays a real table row so
                       screen readers keep the row/cell structure; Enter/Space still toggle it */}
                       <tr
                         className="row-open"

@@ -14,7 +14,7 @@ def list_skills(claude_dir: Path) -> list[dict]:
         return out
     for entry in sorted(skills_dir.iterdir()):
         skill_md = entry / "SKILL.md"
-        # is_dir/is_file are False for dangling symlinks, but stat can still race — guard it
+        # is_dir/is_file are False for dangling symlinks, but stat can still race: guard it
         if not (entry.is_dir() and skill_md.is_file()):
             continue
         fm, _ = parse_frontmatter(skill_md)

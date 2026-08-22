@@ -45,7 +45,7 @@ def test_path_escapes_rejected(projects):
 
 
 def test_project_segment_cannot_escape(projects, tmp_path):
-    # tmp_path's parent isn't a git repo, so make the escape target one —
+    # tmp_path's parent isn't a git repo, so make the escape target one:
     # mirrors the real box where ~ itself is a git repo.
     subprocess.run(["git", "-C", str(tmp_path), "init", "-q"], check=True)
     (tmp_path / "loot.txt").write_text("secret")

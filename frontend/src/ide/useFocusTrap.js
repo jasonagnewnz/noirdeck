@@ -10,7 +10,7 @@ const FOCUSABLE =
 // whatever had it before the dialog opened once it closes.
 //
 // `containerRef` must point at the dialog panel (not the backdrop). Mark the
-// element that should receive initial focus with `data-autofocus` — falls
+// element that should receive initial focus with `data-autofocus`: falls
 // back to the first focusable element, then the container itself.
 export function useFocusTrap(containerRef, open) {
   const restoreRef = useRef(null)

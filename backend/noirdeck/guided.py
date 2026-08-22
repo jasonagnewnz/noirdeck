@@ -1,4 +1,4 @@
-"""Guided Build — the professional-in-the-loop inversion for non-technical
+"""Guided Build: the professional-in-the-loop inversion for non-technical
 operators. The tool asks the professional questions (intake), compiles them
 into a build brief, parks the pipeline after planning for plain-English
 approval, and ends with acceptance criteria + a deterministic evidence pack.
@@ -37,9 +37,9 @@ INTAKE_QUESTIONS = [
         "type": "choice",
         "required": True,
         "options": [
-            ["none", "No — anyone can use it"],
+            ["none", "No: anyone can use it"],
             ["simple", "A single shared password is enough"],
-            ["accounts", "Yes — individual accounts"],
+            ["accounts", "Yes: individual accounts"],
         ],
     },
     {
@@ -73,9 +73,9 @@ INTAKE_QUESTIONS = [
         "type": "choice",
         "required": True,
         "options": [
-            ["prototype", "Rough is fine — I want to try the idea"],
-            ["solid", "Solid — I'll use it for real"],
-            ["production", "Polished — other people will rely on it"],
+            ["prototype", "Rough is fine: I want to try the idea"],
+            ["solid", "Solid: I'll use it for real"],
+            ["production", "Polished: other people will rely on it"],
         ],
     },
     {
@@ -190,7 +190,7 @@ RECIPES = [
             "purpose": "A private dashboard that reads a spreadsheet (CSV) I upload and shows my key numbers and simple charts on one page",
             "users": "just me, maybe one business partner",
             "auth": "simple",
-            "data": "the uploaded spreadsheet contents — business figures, possibly sensitive",
+            "data": "the uploaded spreadsheet contents: business figures, possibly sensitive",
             "never": "never be reachable without the password",
             "success": [
                 "I can upload my spreadsheet and see the numbers",
@@ -237,7 +237,7 @@ def compose_brief(answers: dict) -> str:
     """Compile plain-English answers into a professional build brief."""
     success = [s.strip() for s in (answers.get("success") or []) if str(s).strip()]
     lines = [
-        "BUILD BRIEF (compiled from a guided intake interview — the operator is "
+        "BUILD BRIEF (compiled from a guided intake interview: the operator is "
         "non-technical; every later report about this build must be plain English).",
         "",
         f"PURPOSE: {answers['purpose'].strip()}",
@@ -246,7 +246,7 @@ def compose_brief(answers: dict) -> str:
         f"DATA IT KEEPS: {answers['data'].strip()}",
     ]
     if (answers.get("never") or "").strip():
-        lines.append(f"HARD RULES — the software must NEVER: {answers['never'].strip()}")
+        lines.append(f"HARD RULES: the software must NEVER: {answers['never'].strip()}")
     lines += [
         f"QUALITY BAR: {_POLISH[answers['polish']]}",
         "",
@@ -257,7 +257,7 @@ def compose_brief(answers: dict) -> str:
         lines.append(f"\nOPERATOR NOTES: {answers['extra'].strip()}")
     lines.append(
         "\nIn the PLAN phase, MASTER_PLAN.md must open with a section titled "
-        "'## The plan in plain English' — 8-15 short lines a non-technical reader "
+        "'## The plan in plain English': 8-15 short lines a non-technical reader "
         "can approve: what will exist, what it will look like, what is out of "
         "scope, and any assumption you made about an unanswered question."
     )
@@ -293,7 +293,7 @@ def read_plain_plan(repo: Path) -> str:
 
 def evidence_pack(repo: Path, log: list[dict]) -> dict:
     """Deterministic proof-of-work: commits, change size, per-phase account,
-    final gate state. No LLM involvement — this is the part the operator can trust
+    final gate state. No LLM involvement: this is the part the operator can trust
     precisely because no model wrote it."""
 
     def _git(*args: str) -> str:

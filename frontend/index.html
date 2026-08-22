@@ -1,11 +1,51 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-kit="carbon" data-theme-mode="dark" data-density="comfortable" data-scale="normal">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
     <meta name="description" content="noirdeck.dev is a local intent console for AI coding workspaces." />
     <title>noirdeck.dev</title>
+    <!--
+      Appearance is applied here, before anything else is fetched, because the
+      alternative is a visible flash. The stylesheet holds every palette under
+      [data-kit] / [data-theme-mode] selectors, so all this has to do is read the
+      four stored dials and stamp four attributes; it carries no colour and no
+      arithmetic, and cannot drift from ide/appearance.js as a result.
+
+      Attribute defaults are on <html> above, so a browser that refuses storage
+      or runs with scripting off still gets a complete, correct appearance.
+    -->
+    <script>
+      (function () {
+        var dials = { kit: 'nd.kit', mode: 'nd.mode', density: 'nd.density', scale: 'nd.scale' }
+        var allowed = {
+          kit: ['carbon', 'fluent', 'claude'],
+          mode: ['system', 'dark', 'light'],
+          density: ['comfortable', 'compact'],
+          scale: ['small', 'normal', 'large'],
+        }
+        var root = document.documentElement
+        var chosen = {}
+        for (var dial in dials) {
+          var value = null
+          try {
+            value = localStorage.getItem(dials[dial])
+          } catch (e) {
+            // Private browsing throws on access. The markup defaults stand.
+          }
+          chosen[dial] = allowed[dial].indexOf(value) === -1 ? root.getAttribute('data-' + dial) : value
+        }
+        var mode = chosen.mode
+        if (mode === 'system') {
+          mode = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        }
+        root.setAttribute('data-kit', chosen.kit)
+        root.setAttribute('data-theme-mode', mode)
+        root.setAttribute('data-density', chosen.density)
+        root.setAttribute('data-scale', chosen.scale)
+        root.style.colorScheme = mode
+      })()
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>

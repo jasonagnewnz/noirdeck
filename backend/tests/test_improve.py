@@ -211,7 +211,7 @@ def test_decision_learning_weights_prefer_merged_kinds():
 
 def test_safe_repo_rejects_traversal(env, tmp_path):
     s, _, _ = env
-    # make the escape target itself a git repo — mirrors ~ being a repo
+    # make the escape target itself a git repo: mirrors ~ being a repo
     subprocess.run(["git", "-C", str(tmp_path), "init", "-q"], check=True)
     for bad in ("..", ".", "", "../x", "a/b", "..\\x"):
         assert improve.safe_repo(s, bad) is None
@@ -225,7 +225,7 @@ def test_safe_asset_respects_write_allowlist(env):
     s, _, _ = env
     assert improve.safe_asset(s.claude_dir, "skills/deploy-wazuh/SKILL.md") is not None
     assert improve.safe_asset(s.claude_dir, "projects/-home-user/memory/misc_note.md") is not None
-    # agents are OUTSIDE the proposals allowlist — never addable
+    # agents are OUTSIDE the proposals allowlist: never addable
     assert improve.safe_asset(s.claude_dir, "agents/backup-operator.md") is None
     assert improve.safe_asset(s.claude_dir, "../outside.md") is None
     assert improve.safe_asset(s.claude_dir, "skills/../agents/backup-operator.md") is None
@@ -238,7 +238,7 @@ def test_asset_guards():
     assert "links" in improve._asset_ok("memory", orig, orig.replace("[[other-note]]", "other note"))
     big = orig + "z" * (len(orig) + 300)
     assert "grew" in improve._asset_ok("memory", orig, big)
-    # skills are allowed to grow (refining a draft adds structure) — same
+    # skills are allowed to grow (refining a draft adds structure): same
     # addition that fails a memory tidy passes for a skill under its cap
     assert improve._asset_ok("skill", orig, orig + "z" * 100) is None
 

@@ -2,12 +2,13 @@ import { useRef, useState } from 'react'
 import { CLAUDE_TABS } from './claudeRef.js'
 import { useFocusTrap } from './useFocusTrap.js'
 
-// Quick-keys menu — "?" opens it. App tab = noirdeck's own keys;
+// Quick-keys menu: "?" opens it. App tab = noirdeck's own keys;
 // the other tabs are the full Claude Code reference (session keys, slash
 // commands, CLI). Rows copy their key/command to the clipboard.
 const GLOBAL_KEYS = [
-  ['Ctrl+K', 'command palette — skills, shortcuts, tips'],
+  ['Ctrl+K', 'command palette: skills, shortcuts, tips'],
   ['Ctrl+B', 'expand / collapse the sidebar'],
+  ['Ctrl+`', 'show / hide the terminal panel'],
   ['1 – 0', 'jump between views'],
   ['?', 'this menu'],
   ['Esc', 'close overlays'],
@@ -167,7 +168,7 @@ export default function KeysOverlay({ open, views, onClose, onSelect }) {
         </div>
         <div className="keys-foot">
           {tab === 'app'
-            ? 'terminal panes keep their own keys — the other tabs here are the full Claude Code reference'
+            ? 'terminal panes keep their own keys: the other tabs here are the full Claude Code reference'
             : 'click a row to copy it · CLI tab verified against the installed claude 2.1.229'}
         </div>
       </div>

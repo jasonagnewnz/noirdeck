@@ -1,13 +1,13 @@
 """First run on a machine that has never seen Claude Code.
 
-⛔⛔ THE 2026-08-19 LAUNCH BLOCKER (B4). `Settings.load()` raised when `~/.claude`
-was absent, so a brand-new install exited 1 instead of starting a product — for
+THE 2026-08-19 LAUNCH BLOCKER (B4). `Settings.load()` raised when `~/.claude`
+was absent, so a brand-new install exited 1 instead of starting a product: for
 ANY runner, while the website advertises Codex, "Ollama, fully local" and "bring
 your own CLI", none of which need a Claude directory. The error also named
 `doctor` as the remedy, and doctor can only diagnose.
 
 The rule these tests pin: a missing workspace is never fatal, and it is never
-silent either — "no skills and no memories" and "no workspace at all" must be
+silent either: "no skills and no memories" and "no workspace at all" must be
 distinguishable, or the empty console reads as an empty estate.
 """
 
@@ -40,7 +40,7 @@ def test_a_brand_new_install_starts(virgin_home):
 
 def test_an_empty_workspace_is_usable(virgin_home):
     """An empty directory is a working state, which is why absence need not be
-    fatal — proven against the real readers, not asserted."""
+    fatal: proven against the real readers, not asserted."""
     from noirdeck.readers.memories import list_memories
     from noirdeck.readers.skills import list_agents, list_skills
 
@@ -52,7 +52,7 @@ def test_an_empty_workspace_is_usable(virgin_home):
 
 def test_an_explicit_directory_is_never_fabricated(tmp_path, monkeypatch):
     """If someone names a directory and it is not there, that is probably a typo.
-    Creating it would hide their mistake — so it is reported, not invented, and
+    Creating it would hide their mistake: so it is reported, not invented, and
     still not fatal."""
     missing = tmp_path / "somewhere" / "else"
     monkeypatch.setenv("NOIRDECK_CLAUDE_DIR", str(missing))
@@ -65,7 +65,7 @@ def test_an_explicit_directory_is_never_fabricated(tmp_path, monkeypatch):
 
 
 def test_missing_is_distinguishable_from_empty(virgin_home, tmp_path, monkeypatch):
-    """⛔ The reason claude_dir_ready exists. Both states produce zero skills and
+    """The reason claude_dir_ready exists. Both states produce zero skills and
     zero memories; only this flag separates 'you have nothing yet' from 'I cannot
     see your workspace'."""
     empty = Settings.load()
@@ -85,7 +85,7 @@ def test_health_reports_readiness():
 
 
 def test_doctor_does_not_fail_on_a_virgin_home(virgin_home, capsys):
-    """doctor must warn, not FAIL — and must not tell the user to run doctor."""
+    """doctor must warn, not FAIL: and must not tell the user to run doctor."""
     import argparse
 
     from noirdeck.cli import doctor

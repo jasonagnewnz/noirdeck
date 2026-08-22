@@ -1,6 +1,6 @@
 // Inline-SVG stroke icon set for the activity bar. Hand-drawn, zero external
 // assets (matches the zero-egress posture already established for fonts).
-// All icons are decorative by default — the interactive control they sit in
+// All icons are decorative by default: the interactive control they sit in
 // (a button with its own aria-label, a link, etc.) carries the accessible
 // name, so the glyph itself is hidden from assistive tech and out of the tab
 // order. Pass aria-hidden={false} at a call site if an icon is ever used

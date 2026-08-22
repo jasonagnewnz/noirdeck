@@ -1,9 +1,9 @@
 """Memory namespaces: ~/.claude/projects/<ns>/memory/*.md
 
-⛔⛔ PERFORMANCE, AND WHY THE INDEX EXISTS. Rendering a summary of this tree meant
+PERFORMANCE, AND WHY THE INDEX EXISTS. Rendering a summary of this tree meant
 parsing frontmatter from every file: measured at 19,308 files, ~13s of parsing and
 **43.9s cold** on a real estate. A 120-second in-memory TTL hid it from the second
-page load and from nobody's first — every session's first visit, and any two-minute
+page load and from nobody's first: every session's first visit, and any two-minute
 idle, paid full price. A background pre-warm existed to paper over it, which is a
 workaround that concedes the point.
 
@@ -26,14 +26,14 @@ from .frontmatter import parse_frontmatter
 # ── on-disk parse cache ──────────────────────────────────────────────────────
 _index_lock = threading.Lock()
 _index_conn: sqlite3.Connection | None = None
-# ⛔ Buffered, not committed per file. Committing each of 19k rows individually made
-# the FIRST run slower than having no cache at all (75s vs 44s) — an optimisation
+# Buffered, not committed per file. Committing each of 19k rows individually made
+# the FIRST run slower than having no cache at all (75s vs 44s): an optimisation
 # that only pays back on the second visit is a regression on the first.
 _pending: list[tuple] = []
 
 
 def _index() -> sqlite3.Connection | None:
-    """Lazily open the index. Returns None if it cannot be opened — the reader must
+    """Lazily open the index. Returns None if it cannot be opened: the reader must
     still work (slowly) on a read-only or unwritable data dir, because a cache that
     can fail the feature is worse than no cache."""
     global _index_conn
@@ -79,7 +79,7 @@ def _namespaces(claude_dir: Path):
 
 
 _cache: dict[str, tuple[float, list]] = {}
-_TTL = 120  # 15k+ frontmatter reads across 133 namespaces — never do it per request
+_TTL = 120  # 15k+ frontmatter reads across 133 namespaces: never do it per request
 _LOCK = threading.Lock()
 
 
@@ -226,7 +226,7 @@ def cached_memories(claude_dir: Path, refresh: bool = False) -> list[dict]:
     return data or []
 
 
-# ⛔ REMOVED 2026-08-19: group_memories() / _topic_tokens() / _STOP.
+# REMOVED 2026-08-19: group_memories() / _topic_tokens() / _STOP.
 # Files were clustered when they shared ONE filename token >2 chars that was not
 # in a 22-word stopword list, and each cluster was staged as a memory-consolidation
 # proposal. Against the live estate (18,062 files) that yielded 96 "candidates",

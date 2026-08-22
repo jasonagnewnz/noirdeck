@@ -63,7 +63,7 @@ describe('ImprovePanel', () => {
 
   // The assertion that matters is unchanged: the user must be told which branch the
   // merge lands on, because it is the repo's CURRENT branch and not always main. Only
-  // the MECHANISM changed — the branch is now named on the button and in the inline
+  // the MECHANISM changed: the branch is now named on the button and in the inline
   // confirmation, instead of inside a window.confirm nobody could style or read.
   it('the merge control names the repo CURRENT branch from fleet, not main', async () => {
     IMPROVE.changes = [change()]

@@ -1,7 +1,7 @@
 """Gated LLM mining pass: headless `claude -p` over REDACTED transcript excerpts.
 
 Fail-closed: refuses unless NOIRDECK_MINING_ARMED=true. Dedup via mined_files
-(path+mtime) so no transcript version is ever mined twice — dry-run cost runaways
+(path+mtime) so no transcript version is ever mined twice: dry-run cost runaways
 are an estate-documented failure mode. Batches are capped per run.
 """
 
@@ -56,13 +56,13 @@ def _existing_slugs(claude_dir: Path) -> set[str]:
 
 def _draft_skill_body(cand: dict, source: str) -> str:
     """A draft that carries its own evidence, so the reviewer can judge it without
-    going back to the transcript — and so an unjustified one is obvious on sight."""
+    going back to the transcript: and so an unjustified one is obvious on sight."""
     return f"""---
 name: {cand["slug"]}
 description: {cand["draft_description"]}
 ---
 
-# /{cand["slug"]} — DRAFT (noirdeck)
+# /{cand["slug"]}: DRAFT (noirdeck)
 
 Proposed from mined session evidence. Nothing here is authoritative until you have
 checked it: noirdeck saw a pattern, it did not verify the procedure works.
@@ -202,7 +202,7 @@ def run_llm_mining(conn: sqlite3.Connection, settings: Settings) -> dict:
                 results["insights"] += 1
             # Skill candidates are the only thing that becomes a WRITE proposal,
             # and only after the evidence gate. Previously the model's candidates
-            # were discarded here while a keyword heuristic did the proposing —
+            # were discarded here while a keyword heuristic did the proposing:
             # exactly backwards, and the reason ten junk skills reached ~/.claude.
             raw_cands = [
                 {**c, "source": c.get("source") or path.name}
