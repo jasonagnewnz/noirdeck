@@ -84,13 +84,103 @@ def _origin_ok(origin: str | None) -> bool:
     return urlparse(origin).hostname in _ALLOWED_HOSTS
 
 
+def _inline_script_hashes() -> list[str]:
+    """CSP hashes for the inline scripts in the shipped index.html.
+
+    ⛔ index.html carries one inline script on purpose: it reads the stored
+    appearance and stamps it before anything else is fetched, which is what stops
+    a light-mode user seeing a dark flash on every load. `script-src 'self'`
+    blocks it, and the failure is silent: the app still works, it just paints the
+    wrong appearance first, which is precisely the bug that script exists to fix.
+
+    Allowing 'unsafe-inline' would fix it by giving up the directive. Hashing the
+    script keeps the directive intact. Computed from the file at startup rather
+    than pinned in a constant, so editing that script cannot leave a stale hash
+    behind and reintroduce the flash quietly.
+    """
+    import base64
+    import hashlib
+    import re
+
+    web = web_dir()
+    if not web:
+        return []
+    index = web / "index.html"
+    try:
+        html = index.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    hashes = []
+    for match in re.finditer(r"<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)</script>", html):
+        body = match.group(1)
+        if not body.strip():
+            continue
+        digest = hashlib.sha256(body.encode("utf-8")).digest()
+        hashes.append(f"'sha256-{base64.b64encode(digest).decode()}'")
+    return hashes
+
+
+_INLINE_SCRIPT_SRC = " ".join(_inline_script_hashes())
+
+
+# What the console is allowed to load, and what is allowed to load the console.
+#
+# ⛔⛔ frame-ancestors is the load-bearing one, and its absence was a real hole.
+# The whole safety model of this product is that a human clicks approve, and the
+# Host and Origin allowlists above do not stop a page FRAMING the console: any
+# site could have embedded 127.0.0.1:4747 in an invisible iframe, floated a
+# harmless-looking button under the pointer, and collected a click on Approve
+# from someone who never saw the screen. Consent that can be clickjacked is not
+# consent, and the property this product sells is exactly that consent.
+#
+# The rest is ordinary: no plugins, no base-tag rewriting, forms may only submit
+# here, and nothing may be fetched from anywhere else. Fonts and assets are all
+# bundled, so no external origin needs naming.
+#
+# 'unsafe-inline' for style-src is real and stated: the terminal and the syntax
+# highlighter set inline styles per element, which is what those libraries do.
+# script-src does NOT carry it, so an injected <script> still cannot run.
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        f"script-src 'self'{' ' + _INLINE_SCRIPT_SRC if _INLINE_SCRIPT_SRC else ''}; "
+        "style-src 'self' 'unsafe-inline'; "
+        "font-src 'self'; "
+        "img-src 'self' data: blob:; "
+        # Same-origin only, which covers the WebSocket: ws:// to this host is
+        # 'self' under CSP 3.
+        "connect-src 'self'; "
+        # The build preview and the design mocks are same-origin routes that
+        # serve untrusted generated HTML inside a sandboxed frame.
+        "frame-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    ),
+    # For anything that predates frame-ancestors.
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    # A local console has no business naming its own URLs to anyone.
+    "Referrer-Policy": "no-referrer",
+}
+
+
 @app.middleware("http")
 async def local_browser_boundary(request, call_next):
     if not _hostname_ok(request.headers.get("host")) or not _origin_ok(request.headers.get("origin")):
         from fastapi.responses import JSONResponse
 
-        return JSONResponse({"detail": "forbidden origin/host"}, status_code=403)
-    return await call_next(request)
+        # The refusal is rendered by a browser too, so it carries the same policy.
+        # This returned bare until a test asked for it.
+        response = JSONResponse({"detail": "forbidden origin/host"}, status_code=403)
+    else:
+        response = await call_next(request)
+    for name, value in _SECURITY_HEADERS.items():
+        # setdefault, not assignment: the mock preview sets its own far stricter
+        # sandbox CSP and must not have it overwritten by this general one.
+        response.headers.setdefault(name, value)
+    return response
 
 
 # re-queue tasks orphaned by a crash mid-run
