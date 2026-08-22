@@ -208,7 +208,7 @@ def status() -> dict:
         return {
             "licensed": True,
             "state": "inactive",
-            "detail": "Development build: no licence required.",
+            "detail": "No licence key is required for this build.",
         }
     try:
         lic = load()

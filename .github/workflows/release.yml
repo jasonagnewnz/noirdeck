@@ -31,9 +31,19 @@ jobs:
 
       # The issuer public key is baked in HERE, not in the checked-in source.
       # A source checkout must stay unlicensed so contributors and the test suite
-      # can run without a keypair; a published wheel must be licensed. Keeping the
-      # value out of git is what makes both true at once.
+      # can run without a keypair. Keeping the value out of git is what lets a
+      # checkout and a wheel differ without a second copy of the source.
+      #
+      # NOIRDECK_LICENSING_MODE decides which kind of wheel this is:
+      #   enforced      bake the key; gated features need a licence  (the default)
+      #   early-access  ship unlicensed; every feature works
+      #
+      # It is an explicit value, never the absence of one. A build that became
+      # unlicensed because someone forgot to set a variable is a silent failure
+      # wearing a feature's clothes, so an unset mode still means enforced and
+      # still fails when the key is missing.
       - name: Bake the issuer public key into the build
+        if: vars.NOIRDECK_LICENSING_MODE != 'early-access'
         env:
           PUBKEY: ${{ vars.NOIRDECK_ISSUER_PUBKEY }}
         run: |
@@ -69,8 +79,24 @@ jobs:
           /tmp/smoke/bin/noirdeck --version
           # the SPA must be inside the wheel, not resolved from this checkout
           /tmp/smoke/bin/python -c "import noirdeck.paths as p; assert p.web_dir() is not None, 'SPA missing from wheel'"
-          # A wheel whose licensing is inactive would hand every paid feature away.
-          /tmp/smoke/bin/python -c "import noirdeck.licensing as l; assert l.active(), 'wheel shipped with licensing INACTIVE'; print('licensing active in wheel')"
+          # Assert the mode this build was ASKED for, in both directions. An
+          # enforced wheel that shipped unlicensed would hand every paid feature
+          # away; an early-access wheel that shipped licensed would lock out
+          # everyone it was published for. Neither is allowed to pass quietly.
+          MODE="${{ vars.NOIRDECK_LICENSING_MODE }}"
+          MODE="${MODE:-enforced}"
+          echo "licensing mode: $MODE"
+          /tmp/smoke/bin/python - "$MODE" <<'PYEOF'
+          import sys
+          import noirdeck.licensing as licensing
+          mode = sys.argv[1]
+          if mode == "early-access":
+              assert not licensing.active(), "early-access wheel shipped WITH licensing active"
+              print("licensing inactive in wheel, as asked")
+          else:
+              assert licensing.active(), "enforced wheel shipped with licensing INACTIVE"
+              print("licensing active in wheel, as asked")
+          PYEOF
           # ⛔⛔ The guard shipped ABSENT from every wheel until 2026-08-19: it lived in
           # ops/, which is not packaged, so guard_settings_args() returned [] and every
           # unattended session ran with acceptEdits and no hook. It passed all tests
