@@ -62,14 +62,24 @@ const VIEWS = [...PRIMARY_VIEWS, ...ADVANCED_VIEWS, ['settings', 'Settings', Set
 
 const SIDEBAR_KEY = 'nd.sidebar'
 
-// Read once, at module scope: the dock should open at the height it was left,
-// not jump to it a frame later.
+const DOCK_KEY = 'nd.dockOpen'
+
+// Read once, at module scope: the dock should come back at the size and state it
+// was left in, not jump to them a frame after mount.
 const DEFAULT_DOCK_HEIGHT = (() => {
   try {
     const stored = Number.parseInt(localStorage.getItem('nd.panelH'), 10)
     return Number.isFinite(stored) ? stored : 300
   } catch {
     return 300
+  }
+})()
+
+const DOCK_OPEN_AT_START = (() => {
+  try {
+    return localStorage.getItem(DOCK_KEY) === '1'
+  } catch {
+    return false
   }
 })()
 
@@ -92,9 +102,18 @@ export default function App() {
   // The dock is the shell's own terminal. Build Live already fills the viewport
   // with one, so the dock stays out of its way there rather than running a
   // second emulator over the top of the first.
-  const [dockOpen, setDockOpen] = useState(false)
+  const [dockOpen, setDockOpen] = useState(DOCK_OPEN_AT_START)
   const [dockHeight, setDockHeight] = useState(DEFAULT_DOCK_HEIGHT)
-  const toggleDock = useCallback(() => setDockOpen((open) => !open), [])
+  const toggleDock = useCallback(() => {
+    setDockOpen((open) => {
+      try {
+        localStorage.setItem(DOCK_KEY, open ? '0' : '1')
+      } catch {
+        // The panel still toggles; only the memory of it is lost.
+      }
+      return !open
+    })
+  }, [])
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [keysOpen, setKeysOpen] = useState(false)
   const [sidebarExpanded, setSidebarExpanded] = useState(() => {

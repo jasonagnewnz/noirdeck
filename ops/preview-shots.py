@@ -20,6 +20,7 @@ a `type="module"` (deferred), so the stubs are always installed first.
 Usage:
     python3 ops/preview-shots.py --out ~/noirdeck-shots
     python3 ops/preview-shots.py --out ~/noirdeck-shots --views overview,secrets
+    python3 ops/preview-shots.py --out ~/noirdeck-shots --kit claude --views overview
 """
 
 from __future__ import annotations
@@ -28,12 +29,17 @@ import argparse
 import functools
 import http.server
 import json
+import re
 import socketserver
 import subprocess
 import threading
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+
+# Read from the package rather than hardcoded: a fixture version goes stale
+# silently, and it is rendered into the status bar of every published screenshot.
+VERSION = re.search(r'VERSION = "([^"]+)"', (REPO / "backend" / "noirdeck" / "version.py").read_text()).group(1)
 DIST = REPO / "frontend" / "dist"
 CHROMIUM = "/snap/bin/chromium"  # snap build is the only working one on WSL
 
@@ -43,7 +49,7 @@ CHROMIUM = "/snap/bin/chromium"  # snap build is the only working one on WSL
 FIXTURES: dict[str, object] = {
     "/api/health": {
         "status": "ok",
-        "version": "0.26.0",
+        "version": VERSION,
         "server_started_at": "2026-08-19T09:00:00+00:00",
         "server_now": "2026-08-19T09:42:00+00:00",
         "frontend_dir": "/opt/noirdeck/web",
@@ -534,6 +540,15 @@ STUB_TEMPLATE = """<script>
 // document order; the bundle is type="module" and therefore deferred).
 (function () {
   var F = %s;
+  var PREFS = %s;
+  // Appearance and panel state are read from storage by the app, so seeding it
+  // here is how a shot chooses a kit. Setting the attributes directly would not
+  // survive: the app re-stamps them from storage on mount.
+  try {
+    for (var k in PREFS) localStorage.setItem(k, PREFS[k]);
+  } catch (e) {
+    // Storage refused. The shot falls back to the built-in defaults.
+  }
   // The SPA keeps an EventSource open forever, which stops headless chromium
   // ever reaching network idle. A no-op stub is what makes screenshots possible.
   window.EventSource = function () {
@@ -559,12 +574,18 @@ STUB_TEMPLATE = """<script>
 """
 
 
+# Filled in by main() before the server starts. Seeded into localStorage ahead of
+# the bundle, which is the only way to choose a kit: the app re-stamps the
+# appearance attributes from storage as soon as it mounts.
+PREFS: dict[str, str] = {}
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 - stdlib naming
         path = self.path.split("?")[0]
         if path in ("/", "/index.html"):
             html = (DIST / "index.html").read_text()
-            stub = STUB_TEMPLATE % json.dumps(FIXTURES)
+            stub = STUB_TEMPLATE % (json.dumps(FIXTURES), json.dumps(PREFS))
             html = html.replace("<head>", "<head>" + stub, 1)
             data = html.encode()
             self.send_response(200)
@@ -625,7 +646,20 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=8899)
     ap.add_argument("--width", type=int, default=1600)
     ap.add_argument("--height", type=int, default=1000)
+    ap.add_argument("--kit", default="carbon", choices=["carbon", "fluent", "claude"])
+    ap.add_argument("--mode", default="dark", choices=["dark", "light"])
+    ap.add_argument("--density", default="comfortable", choices=["comfortable", "compact"])
+    ap.add_argument("--dock", action="store_true", help="open the terminal panel")
     args = ap.parse_args()
+
+    PREFS.update(
+        {
+            "nd.kit": args.kit,
+            "nd.mode": args.mode,
+            "nd.density": args.density,
+            "nd.dockOpen": "1" if args.dock else "0",
+        }
+    )
 
     if not (DIST / "index.html").is_file():
         print(f"no build at {DIST}: run `make frontend` first")
@@ -639,7 +673,7 @@ def main() -> int:
 
     httpd = serve(args.port)
     port = httpd.server_address[1]
-    print(f"serving {DIST} on 127.0.0.1:{port}")
+    print(f"serving {DIST} on 127.0.0.1:{port}  kit={args.kit} mode={args.mode} dock={args.dock}")
     try:
         ok = 0
         for view in [v.strip() for v in args.views.split(",") if v.strip()]:

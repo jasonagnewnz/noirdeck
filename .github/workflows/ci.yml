@@ -22,7 +22,7 @@ jobs:
       - name: Install
         run: pip install -r backend/requirements.txt ruff==0.15.1
       - name: Lint
-        run: ruff check backend/ && ruff format --check backend/
+        run: ruff check backend/ ops/ && ruff format --check backend/ ops/
       - name: Test
         run: cd backend && python -m pytest -q
 

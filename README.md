@@ -255,6 +255,14 @@ Every combination is verified in CI before it ships: each text token clears its
 WCAG ratio on every surface, and the accent must be perceptually distinct from
 the alarm colour, so a kit can never make an alarm look like ordinary UI.
 
+The same screen in Fluent and in Claude. What changes is not only hue: corner
+radius, row height, spacing and type change together, which is why these are
+kits rather than colour schemes.
+
+![the Fluent kit](docs/screenshots/kit-fluent.png)
+
+![the Claude kit](docs/screenshots/kit-claude.png)
+
 ![workspace](docs/screenshots/workspace.png)
 
 ## Keyboard

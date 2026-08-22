@@ -8,6 +8,7 @@ Usage: python3 ops/dev-verify-proxy.py &  then
   chromium --headless=new --virtual-time-budget=8000 --screenshot=out.png \
     http://127.0.0.1:8899/#builds
 """
+
 import http.server
 import sys
 import time
@@ -55,8 +56,10 @@ class H(http.server.BaseHTTPRequestHandler):
             # /__click<real-path>: serve the SPA shell with a late script that
             # opens the intake panel, so headless can capture the expanded state.
             path = "/"
-            inject = (b'<script>setTimeout(function(){var b=document.querySelector'
-                      b'(".toolbar button");if(b)b.click()},1500)</script>')
+            inject = (
+                b"<script>setTimeout(function(){var b=document.querySelector"
+                b'(".toolbar button");if(b)b.click()},1500)</script>'
+            )
         req = urllib.request.Request(UP + path, headers={"Host": "127.0.0.1:4747"})
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
