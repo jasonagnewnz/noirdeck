@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { usePager } from '../pager.jsx'
 import { ViewHead } from '../ui.jsx'
@@ -153,18 +153,23 @@ export default function Builds({ openWorkspace }) {
   const sorted = sortBuilds(builds || [])
   const [buildPage, buildPager] = usePager(sorted, 10)
 
-  const refresh = async () => {
+  // useCallback with no dependencies, and then named in the effect below. Today
+  // this only calls a setter, which React guarantees is stable, so the interval
+  // capturing the first copy is harmless. It stops being harmless the moment
+  // anyone reads state in here: the poll would keep using the values from first
+  // render for as long as the page is open, and nothing would look wrong.
+  const refresh = useCallback(async () => {
     try {
       setBuilds(await api('/builds'))
     } catch {
       /* transient; next poll retries */
     }
-  }
+  }, [])
   useEffect(() => {
     refresh()
     const t = setInterval(refresh, 5000)
     return () => clearInterval(t)
-  }, [])
+  }, [refresh])
 
   const showIntake = intakeOpen ?? (builds !== null && builds.length === 0)
   const needsYou = sorted.filter((b) => (RANK[b.status] ?? 2) === 0).length

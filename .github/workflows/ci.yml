@@ -47,6 +47,12 @@ jobs:
       - name: Contrast contract
         working-directory: .
         run: node ops/check-contrast.mjs
+      # Catches the version drifting away from the artifact the installer fetches.
+      # The published build sat a release behind the source for hours, and because
+      # the version had not moved either, nothing disagreed.
+      - name: Release artifact matches the tree
+        working-directory: .
+        run: node ops/check-release-artifact.mjs
       - name: Build
         run: npm run build
 

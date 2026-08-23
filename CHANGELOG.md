@@ -4,6 +4,40 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses semantic-style `0.x` versioning while pre-1.0.
 
+## [0.29.0] - 2026-08-23
+### Added
+- **It knows what machine it is on.** On WSL there is a Linux home and a Windows
+  profile, each with its own `.claude` and its own `.codex`, and noirdeck read
+  one of them and called it the estate. It now reports the platform and, on WSL,
+  the version, distro, whether interop is live and where the Windows profiles
+  are, then looks for sixteen assistant runtimes on both sides. A configuration
+  directory with no local binary is exactly the environment across the boundary
+  this exists to surface. `GET /api/environment`, and the tail of `noirdeck doctor`.
+- **A licence key has somewhere to go.** Settings shows what the server says about
+  the current licence and, when one is actually required, a field to install it.
+  On an unlicensed build it says so and offers no field.
+
+### Changed
+- **The console sends security headers, and one of them closes a real hole.** The
+  Host and Origin allowlists stop a cross-origin page calling the API and do
+  nothing about a page framing the console: any site could have embedded it in an
+  invisible iframe and harvested a click on Approve from someone who never saw the
+  screen. Consent that can be clickjacked is not consent. `frame-ancestors 'none'`
+  now, with a CSP naming no external origin, nosniff, and no referrer. The policy
+  carries a hash of the pre-paint appearance script rather than allowing inline
+  script, because blocking that script silently reintroduces the flash it exists
+  to prevent.
+- Thirteen ARIA attributes sat on elements whose role does not support them, so
+  assistive technology ignored every one. The build stepper carried hand-written
+  labels for each phase, announced to nobody; it is a real list now. Thirty-one
+  buttons gained the explicit type they lacked.
+
+### Fixed
+- **The published artifact had drifted from the source.** The download served a
+  build made before the changes above, and because the version had not moved,
+  nothing anywhere reported it. A release check now fails when the artifact the
+  installer would fetch does not match the version in the tree.
+
 ## [0.28.0] - 2026-08-22
 ### Added
 - **Three interface kits: Carbon, Fluent and Claude.** A kit sets type, corner

@@ -212,6 +212,11 @@ export default function GuidedIntake({ onCreated }) {
                 {q.required && <Req />}
               </legend>
               <Help id={`${qid}-help`} text={q.help} />
+              {/* Index keys are correct here and would stop being correct the moment
+                  a row could be removed: this list is only ever appended to or
+                  updated in place, so index i always means the same logical item.
+                  Add a "remove" button and these inputs must be keyed by identity,
+                  or focus and cursor position will jump to another row's box. */}
               {items.map((v, i) => (
                 <input
                   key={i}
